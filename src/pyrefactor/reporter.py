@@ -61,7 +61,9 @@ class ConsoleReporter:
             self._print(f"\n{Fore.CYAN}{analysis.file_path}{Style.RESET_ALL}")
 
             # Sort issues by line number
-            sorted_issues = sorted(analysis.issues, key=lambda issue: issue.line)
+            sorted_issues = sorted(
+                analysis.issues, key=lambda issue: issue.line  # type: ignore[misc]
+            )
 
             # Print each issue
             for issue in sorted_issues:
@@ -86,7 +88,9 @@ class ConsoleReporter:
             )
 
             # Sort by file and line
-            sorted_issues = sorted(issues, key=lambda issue: (issue.file, issue.line))
+            sorted_issues = sorted(
+                issues, key=lambda issue: (issue.file, issue.line)  # type: ignore[misc]
+            )
 
             for issue in sorted_issues:
                 self._print_issue(issue, include_file=True)

@@ -10,6 +10,13 @@ from ..models import Issue, Severity
 class PerformanceDetector(BaseDetector):
     """Detects performance anti-patterns in code."""
 
+    # Type hint patterns for heuristic type detection
+    TYPE_HINTS: dict[str, list[str]] = {
+        "string": ["str", "text", "message", "name"],
+        "list": ["list", "items", "results", "array", "collection"],
+        "dict": ["dict", "map", "cache", "mapping"],
+    }
+
     def __init__(self, config: Config, file_path: str, source_lines: list[str]) -> None:
         """Initialize performance detector."""
         super().__init__(config, file_path, source_lines)
@@ -41,7 +48,7 @@ class PerformanceDetector(BaseDetector):
         if self.in_loop and not self.is_suppressed(node):
             # Check for string concatenation with +=
             if isinstance(node.op, ast.Add):
-                if self._is_string_operation(node.target):
+                if self._matches_type_hint(node.target, "string"):
                     self.add_issue(
                         Issue(
                             file=self.file_path,
@@ -54,7 +61,7 @@ class PerformanceDetector(BaseDetector):
                         )
                     )
                 # Check for list concatenation with +=
-                elif self._is_list_operation(node.target):
+                elif self._matches_type_hint(node.target, "list"):
                     self.add_issue(
                         Issue(
                             file=self.file_path,
@@ -76,7 +83,9 @@ class PerformanceDetector(BaseDetector):
 
         # Check for dict.keys() in membership test
         if isinstance(node.func, ast.Attribute):
-            if node.func.attr == "keys" and self._is_dict_type(node.func.value):
+            if node.func.attr == "keys" and self._matches_type_hint(
+                node.func.value, "dict"
+            ):
                 parent: ast.AST | None = getattr(node, "_parent", None)
                 if (
                     isinstance(parent, ast.Compare)
@@ -110,81 +119,92 @@ class PerformanceDetector(BaseDetector):
                     )
                 )
 
-        # Check for len() > 0 comparison
+        # Check for len() comparison patterns
         if isinstance(node.func, ast.Name) and node.func.id == "len":
-            len_parent: ast.AST | None = getattr(node, "_parent", None)
-            if (
-                isinstance(len_parent, ast.Compare)
-                and len_parent.ops
-                and len_parent.comparators
-            ):
-                if any(isinstance(op, (ast.Gt, ast.GtE)) for op in len_parent.ops):
-                    if any(
-                        isinstance(comp, ast.Constant) and comp.value == 0
-                        for comp in len_parent.comparators
-                    ):
-                        self.add_issue(
-                            Issue(
-                                file=self.file_path,
-                                line=node.lineno,
-                                column=node.col_offset,
-                                severity=Severity.INFO,
-                                rule_id="P005",
-                                message="Use truthiness instead of len() > 0",
-                                suggestion="Use 'if container:' instead of 'if len(container) > 0:'",
-                            )
-                        )
-                elif any(isinstance(op, (ast.Eq, ast.NotEq)) for op in len_parent.ops):
-                    if any(
-                        isinstance(comp, ast.Constant) and comp.value == 0
-                        for comp in len_parent.comparators
-                    ):
-                        self.add_issue(
-                            Issue(
-                                file=self.file_path,
-                                line=node.lineno,
-                                column=node.col_offset,
-                                severity=Severity.INFO,
-                                rule_id="P006",
-                                message="Use truthiness instead of len() == 0",
-                                suggestion="Use 'if not container:' instead of 'if len(container) == 0:'",
-                            )
-                        )
+            self._check_len_comparison(node)
 
         self.generic_visit(node)
 
     def visit_Compare(self, node: ast.Compare) -> None:
         """Check for inefficient comparisons."""
         # Store parent reference for nested checks
-        for child in ast.walk(node):
-            setattr(child, "_parent", node)
+        self._set_parent_refs(node)
         self.generic_visit(node)
 
-    def _is_string_operation(self, node: ast.AST) -> bool:
-        """Check if a node likely operates on strings."""
-        # This is a heuristic; we can't always determine types
-        if isinstance(node, ast.Name):
-            return "str" in node.id.lower() or "text" in node.id.lower()
-        return False
+    def _set_parent_refs(self, node: ast.AST) -> None:
+        """Set parent references on all children of a node for upward traversal."""
+        for child in ast.walk(node):
+            setattr(child, "_parent", node)
 
-    def _is_list_operation(self, node: ast.AST) -> bool:
-        """Check if a node likely operates on lists."""
-        if isinstance(node, ast.Name):
-            name = node.id.lower()
-            return (
-                "list" in name
-                or "items" in name
-                or "results" in name
-                or name.endswith("s")
+    def _check_len_comparison(self, len_call: ast.Call) -> None:
+        """Check for inefficient len() comparison patterns.
+
+        Detects patterns like:
+        - len(x) > 0 (should use truthiness)
+        - len(x) == 0 (should use 'not x')
+        """
+        len_parent: ast.AST | None = getattr(len_call, "_parent", None)
+        if not isinstance(len_parent, ast.Compare):
+            return
+
+        if not len_parent.ops or not len_parent.comparators:
+            return
+
+        # Check if comparing with 0
+        has_zero_comp = any(
+            isinstance(comp, ast.Constant) and comp.value == 0
+            for comp in len_parent.comparators
+        )
+        if not has_zero_comp:
+            return
+
+        # Check for > or >= operators
+        if any(isinstance(op, (ast.Gt, ast.GtE)) for op in len_parent.ops):
+            self.add_issue(
+                Issue(
+                    file=self.file_path,
+                    line=len_call.lineno,
+                    column=len_call.col_offset,
+                    severity=Severity.INFO,
+                    rule_id="P005",
+                    message="Use truthiness instead of len() > 0",
+                    suggestion="Use 'if container:' instead of 'if len(container) > 0:'",
+                )
             )
-        return False
+        # Check for == or != operators
+        elif any(isinstance(op, (ast.Eq, ast.NotEq)) for op in len_parent.ops):
+            self.add_issue(
+                Issue(
+                    file=self.file_path,
+                    line=len_call.lineno,
+                    column=len_call.col_offset,
+                    severity=Severity.INFO,
+                    rule_id="P006",
+                    message="Use truthiness instead of len() == 0",
+                    suggestion="Use 'if not container:' instead of 'if len(container) == 0:'",
+                )
+            )
 
-    def _is_dict_type(self, node: ast.AST) -> bool:
-        """Check if a node likely represents a dict."""
-        if isinstance(node, ast.Name):
-            name = node.id.lower()
-            return "dict" in name or "map" in name or "cache" in name
-        return False
+    def _matches_type_hint(self, node: ast.AST, type_name: str) -> bool:
+        """Check if a node likely matches a given type based on naming heuristics.
+
+        Args:
+            node: AST node to check
+            type_name: Type to check for ('string', 'list', or 'dict')
+
+        Returns:
+            True if the node name matches type hints, False otherwise
+        """
+        if not isinstance(node, ast.Name):
+            return False
+
+        name_lower = node.id.lower()
+        hints = self.TYPE_HINTS.get(type_name, [])
+
+        # Check if any hint appears in the variable name
+        return any(hint in name_lower for hint in hints) or (
+            type_name == "list" and name_lower.endswith("s")
+        )
 
     def visit_ListComp(self, node: ast.ListComp) -> None:
         """Check for list comprehension opportunities."""
@@ -193,6 +213,5 @@ class PerformanceDetector(BaseDetector):
     def visit_Assign(self, node: ast.Assign) -> None:
         """Check for inefficient assignments."""
         # Store parent references for nested analysis
-        for child in ast.walk(node):
-            setattr(child, "_parent", node)
+        self._set_parent_refs(node)
         self.generic_visit(node)

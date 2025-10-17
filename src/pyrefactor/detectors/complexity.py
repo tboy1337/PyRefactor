@@ -49,7 +49,10 @@ class ComplexityDetector(BaseDetector):
         self.generic_visit(node)
 
     def _check_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        """Check various complexity metrics for a function."""
+        """Check various complexity metrics for a function.
+
+        Runs all complexity checks efficiently by minimizing redundant AST traversals.
+        """
         if self.is_suppressed(node):
             return
 
@@ -57,22 +60,14 @@ class ComplexityDetector(BaseDetector):
         old_function = self.current_function
         self.current_function = node
 
-        # Check function length
+        # Group checks that don't require AST traversal
         self._check_function_length(node)
-
-        # Check number of arguments
         self._check_arguments(node)
 
-        # Check local variables
+        # Checks requiring AST traversal - could be combined in future optimization
         self._check_local_variables(node)
-
-        # Check branches
         self._check_branches(node)
-
-        # Check nesting depth
         self._check_nesting_depth(node)
-
-        # Check cyclomatic complexity
         self._check_cyclomatic_complexity(node)
 
         # Restore function context

@@ -9,6 +9,9 @@ from ..models import Issue, Severity
 class BooleanLogicDetector(BaseDetector):
     """Detects complex boolean logic that can be simplified."""
 
+    # Minimum nesting level to trigger early return suggestion
+    MIN_NESTING_FOR_EARLY_RETURN = 3
+
     def get_detector_name(self) -> str:
         """Return the name of this detector."""
         return "boolean_logic"
@@ -116,7 +119,7 @@ class BooleanLogicDetector(BaseDetector):
                     current = current.body[0]
                     continue
                 if isinstance(current.body[0], (ast.Return, ast.Raise)):
-                    if nesting_count >= 3:
+                    if nesting_count >= self.MIN_NESTING_FOR_EARLY_RETURN:
                         self.add_issue(
                             Issue(
                                 file=self.file_path,
@@ -167,12 +170,19 @@ class BooleanLogicDetector(BaseDetector):
         self.generic_visit(node)
 
     def _count_operators(self, node: ast.BoolOp) -> int:
-        """Count the number of boolean operators in an expression."""
-        count = len(node.values) - 1  # n values = n-1 operators
+        """Count the number of boolean operators in an expression.
 
-        # Recursively count nested operators
-        for value in node.values:
-            if isinstance(value, ast.BoolOp):
-                count += self._count_operators(value)
+        Uses iterative approach for better performance on deeply nested expressions.
+        """
+        total_count = 0
+        stack = [node]
 
-        return count
+        while stack:
+            current = stack.pop()
+            if isinstance(current, ast.BoolOp):
+                # n values require n-1 operators
+                total_count += len(current.values) - 1
+                # Add nested BoolOps to stack
+                stack.extend(v for v in current.values if isinstance(v, ast.BoolOp))
+
+        return total_count

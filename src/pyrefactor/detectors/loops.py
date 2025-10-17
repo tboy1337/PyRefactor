@@ -13,16 +13,23 @@ class IndexTracker(ast.NodeVisitor):
         self.manual_indices: set[str] = set()
 
     def visit_AugAssign(self, aug_node: ast.AugAssign) -> None:
-        """Track += operations."""
-        if isinstance(aug_node.target, ast.Name):
-            if isinstance(aug_node.op, ast.Add):
-                if isinstance(aug_node.value, ast.Constant):
-                    if aug_node.value.value == 1:
-                        self.manual_indices.add(aug_node.target.id)
+        """Track += 1 operations on variables."""
+        if (
+            isinstance(aug_node.target, ast.Name)
+            and isinstance(aug_node.op, ast.Add)
+            and isinstance(aug_node.value, ast.Constant)
+            and aug_node.value.value == 1
+        ):
+            self.manual_indices.add(aug_node.target.id)
 
 
 class InvariantChecker(ast.NodeVisitor):
     """Check for loop-invariant computations."""
+
+    # Methods that are potentially expensive when called repeatedly in loops
+    EXPENSIVE_METHODS = frozenset(
+        {"compile", "search", "match", "split", "findall", "sub"}
+    )
 
     def __init__(self, var_name: str) -> None:
         self.var_name = var_name
@@ -33,12 +40,7 @@ class InvariantChecker(ast.NodeVisitor):
         if not self._depends_on_var(call_node):
             # Check if it's a potentially expensive call
             if isinstance(call_node.func, ast.Attribute):
-                if call_node.func.attr in (
-                    "compile",
-                    "search",
-                    "match",
-                    "split",
-                ):
+                if call_node.func.attr in self.EXPENSIVE_METHODS:
                     self.invariant_calls.append(call_node)
         self.generic_visit(call_node)
 
@@ -52,6 +54,9 @@ class InvariantChecker(ast.NodeVisitor):
 
 class LoopsDetector(BaseDetector):
     """Detects loop optimization opportunities."""
+
+    # Minimum nesting level to trigger nested loop optimization warning
+    MIN_NESTED_LOOPS_FOR_WARNING = 2
 
     def get_detector_name(self) -> str:
         """Return the name of this detector."""
@@ -132,18 +137,12 @@ class LoopsDetector(BaseDetector):
 
     def _check_nested_loop_optimization(self, node: ast.For) -> None:
         """Check for nested loops that might benefit from preprocessing."""
-        nested_loops = [child for child in ast.walk(node) if isinstance(child, ast.For)]
+        # Use a visitor to count nested loops more efficiently
+        nested_loop_count = self._count_nested_loops(node)
 
-        if len(nested_loops) > 2:  # Including the current loop
+        if nested_loop_count > self.MIN_NESTED_LOOPS_FOR_WARNING:
             # Check if inner loop is doing lookups
-            has_lookup_pattern = False
-            for inner_loop in nested_loops[1:]:  # Skip current loop
-                for stmt in ast.walk(inner_loop):
-                    if isinstance(stmt, ast.Compare):
-                        has_lookup_pattern = True
-                        break
-
-            if has_lookup_pattern:
+            if self._has_comparison_in_loops(node):
                 self.add_issue(
                     Issue(
                         file=self.file_path,
@@ -155,6 +154,28 @@ class LoopsDetector(BaseDetector):
                         suggestion="Consider using a dictionary or set for O(1) lookups instead of nested iteration",
                     )
                 )
+
+    def _count_nested_loops(self, node: ast.For) -> int:
+        """Count the number of nested for loops."""
+        count = 1  # Current loop
+        for child in node.body:
+            if isinstance(child, ast.For):
+                count += self._count_nested_loops(child)
+        return count
+
+    def _has_comparison_in_loops(self, node: ast.For) -> bool:
+        """Check if there are comparisons in nested loops."""
+        for child in node.body:
+            if isinstance(child, ast.Compare):
+                return True
+            if isinstance(child, ast.For):
+                if self._has_comparison_in_loops(child):
+                    return True
+            # Check other compound statements
+            for grandchild in ast.walk(child):
+                if isinstance(grandchild, ast.Compare):
+                    return True
+        return False
 
     def _check_loop_invariants(self, node: ast.For) -> None:
         """Check for loop-invariant code that could be hoisted."""
@@ -191,15 +212,17 @@ class LoopsDetector(BaseDetector):
         index_var = loop_node.target.id
         collection_dump = ast.dump(collection)
 
-        # Check if any subscript in the loop body matches the pattern collection[index]
-        return any(
-            isinstance(node, ast.Subscript)
-            and isinstance(node.slice, ast.Name)
-            and node.slice.id == index_var
-            and ast.dump(node.value) == collection_dump
-            for stmt in loop_node.body
-            for node in ast.walk(stmt)
-        )
+        # More efficient: iterate through body statements only once
+        for stmt in loop_node.body:
+            for node in ast.walk(stmt):
+                if (
+                    isinstance(node, ast.Subscript)
+                    and isinstance(node.slice, ast.Name)
+                    and node.slice.id == index_var
+                    and ast.dump(node.value) == collection_dump
+                ):
+                    return True
+        return False
 
     def visit_While(self, node: ast.While) -> None:
         """Check while loops for optimization opportunities."""

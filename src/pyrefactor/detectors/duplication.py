@@ -13,10 +13,13 @@ from ..models import Issue, Severity
 class DuplicationDetector(BaseDetector):
     """Detects code duplication."""
 
+    # Maximum block size to analyze (prevents excessive memory usage)
+    MAX_BLOCK_SIZE = 20
+
     def __init__(self, config: Config, file_path: str, source_lines: list[str]) -> None:
         """Initialize duplication detector."""
         super().__init__(config, file_path, source_lines)
-        self.code_blocks: dict[str, list[tuple[int, int, str]]] = {}
+        self.code_blocks: dict[str, list[tuple[int, int, str, str]]] = {}
         self.checked = False
 
     def get_detector_name(self) -> str:
@@ -38,9 +41,10 @@ class DuplicationDetector(BaseDetector):
         min_lines = self.config.duplication.min_duplicate_lines
         total_lines = len(self.source_lines)
 
-        # Extract sliding windows of code
+        # Extract sliding windows of code with optimized range
         for start in range(total_lines):
-            for length in range(min_lines, min(20, total_lines - start + 1)):
+            max_length = min(self.MAX_BLOCK_SIZE, total_lines - start)
+            for length in range(min_lines, max_length + 1):
                 end = start + length
                 if end > total_lines:
                     break
@@ -63,8 +67,9 @@ class DuplicationDetector(BaseDetector):
                 if code_hash not in self.code_blocks:
                     self.code_blocks[code_hash] = []
 
+                # Store normalized code along with block to avoid re-normalization
                 self.code_blocks[code_hash].append(
-                    (start + 1, end, code_block)
+                    (start + 1, end, code_block, normalized)
                 )  # +1 for 1-indexed lines
 
     def _find_duplicates(self) -> None:
@@ -72,14 +77,20 @@ class DuplicationDetector(BaseDetector):
         for _, occurrences in self.code_blocks.items():
             if len(occurrences) > 1:
                 # Sort by line number
-                sorted_occurrences = sorted(occurrences, key=lambda item: item[0])
+                sorted_occurrences = sorted(
+                    occurrences, key=lambda item: item[0]  # type: ignore[misc]
+                )
 
                 # Report each duplicate (except the first occurrence)
-                first_start, first_end, first_code = sorted_occurrences[0]
+                first_start, first_end, first_code, first_normalized = (
+                    sorted_occurrences[0]
+                )
 
-                for start, end, code in sorted_occurrences[1:]:
-                    # Check similarity
-                    similarity = self._calculate_similarity(first_code, code)
+                for start, end, code, normalized in sorted_occurrences[1:]:
+                    # Check similarity using already-normalized code
+                    similarity = self._calculate_similarity_from_normalized(
+                        first_normalized, normalized
+                    )
                     threshold = self.config.duplication.similarity_threshold
 
                     if similarity >= threshold:
@@ -129,11 +140,20 @@ class DuplicationDetector(BaseDetector):
         except tokenize.TokenError:
             return ""
 
-    def _calculate_similarity(self, code1: str, code2: str) -> float:
-        """Calculate similarity between two code blocks."""
-        # Simple token-based similarity
-        tokens1 = set(self._normalize_code(code1).split())
-        tokens2 = set(self._normalize_code(code2).split())
+    def _calculate_similarity_from_normalized(
+        self, normalized1: str, normalized2: str
+    ) -> float:
+        """Calculate similarity between two already-normalized code blocks.
+
+        Args:
+            normalized1: First normalized code block
+            normalized2: Second normalized code block
+
+        Returns:
+            Similarity score between 0.0 and 1.0
+        """
+        tokens1 = set(normalized1.split())
+        tokens2 = set(normalized2.split())
 
         if not tokens1 or not tokens2:
             return 0.0
