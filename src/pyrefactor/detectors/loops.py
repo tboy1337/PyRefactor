@@ -101,7 +101,7 @@ class LoopsDetector(BaseDetector):
         if not isinstance(first_arg, ast.Call):
             return
 
-        if not (isinstance(first_arg.func, ast.Name) and first_arg.func.id == "len"):
+        if not isinstance(first_arg.func, ast.Name) or first_arg.func.id != "len":
             return
 
         if not first_arg.args:

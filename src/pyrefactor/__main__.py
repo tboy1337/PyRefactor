@@ -39,8 +39,41 @@ SEVERITY_MAP: dict[str, Severity] = {
 }
 
 
-def parse_arguments() -> Args:
-    """Parse command line arguments."""
+def _add_parser_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add all arguments to the parser."""
+    parser.add_argument(
+        "paths", nargs="*", type=Path, help="Python files or directories to analyze"
+    )
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=Path,
+        help="Path to configuration file (default: pyproject.toml)",
+    )
+    parser.add_argument(
+        "-g",
+        "--group-by",
+        choices=["file", "severity"],
+        default="file",
+        help="Group output by file or severity (default: file)",
+    )
+    parser.add_argument(
+        "--min-severity",
+        choices=["info", "low", "medium", "high"],
+        default="info",
+        help="Minimum severity level to report (default: info)",
+    )
+    parser.add_argument(
+        "-j", "--jobs", type=int, default=4, help="Number of parallel jobs (default: 4)"
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose logging"
+    )
+    parser.add_argument("--version", action="store_true", help="Show version and exit")
+
+
+def _create_argument_parser() -> argparse.ArgumentParser:
+    """Create and configure the argument parser."""
     parser = argparse.ArgumentParser(
         description="PyRefactor - A Python refactoring and optimization linter",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -57,57 +90,13 @@ Exit Codes:
   2 - Error during analysis
         """,
     )
+    _add_parser_arguments(parser)
+    return parser
 
-    parser.add_argument(
-        "paths",
-        nargs="*",
-        type=Path,
-        help="Python files or directories to analyze",
-    )
 
-    parser.add_argument(
-        "-c",
-        "--config",
-        type=Path,
-        help="Path to configuration file (default: pyproject.toml)",
-    )
-
-    parser.add_argument(
-        "-g",
-        "--group-by",
-        choices=["file", "severity"],
-        default="file",
-        help="Group output by file or severity (default: file)",
-    )
-
-    parser.add_argument(
-        "--min-severity",
-        choices=["info", "low", "medium", "high"],
-        default="info",
-        help="Minimum severity level to report (default: info)",
-    )
-
-    parser.add_argument(
-        "-j",
-        "--jobs",
-        type=int,
-        default=4,
-        help="Number of parallel jobs (default: 4)",
-    )
-
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Enable verbose logging",
-    )
-
-    parser.add_argument(
-        "--version",
-        action="store_true",
-        help="Show version and exit",
-    )
-
+def parse_arguments() -> Args:
+    """Parse command line arguments."""
+    parser = _create_argument_parser()
     namespace = parser.parse_args()
     # Convert to our typed class
     # Note: argparse returns Any type for namespace attributes

@@ -89,8 +89,10 @@ class DuplicationDetector(BaseDetector):
             first_start, first_end, _, first_normalized = sorted_occurrences[0]
 
             for start, end, _, normalized in sorted_occurrences[1:]:
-                # Skip if this range overlaps with already reported ranges
+                # Skip if this range overlaps with first occurrence or already reported ranges
                 if self._overlaps_with_reported(start, end, reported_ranges):
+                    continue
+                if self._overlaps_with_reported(start, end, [(first_start, first_end)]):
                     continue
 
                 # Check similarity using already-normalized code
@@ -128,20 +130,19 @@ class DuplicationDetector(BaseDetector):
             True if the range overlaps with any reported range
         """
         for reported_start, reported_end in reported:
-            # Check for any overlap
-            if not (end < reported_start or start > reported_end):
+            # Check for any overlap (using De Morgan's law simplification)
+            if end >= reported_start and start <= reported_end:
                 return True
         return False
 
     def _is_meaningful_block(self, code: str) -> bool:
         """Check if a code block is meaningful (not just whitespace/comments)."""
         lines = code.strip().split("\n")
-        meaningful_lines = 0
-
-        for line in lines:
-            stripped = line.strip()
-            if stripped and not stripped.startswith("#"):
-                meaningful_lines += 1
+        meaningful_lines = sum(
+            1
+            for line in lines
+            if (stripped := line.strip()) and not stripped.startswith("#")
+        )
 
         return meaningful_lines >= self.config.duplication.min_duplicate_lines
 

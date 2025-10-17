@@ -191,30 +191,32 @@ class PerformanceDetector(BaseDetector):
 
         # Check for > or >= operators
         if any(isinstance(op, (ast.Gt, ast.GtE)) for op in len_parent.ops):
-            self.add_issue(
-                Issue(
-                    file=self.file_path,
-                    line=len_call.lineno,
-                    column=len_call.col_offset,
-                    severity=Severity.INFO,
-                    rule_id="P005",
-                    message="Use truthiness instead of len() > 0",
-                    suggestion="Use 'if container:' instead of 'if len(container) > 0:'",
-                )
+            rule_id, message, suggestion = (
+                "P005",
+                "Use truthiness instead of len() > 0",
+                "Use 'if container:' instead of 'if len(container) > 0:'",
             )
         # Check for == or != operators
         elif any(isinstance(op, (ast.Eq, ast.NotEq)) for op in len_parent.ops):
-            self.add_issue(
-                Issue(
-                    file=self.file_path,
-                    line=len_call.lineno,
-                    column=len_call.col_offset,
-                    severity=Severity.INFO,
-                    rule_id="P006",
-                    message="Use truthiness instead of len() == 0",
-                    suggestion="Use 'if not container:' instead of 'if len(container) == 0:'",
-                )
+            rule_id, message, suggestion = (
+                "P006",
+                "Use truthiness instead of len() == 0",
+                "Use 'if not container:' instead of 'if len(container) == 0:'",
             )
+        else:
+            return
+
+        self.add_issue(
+            Issue(
+                file=self.file_path,
+                line=len_call.lineno,
+                column=len_call.col_offset,
+                severity=Severity.INFO,
+                rule_id=rule_id,
+                message=message,
+                suggestion=suggestion,
+            )
+        )
 
     def _matches_type_hint(self, node: ast.AST, type_name: str) -> bool:
         """Check if a node likely matches a given type based on naming heuristics.

@@ -77,30 +77,30 @@ class BooleanLogicDetector(BaseDetector):
 
     def _report_boolean_equality(self, node: ast.Compare, value: bool) -> None:
         """Report issues with boolean equality comparisons."""
-        if value:
-            self.add_issue(
-                Issue(
-                    file=self.file_path,
-                    line=node.lineno,
-                    column=node.col_offset,
-                    severity=Severity.INFO,
-                    rule_id="B002",
-                    message="Redundant comparison with True",
-                    suggestion="Remove '== True' and use the boolean expression directly",
-                )
+        rule_id, message, suggestion = (
+            (
+                "B002",
+                "Redundant comparison with True",
+                "Remove '== True' and use the boolean expression directly",
             )
-        else:
-            self.add_issue(
-                Issue(
-                    file=self.file_path,
-                    line=node.lineno,
-                    column=node.col_offset,
-                    severity=Severity.INFO,
-                    rule_id="B003",
-                    message="Redundant comparison with False",
-                    suggestion="Use 'not expr' instead of 'expr == False'",
-                )
+            if value
+            else (
+                "B003",
+                "Redundant comparison with False",
+                "Use 'not expr' instead of 'expr == False'",
             )
+        )
+        self.add_issue(
+            Issue(
+                file=self.file_path,
+                line=node.lineno,
+                column=node.col_offset,
+                severity=Severity.INFO,
+                rule_id=rule_id,
+                message=message,
+                suggestion=suggestion,
+            )
+        )
 
     def _report_boolean_is(self, node: ast.Compare) -> None:
         """Report issues with boolean 'is' comparisons."""
@@ -168,28 +168,21 @@ class BooleanLogicDetector(BaseDetector):
 
         # Check for not (a and b) or not (a or b)
         if isinstance(node.op, ast.Not) and isinstance(node.operand, ast.BoolOp):
-            if isinstance(node.operand.op, ast.And):
-                self.add_issue(
-                    Issue(
-                        file=self.file_path,
-                        line=node.lineno,
-                        column=node.col_offset,
-                        severity=Severity.INFO,
-                        rule_id="B006",
-                        message="Complex negation can be simplified using De Morgan's law",
-                        suggestion="Replace 'not (a and b)' with 'not a or not b'",
-                    )
+            if isinstance(node.operand.op, (ast.And, ast.Or)):
+                rule_id, suggestion = (
+                    ("B006", "Replace 'not (a and b)' with 'not a or not b'")
+                    if isinstance(node.operand.op, ast.And)
+                    else ("B007", "Replace 'not (a or b)' with 'not a and not b'")
                 )
-            elif isinstance(node.operand.op, ast.Or):
                 self.add_issue(
                     Issue(
                         file=self.file_path,
                         line=node.lineno,
                         column=node.col_offset,
                         severity=Severity.INFO,
-                        rule_id="B007",
+                        rule_id=rule_id,
                         message="Complex negation can be simplified using De Morgan's law",
-                        suggestion="Replace 'not (a or b)' with 'not a and not b'",
+                        suggestion=suggestion,
                     )
                 )
 

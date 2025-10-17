@@ -68,55 +68,50 @@ def calculate_cyclomatic_complexity(
     node: ast.FunctionDef | ast.AsyncFunctionDef,
 ) -> int:
     """Calculate cyclomatic complexity of a function."""
-    complexity = 1  # Base complexity
 
     class ComplexityVisitor(ast.NodeVisitor):
         """Visitor to count decision points."""
 
         def __init__(self) -> None:
-            self.complexity = 0
+            self.complexity = 1  # Base complexity
 
         def visit_If(self, node: ast.If) -> None:
             """Count if statements."""
-            self.complexity += 1
-            self.generic_visit(node)
+            self._increment_and_visit(node)
 
         def visit_For(self, node: ast.For) -> None:
             """Count for loops."""
-            self.complexity += 1
-            self.generic_visit(node)
+            self._increment_and_visit(node)
 
         def visit_While(self, node: ast.While) -> None:
             """Count while loops."""
-            self.complexity += 1
-            self.generic_visit(node)
+            self._increment_and_visit(node)
 
         def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
             """Count except handlers."""
-            self.complexity += 1
-            self.generic_visit(node)
+            self._increment_and_visit(node)
 
         def visit_With(self, node: ast.With) -> None:
             """Count with statements."""
-            self.complexity += 1
-            self.generic_visit(node)
+            self._increment_and_visit(node)
 
         def visit_Assert(self, node: ast.Assert) -> None:
             """Count assertions."""
-            self.complexity += 1
-            self.generic_visit(node)
+            self._increment_and_visit(node)
 
         def visit_BoolOp(self, node: ast.BoolOp) -> None:
             """Count boolean operations (and/or)."""
-            if isinstance(node.op, ast.And):
-                self.complexity += len(node.values) - 1
-            elif isinstance(node.op, ast.Or):
-                self.complexity += len(node.values) - 1
+            self.complexity += len(node.values) - 1
+            self.generic_visit(node)
+
+        def _increment_and_visit(self, node: ast.AST) -> None:
+            """Increment complexity and continue visiting."""
+            self.complexity += 1
             self.generic_visit(node)
 
     visitor = ComplexityVisitor()
     visitor.visit(node)
-    return complexity + visitor.complexity
+    return visitor.complexity
 
 
 def count_nesting_depth(node: ast.AST) -> int:
