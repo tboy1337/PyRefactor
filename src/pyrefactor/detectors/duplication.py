@@ -4,10 +4,95 @@ import ast
 import hashlib
 import tokenize
 from io import StringIO
+from typing import cast
 
 from ..ast_visitor import BaseDetector
 from ..config import Config
 from ..models import Issue, Severity
+
+
+class _ExclusionVisitor(ast.NodeVisitor):
+    """AST visitor to identify line ranges to exclude from duplication detection."""
+
+    def __init__(self) -> None:
+        """Initialize exclusion visitor."""
+        self.ranges: list[tuple[int, int]] = []
+
+    def _add_node_range(self, node: ast.AST) -> None:
+        """Add node's line range to exclusions if available."""
+        if not hasattr(node, "lineno") or not hasattr(node, "end_lineno"):
+            return
+        lineno = cast(int, getattr(node, "lineno"))
+        end_lineno = cast(int | None, getattr(node, "end_lineno"))
+        if end_lineno is None:
+            return
+        self.ranges.append((lineno, end_lineno))
+
+    def visit_Set(self, node: ast.Set) -> None:
+        """Visit set literal and add its range to exclusions."""
+        self._add_node_range(node)
+        self.generic_visit(node)
+
+    def visit_List(self, node: ast.List) -> None:
+        """Visit list literal and add its range to exclusions."""
+        self._add_node_range(node)
+        self.generic_visit(node)
+
+    def visit_Dict(self, node: ast.Dict) -> None:
+        """Visit dict literal and add its range to exclusions."""
+        self._add_node_range(node)
+        self.generic_visit(node)
+
+    def visit_Tuple(self, node: ast.Tuple) -> None:
+        """Visit tuple literal and add its range to exclusions."""
+        self._add_node_range(node)
+        self.generic_visit(node)
+
+    def _add_docstring_range(self, node: ast.AST) -> None:
+        """Check if node has a docstring and add to exclusions."""
+        if not hasattr(node, "body"):
+            return
+        body = cast(list[ast.stmt], getattr(node, "body"))
+        if not body:
+            return
+
+        # Only these node types are supported by ast.get_docstring
+        if isinstance(
+            node, (ast.AsyncFunctionDef, ast.FunctionDef, ast.ClassDef, ast.Module)
+        ):
+            docstring_text = ast.get_docstring(node, clean=False)
+            if not docstring_text:
+                return
+
+        first_stmt = body[0]
+        if not isinstance(first_stmt, ast.Expr):
+            return
+        if not isinstance(first_stmt.value, ast.Constant):
+            return
+        if not isinstance(first_stmt.value.value, str):
+            return
+
+        self._add_node_range(first_stmt)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        """Visit function and exclude its docstring."""
+        self._add_docstring_range(node)
+        self.generic_visit(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        """Visit async function and exclude its docstring."""
+        self._add_docstring_range(node)
+        self.generic_visit(node)
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        """Visit class and exclude its docstring."""
+        self._add_docstring_range(node)
+        self.generic_visit(node)
+
+    def visit_Module(self, node: ast.Module) -> None:
+        """Visit module and exclude its docstring."""
+        self._add_docstring_range(node)
+        self.generic_visit(node)
 
 
 class DuplicationDetector(BaseDetector):
@@ -21,6 +106,7 @@ class DuplicationDetector(BaseDetector):
         super().__init__(config, file_path, source_lines)
         self.code_blocks: dict[str, list[tuple[int, int, str, str]]] = {}
         self.checked = False
+        self.excluded_ranges: list[tuple[int, int]] = []
 
     def get_detector_name(self) -> str:
         """Return the name of this detector."""
@@ -28,13 +114,46 @@ class DuplicationDetector(BaseDetector):
 
     def analyze(self, tree: ast.AST) -> list[Issue]:
         """Run duplication detection on the entire file."""
-        # First, extract all code blocks
+        # First, identify exclusion zones (data structures and docstrings)
+        self._identify_excluded_ranges(tree)
+
+        # Then, extract all code blocks
         self._extract_code_blocks()
 
-        # Then find duplicates
+        # Finally, find duplicates
         self._find_duplicates()
 
         return self.issues
+
+    def _identify_excluded_ranges(self, tree: ast.AST) -> None:
+        """Identify line ranges that should be excluded from duplication detection.
+
+        This includes:
+        - Data structure literals (Set, List, Dict, Tuple)
+        - Docstrings (first string in functions/classes/modules)
+
+        Args:
+            tree: The AST of the source file
+        """
+        visitor = _ExclusionVisitor()
+        visitor.visit(tree)
+        self.excluded_ranges = visitor.ranges
+
+    def _is_in_excluded_range(self, start_line: int, end_line: int) -> bool:
+        """Check if a line range overlaps with any excluded range.
+
+        Args:
+            start_line: Start line of the range (1-indexed)
+            end_line: End line of the range (1-indexed)
+
+        Returns:
+            True if the range overlaps with any excluded range
+        """
+        for excluded_start, excluded_end in self.excluded_ranges:
+            # Check if there's any overlap
+            if end_line >= excluded_start and start_line <= excluded_end:
+                return True
+        return False
 
     def _extract_code_blocks(self) -> None:
         """Extract code blocks for comparison."""
@@ -48,6 +167,10 @@ class DuplicationDetector(BaseDetector):
                 end = start + length
                 if end > total_lines:
                     break
+
+                # Skip blocks that are in excluded ranges (data structures, docstrings)
+                if self._is_in_excluded_range(start + 1, end):
+                    continue
 
                 # Get the code block
                 code_block = "\n".join(self.source_lines[start:end])

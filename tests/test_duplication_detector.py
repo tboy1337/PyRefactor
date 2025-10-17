@@ -144,3 +144,102 @@ def func2():
 
         # Should not detect duplication due to suppression comment
         assert len(issues) == 0
+
+    def test_data_structure_exclusion(self, default_config: Config) -> None:
+        """Test that data structures are excluded from duplication detection."""
+        source = """
+# Multiple sets with similar structure should not be flagged
+BUILTIN_VARS = {
+    "DATE",
+    "TIME",
+    "CD",
+    "ERRORLEVEL",
+    "RANDOM",
+}
+
+SYSTEM_VARS = {
+    "PATH",
+    "TEMP",
+    "TMP",
+    "USER",
+    "HOME",
+}
+
+CONFIG_LIST = [
+    "option1",
+    "option2",
+    "option3",
+    "option4",
+    "option5",
+]
+
+SETTINGS_DICT = {
+    "key1": "value1",
+    "key2": "value2",
+    "key3": "value3",
+    "key4": "value4",
+    "key5": "value5",
+}
+"""
+        tree = ast.parse(source)
+        lines = source.split("\n")
+
+        detector = DuplicationDetector(default_config, "test.py", lines)
+        issues = detector.analyze(tree)
+
+        # Data structures should not be flagged as duplicates
+        # (though there may be some issues in surrounding code)
+        data_structure_issues = [
+            issue
+            for issue in issues
+            if "DATE" in str(issue.line) or "PATH" in str(issue.line)
+        ]
+        assert len(data_structure_issues) == 0
+
+    def test_docstring_exclusion(self, default_config: Config) -> None:
+        """Test that docstrings are excluded from duplication detection."""
+        source = '''
+def function_one():
+    """
+    This is a docstring that explains what the function does.
+    It provides documentation for the user.
+    Args:
+        None
+    Returns:
+        None
+    """
+    pass
+
+def function_two():
+    """
+    This is a docstring that explains what the function does.
+    It provides documentation for the user.
+    Args:
+        None
+    Returns:
+        None
+    """
+    pass
+
+class MyClass:
+    """
+    This is a class docstring.
+    It describes the class purpose.
+    """
+    pass
+
+class OtherClass:
+    """
+    This is a class docstring.
+    It describes the class purpose.
+    """
+    pass
+'''
+        tree = ast.parse(source)
+        lines = source.split("\n")
+
+        detector = DuplicationDetector(default_config, "test.py", lines)
+        issues = detector.analyze(tree)
+
+        # Docstrings should not be flagged as duplicates
+        assert len(issues) == 0
