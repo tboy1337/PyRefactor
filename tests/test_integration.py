@@ -2,11 +2,8 @@
 
 from pathlib import Path
 
-import pytest
-
 from pyrefactor.analyzer import Analyzer
 from pyrefactor.config import Config
-from pyrefactor.models import Severity
 
 
 class TestIntegration:
@@ -16,7 +13,8 @@ class TestIntegration:
         """Test complete analysis workflow."""
         # Create a Python file with various issues
         file_path = tmp_path / "sample.py"
-        file_path.write_text("""
+        file_path.write_text(
+            """
 def problematic_function(a, b, c, d, e, f, g, h):
     '''Function with multiple issues.'''
     result_str = ""
@@ -52,7 +50,8 @@ def problematic_function(a, b, c, d, e, f, g, h):
         print(data[i])
 
     return result_str
-""")
+"""
+        )
 
         # Analyze the file
         config = Config()
@@ -80,15 +79,19 @@ def problematic_function(a, b, c, d, e, f, g, h):
     def test_multi_file_analysis(self, tmp_path: Path) -> None:
         """Test analyzing multiple files."""
         # Create multiple files
-        (tmp_path / "file1.py").write_text("""
+        (tmp_path / "file1.py").write_text(
+            """
 def simple1():
     return 1
-""")
+"""
+        )
 
-        (tmp_path / "file2.py").write_text("""
+        (tmp_path / "file2.py").write_text(
+            """
 def simple2():
     return 2
-""")
+"""
+        )
 
         code = "\n".join([f"    x = {i}" for i in range(60)])
         (tmp_path / "file3.py").write_text(f"def long_func():\n{code}\n    return x")
@@ -108,7 +111,8 @@ def simple2():
         """Test a real-world-like scenario."""
         # Create a more realistic Python module
         file_path = tmp_path / "service.py"
-        file_path.write_text("""
+        file_path.write_text(
+            """
 class UserService:
     def process_user_data(self, user_id, username, email, phone, address,
                          city, state, zip_code, country, preferences):
@@ -149,7 +153,8 @@ def duplicate_logic2():
     processed = process(validated)
     saved = save(processed)
     return saved
-""")
+"""
+        )
 
         # Analyze
         config = Config()
@@ -166,10 +171,12 @@ def duplicate_logic2():
     def test_disabled_detectors(self, tmp_path: Path) -> None:
         """Test that disabled detectors don't run."""
         file_path = tmp_path / "test.py"
-        file_path.write_text("""
+        file_path.write_text(
+            """
 for i in range(len(items)):
     print(items[i])
-""")
+"""
+        )
 
         # Analyze with loops detector enabled
         config1 = Config()
@@ -215,4 +222,3 @@ for i in range(len(items)):
         # Should trigger (30 lines > 20)
         long_func_issues2 = [i for i in analysis2.issues if i.rule_id == "C001"]
         assert len(long_func_issues2) > 0
-

@@ -4,7 +4,6 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import cast
 
 from .analyzer import Analyzer
 from .config import Config
@@ -12,9 +11,7 @@ from .models import Severity
 from .reporter import ConsoleReporter
 
 # Configure logging
-logging.basicConfig(
-    level=logging.WARNING, format="%(levelname)s: %(message)s"
-)
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -109,16 +106,16 @@ def main() -> int:
     # Load configuration
     try:
         config = Config.load(args.config)  # type: ignore[misc]
-        logger.info(f"Loaded configuration: {config}")  # type: ignore[misc]
+        logger.info("Loaded configuration: %s", config)  # type: ignore[misc]
     except Exception as e:
-        logger.error(f"Error loading configuration: {e}")  # type: ignore[misc]
+        logger.error("Error loading configuration: %s", e)  # type: ignore[misc]
         return 2
 
     # Validate paths
     paths: list[Path] = []
     for path in args.paths:  # type: ignore[misc]
         if not path.exists():  # type: ignore[misc]
-            logger.error(f"Path does not exist: {path}")  # type: ignore[misc]
+            logger.error("Path does not exist: %s", path)  # type: ignore[misc]
             return 2
         paths.append(path)  # type: ignore[misc]
 
@@ -127,10 +124,10 @@ def main() -> int:
 
     # Analyze files
     try:
-        logger.info(f"Analyzing {len(paths)} path(s)...")  # type: ignore[misc]
+        logger.info("Analyzing %d path(s)...", len(paths))  # type: ignore[misc]
         result = analyzer.analyze_files(paths)  # type: ignore[misc]
     except Exception as e:
-        logger.error(f"Error during analysis: {e}")  # type: ignore[misc]
+        logger.error("Error during analysis: %s", e)  # type: ignore[misc]
         return 2
 
     # Filter by minimum severity
@@ -147,7 +144,7 @@ def main() -> int:
         file_analysis.issues = [
             issue
             for issue in file_analysis.issues
-            if not (issue.severity < min_severity)  # type: ignore[misc]
+            if issue.severity >= min_severity  # type: ignore[misc]
         ]
 
     # Report results
@@ -165,4 +162,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

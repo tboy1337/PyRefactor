@@ -7,7 +7,6 @@ from typing import Any
 import pytest
 
 from pyrefactor.config import Config
-from pyrefactor.models import Issue, Severity
 
 
 @pytest.fixture
@@ -95,4 +94,3 @@ def parse_code() -> Any:
         return ast.parse(code)
 
     return _parse
-

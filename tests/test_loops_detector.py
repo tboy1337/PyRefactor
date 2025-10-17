@@ -2,8 +2,6 @@
 
 import ast
 
-import pytest
-
 from pyrefactor.config import Config
 from pyrefactor.detectors.loops import LoopsDetector
 
@@ -69,7 +67,7 @@ for item in list1:
 
     def test_loop_invariant_code(self, default_config: Config) -> None:
         """Test detection of loop-invariant code."""
-        source = """
+        source = r"""
 import re
 pattern = re.compile(r'\d+')
 for item in items:
@@ -110,4 +108,3 @@ for i in range(10):
         issues = detector.analyze(tree)
 
         assert not any(issue.rule_id == "L001" for issue in issues)
-

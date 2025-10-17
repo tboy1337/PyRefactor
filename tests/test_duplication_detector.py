@@ -2,8 +2,6 @@
 
 import ast
 
-import pytest
-
 from pyrefactor.config import Config
 from pyrefactor.detectors.duplication import DuplicationDetector
 
@@ -116,4 +114,3 @@ def func2():
 
         # Should detect as duplicates despite whitespace differences
         assert len(issues) > 0
-

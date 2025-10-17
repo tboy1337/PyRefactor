@@ -4,8 +4,6 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from pyrefactor.__main__ import main, parse_arguments
 
 
@@ -71,9 +69,7 @@ class TestCLI:
 
     def test_main_with_nonexistent_file(self) -> None:
         """Test main with nonexistent file."""
-        with patch.object(
-            sys, "argv", ["pyrefactor", "/nonexistent/file.py"]
-        ):
+        with patch.object(sys, "argv", ["pyrefactor", "/nonexistent/file.py"]):
             exit_code = main()
 
             assert exit_code == 2
@@ -133,4 +129,3 @@ class TestCLI:
         ):
             exit_code = main()
             assert exit_code == 0
-

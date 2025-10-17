@@ -2,11 +2,8 @@
 
 import ast
 
-import pytest
-
 from pyrefactor.config import Config
 from pyrefactor.detectors.complexity import ComplexityDetector
-from pyrefactor.models import Severity
 
 
 class TestComplexityDetector:
@@ -69,7 +66,9 @@ class MyClass:
 
         assert len(issues) > 0
         assert any(issue.rule_id == "C003" for issue in issues)
-        assert any("too many local variables" in issue.message.lower() for issue in issues)
+        assert any(
+            "too many local variables" in issue.message.lower() for issue in issues
+        )
 
     def test_too_many_branches(self, default_config: Config) -> None:
         """Test detection of too many branches."""
@@ -178,4 +177,3 @@ def long_func():  # pyrefactor: ignore
 
         assert len(issues) > 0
         assert any(issue.rule_id == "C001" for issue in issues)
-

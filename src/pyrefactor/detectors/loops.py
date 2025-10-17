@@ -1,7 +1,6 @@
 """Loop optimization detector for PyRefactor."""
 
 import ast
-from typing import Any
 
 from ..ast_visitor import BaseDetector
 from ..models import Issue, Severity
@@ -71,7 +70,6 @@ class LoopsDetector(BaseDetector):
     def _check_manual_index_tracking(self, node: ast.For) -> None:
         """Check for manual index variable incrementation."""
         # Look for pattern where an index is manually incremented in loop
-        index_vars: set[str] = set()
 
         class IndexTracker(ast.NodeVisitor):
             """Track manual index increments."""
@@ -107,9 +105,7 @@ class LoopsDetector(BaseDetector):
 
     def _check_nested_loop_optimization(self, node: ast.For) -> None:
         """Check for nested loops that might benefit from preprocessing."""
-        nested_loops = [
-            child for child in ast.walk(node) if isinstance(child, ast.For)
-        ]
+        nested_loops = [child for child in ast.walk(node) if isinstance(child, ast.For)]
 
         if len(nested_loops) > 2:  # Including the current loop
             # Check if inner loop is doing lookups
@@ -199,9 +195,7 @@ class LoopsDetector(BaseDetector):
         class AccessChecker(ast.NodeVisitor):
             """Check for indexed access to collection."""
 
-            def __init__(
-                self, idx_var: str, coll: ast.AST
-            ) -> None:
+            def __init__(self, idx_var: str, coll: ast.AST) -> None:
                 self.index_var = idx_var
                 self.collection = coll
                 self.has_indexed_access = False
@@ -229,4 +223,3 @@ class LoopsDetector(BaseDetector):
 
         # Could add while-loop specific checks here
         self.generic_visit(node)
-

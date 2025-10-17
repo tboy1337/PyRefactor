@@ -4,7 +4,6 @@ import ast
 import concurrent.futures
 import logging
 from pathlib import Path
-from typing import Union
 
 from .ast_visitor import BaseDetector
 from .config import Config
@@ -15,7 +14,7 @@ from .detectors import (
     LoopsDetector,
     PerformanceDetector,
 )
-from .models import AnalysisResult, FileAnalysis, Issue
+from .models import AnalysisResult, FileAnalysis
 
 logger = logging.getLogger(__name__)
 
@@ -77,21 +76,34 @@ class Analyzer:
                 )
 
             # Run each detector
-            for detector in detectors:  # type: ignore[misc]
-                try:
-                    issues = detector.analyze(tree)  # type: ignore[misc]
-                    for issue in issues:  # type: ignore[misc]
-                        analysis.add_issue(issue)  # type: ignore[misc]
-                except Exception as e:
-                    logger.error(
-                        f"Error running {detector.get_detector_name()} on {file_path}: {e}"  # type: ignore[misc]
-                    )
+            self._run_detectors(detectors, tree, analysis, file_path)
 
         except Exception as e:
             analysis.parse_error = f"Error analyzing file: {e}"
-            logger.error(f"Error analyzing {file_path}: {e}")
+            logger.error("Error analyzing %s: %s", file_path, e)
 
         return analysis
+
+    def _run_detectors(
+        self,
+        detectors: list[BaseDetector],
+        tree: ast.Module,
+        analysis: FileAnalysis,
+        file_path: Path,
+    ) -> None:
+        """Run all detectors and collect issues."""
+        for detector in detectors:  # type: ignore[misc]
+            try:
+                issues = detector.analyze(tree)  # type: ignore[misc]
+                for issue in issues:  # type: ignore[misc]
+                    analysis.add_issue(issue)  # type: ignore[misc]
+            except Exception as e:
+                logger.error(
+                    "Error running %s on %s: %s",  # type: ignore[misc]
+                    detector.get_detector_name(),
+                    file_path,
+                    e,
+                )
 
     def analyze_directory(
         self, directory: Path, max_workers: int = 4
@@ -106,13 +118,11 @@ class Analyzer:
         python_files = self._filter_excluded_files(python_files)
 
         if not python_files:
-            logger.warning(f"No Python files found in {directory}")
+            logger.warning("No Python files found in %s", directory)
             return result
 
         # Analyze files in parallel
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=max_workers
-        ) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_file = {
                 executor.submit(self.analyze_file, file_path): file_path
                 for file_path in python_files
@@ -124,7 +134,7 @@ class Analyzer:
                     analysis = future.result()
                     result.add_file_analysis(analysis)
                 except Exception as e:
-                    logger.error(f"Error analyzing {file_path}: {e}")
+                    logger.error("Error analyzing %s: %s", file_path, e)
                     result.add_file_analysis(
                         FileAnalysis(
                             file_path=str(file_path),
@@ -165,4 +175,3 @@ class Analyzer:
                 filtered.append(file_path)
 
         return filtered
-

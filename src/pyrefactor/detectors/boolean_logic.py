@@ -1,7 +1,6 @@
 """Boolean logic detector for PyRefactor."""
 
 import ast
-from typing import Any
 
 from ..ast_visitor import BaseDetector
 from ..models import Issue, Severity
@@ -116,7 +115,7 @@ class BooleanLogicDetector(BaseDetector):
                 if isinstance(current.body[0], ast.If):
                     current = current.body[0]
                     continue
-                elif isinstance(current.body[0], (ast.Return, ast.Raise)):
+                if isinstance(current.body[0], (ast.Return, ast.Raise)):
                     if nesting_count >= 3:
                         self.add_issue(
                             Issue(
@@ -177,4 +176,3 @@ class BooleanLogicDetector(BaseDetector):
                 count += self._count_operators(value)
 
         return count
-

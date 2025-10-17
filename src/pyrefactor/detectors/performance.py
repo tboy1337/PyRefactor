@@ -190,4 +190,3 @@ class PerformanceDetector(BaseDetector):
         for child in ast.walk(node):
             setattr(child, "_parent", node)
         self.generic_visit(node)
-

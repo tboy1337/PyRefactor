@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from pyrefactor.analyzer import Analyzer
 from pyrefactor.config import Config
 
@@ -123,15 +121,16 @@ class TestAnalyzer:
         config.performance.enabled = False
 
         file_path = tmp_path / "perf.py"
-        file_path.write_text("""
+        file_path.write_text(
+            """
 result_str = ""
 for item in items:
     result_str += item
-""")
+"""
+        )
 
         analyzer = Analyzer(config)
         analysis = analyzer.analyze_file(file_path)
 
         # Should not have performance issues
         assert not any(issue.rule_id.startswith("P") for issue in analysis.issues)
-

@@ -69,7 +69,7 @@ class DuplicationDetector(BaseDetector):
 
     def _find_duplicates(self) -> None:
         """Find and report duplicate code blocks."""
-        for code_hash, occurrences in self.code_blocks.items():
+        for _, occurrences in self.code_blocks.items():
             if len(occurrences) > 1:
                 # Sort by line number
                 occurrences.sort(key=lambda x: x[0])
@@ -146,5 +146,4 @@ class DuplicationDetector(BaseDetector):
     def visit(self, node: ast.AST) -> None:
         """Override visit to prevent default traversal."""
         # Duplication detection works at file level, not node level
-        pass
-
+        ...

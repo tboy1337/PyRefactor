@@ -97,4 +97,3 @@ class AnalysisResult:
     def files_with_issues(self) -> int:
         """Get count of files that have issues."""
         return sum(1 for analysis in self.file_analyses if analysis.issues)
-

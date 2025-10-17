@@ -2,8 +2,6 @@
 
 from io import StringIO
 
-import pytest
-
 from pyrefactor.models import AnalysisResult, FileAnalysis, Issue, Severity
 from pyrefactor.reporter import ConsoleReporter
 
@@ -167,4 +165,3 @@ class TestConsoleReporter:
         assert "HIGH: 1" in output_text
         assert "MEDIUM: 1" in output_text
         assert "LOW: 1" in output_text
-

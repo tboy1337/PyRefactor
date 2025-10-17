@@ -2,8 +2,6 @@
 
 import ast
 
-import pytest
-
 from pyrefactor.config import Config
 from pyrefactor.detectors.boolean_logic import BooleanLogicDetector
 
@@ -140,4 +138,3 @@ if not y:
         issues = detector.analyze(tree)
 
         assert len(issues) == 0
-

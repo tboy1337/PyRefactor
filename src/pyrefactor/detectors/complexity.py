@@ -1,7 +1,6 @@
 """Complexity detector for PyRefactor."""
 
 import ast
-from typing import Any
 
 from ..ast_visitor import (
     BaseDetector,
@@ -29,9 +28,7 @@ class ComplexityDetector(BaseDetector):
         self._check_function(node)
         self.generic_visit(node)
 
-    def _check_function(
-        self, node: ast.FunctionDef | ast.AsyncFunctionDef
-    ) -> None:
+    def _check_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         """Check various complexity metrics for a function."""
         if self.is_suppressed(node):
             return
@@ -88,9 +85,7 @@ class ComplexityDetector(BaseDetector):
                 )
             )
 
-    def _check_arguments(
-        self, node: ast.FunctionDef | ast.AsyncFunctionDef
-    ) -> None:
+    def _check_arguments(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         """Check if function has too many arguments."""
         args = node.args
         total_args = (
@@ -139,13 +134,11 @@ class ComplexityDetector(BaseDetector):
 
             def visit_FunctionDef(self, func_node: ast.FunctionDef) -> None:
                 """Don't descend into nested functions."""
-                pass
+                ...
 
-            def visit_AsyncFunctionDef(
-                self, func_node: ast.AsyncFunctionDef
-            ) -> None:
+            def visit_AsyncFunctionDef(self, func_node: ast.AsyncFunctionDef) -> None:
                 """Don't descend into nested async functions."""
-                pass
+                ...
 
         visitor = LocalVarVisitor()
         visitor.visit(node)
@@ -166,9 +159,7 @@ class ComplexityDetector(BaseDetector):
                 )
             )
 
-    def _check_branches(
-        self, node: ast.FunctionDef | ast.AsyncFunctionDef
-    ) -> None:
+    def _check_branches(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         """Check if function has too many branches."""
         branches = count_branches(node)
         max_branches = self.config.complexity.max_branches
@@ -225,4 +216,3 @@ class ComplexityDetector(BaseDetector):
                     suggestion="Simplify the function by reducing decision points or extracting logic",
                 )
             )
-

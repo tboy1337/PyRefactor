@@ -103,4 +103,3 @@ class Config:
             return cls.from_file(pyproject)
 
         return cls()
-

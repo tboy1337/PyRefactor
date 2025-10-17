@@ -39,14 +39,16 @@ class TestConfig:
     def test_load_from_file(self, tmp_path: Path) -> None:
         """Test loading from a TOML file."""
         config_file = tmp_path / "pyproject.toml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 [tool.pyrefactor.complexity]
 max_branches = 15
 max_nesting_depth = 4
 
 [tool.pyrefactor.performance]
 enabled = false
-""")
+"""
+        )
 
         config = Config.from_file(config_file)
 
@@ -128,4 +130,3 @@ class TestLoopsConfig:
         config = LoopsConfig()
 
         assert config.enabled is True
-

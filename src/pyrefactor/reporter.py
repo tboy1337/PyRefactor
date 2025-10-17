@@ -106,9 +106,9 @@ class ConsoleReporter:
 
     def _print_summary(self, result: AnalysisResult) -> None:
         """Print summary statistics."""
-        self._print_header(f"\n{Fore.YELLOW}{'='*70}{Style.RESET_ALL}")  # type: ignore[misc]
+        self._print_header(f"\n{Fore.YELLOW}{'=' * 70}{Style.RESET_ALL}")  # type: ignore[misc]
         self._print_header(f"{Fore.YELLOW}Summary{Style.RESET_ALL}")  # type: ignore[misc]
-        self._print_header(f"{Fore.YELLOW}{'='*70}{Style.RESET_ALL}")  # type: ignore[misc]
+        self._print_header(f"{Fore.YELLOW}{'=' * 70}{Style.RESET_ALL}")  # type: ignore[misc]
 
         total_issues = result.total_issues()
         files_analyzed = result.files_analyzed()
@@ -120,7 +120,12 @@ class ConsoleReporter:
 
         if total_issues > 0:
             self._print("\nIssues by severity:")
-            for severity in [Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO]:
+            for severity in [
+                Severity.HIGH,
+                Severity.MEDIUM,
+                Severity.LOW,
+                Severity.INFO,
+            ]:
                 count = len(result.get_issues_by_severity(severity))
                 if count > 0:
                     color = self._get_severity_color(severity)
@@ -168,4 +173,3 @@ class ConsoleReporter:
     def _print_error(self, message: str) -> None:
         """Print an error message."""
         print(message, file=self.output)
-

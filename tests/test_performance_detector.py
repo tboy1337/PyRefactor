@@ -2,8 +2,6 @@
 
 import ast
 
-import pytest
-
 from pyrefactor.config import Config
 from pyrefactor.detectors.performance import PerformanceDetector
 
@@ -119,4 +117,3 @@ for item in items:
         issues = detector.analyze(tree)
 
         assert len(issues) == 0
-

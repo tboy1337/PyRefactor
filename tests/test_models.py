@@ -90,7 +90,7 @@ class TestFileAnalysis:
         analysis = FileAnalysis(file_path="test.py")
 
         assert analysis.file_path == "test.py"
-        assert analysis.issues == []
+        assert not analysis.issues
         assert analysis.parse_error is None
         assert analysis.lines_of_code == 0
 
@@ -180,7 +180,7 @@ class TestAnalysisResult:
         """Test creating analysis result."""
         result = AnalysisResult()
 
-        assert result.file_analyses == []
+        assert not result.file_analyses
 
     def test_add_file_analysis(self) -> None:
         """Test adding file analyses."""
@@ -287,4 +287,3 @@ class TestAnalysisResult:
         result.add_file_analysis(analysis2)
 
         assert result.files_with_issues() == 1
-
