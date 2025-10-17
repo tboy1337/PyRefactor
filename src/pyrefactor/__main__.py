@@ -92,64 +92,67 @@ def main() -> int:
     args = parse_arguments()
 
     # Handle version
-    if args.version:
-        from . import __version__
-
-        print(f"PyRefactor version {__version__}")
+    version_flag: bool = args.version
+    if version_flag:
+        version = "1.0.0"
+        print(f"PyRefactor version {version}")
         return 0
 
     # Configure logging
-    if args.verbose:
+    verbose_flag: bool = args.verbose
+    if verbose_flag:
         logging.getLogger().setLevel(logging.INFO)
         logger.setLevel(logging.INFO)
 
     # Load configuration
     try:
-        config = Config.load(args.config)  # type: ignore[misc]
-        logger.info("Loaded configuration: %s", config)  # type: ignore[misc]
+        config_path: Path | None = args.config
+        config = Config.load(config_path)
+        logger.info("Loaded configuration: %s", config)
     except Exception as e:
-        logger.error("Error loading configuration: %s", e)  # type: ignore[misc]
+        logger.error("Error loading configuration: %s", e)
         return 2
 
     # Validate paths
     paths: list[Path] = []
-    for path in args.paths:  # type: ignore[misc]
-        if not path.exists():  # type: ignore[misc]
-            logger.error("Path does not exist: %s", path)  # type: ignore[misc]
+    arg_paths: list[Path] = args.paths
+    for path in arg_paths:
+        if not path.exists():
+            logger.error("Path does not exist: %s", path)
             return 2
-        paths.append(path)  # type: ignore[misc]
+        paths.append(path)
 
     # Create analyzer
     analyzer = Analyzer(config)
 
     # Analyze files
     try:
-        logger.info("Analyzing %d path(s)...", len(paths))  # type: ignore[misc]
-        result = analyzer.analyze_files(paths)  # type: ignore[misc]
+        logger.info("Analyzing %d path(s)...", len(paths))
+        result = analyzer.analyze_files(paths)
     except Exception as e:
-        logger.error("Error during analysis: %s", e)  # type: ignore[misc]
+        logger.error("Error during analysis: %s", e)
         return 2
 
     # Filter by minimum severity
-    min_severity_map: dict[str, Severity] = {  # type: ignore[misc]
+    min_severity_map: dict[str, Severity] = {
         "info": Severity.INFO,
         "low": Severity.LOW,
         "medium": Severity.MEDIUM,
         "high": Severity.HIGH,
     }
-    min_severity = min_severity_map[args.min_severity]  # type: ignore[misc]
+    min_severity_str: str = args.min_severity
+    min_severity = min_severity_map[min_severity_str]
 
     # Filter issues
-    for file_analysis in result.file_analyses:  # type: ignore[misc]
+    for file_analysis in result.file_analyses:
         file_analysis.issues = [
-            issue
-            for issue in file_analysis.issues
-            if issue.severity >= min_severity  # type: ignore[misc]
+            issue for issue in file_analysis.issues if issue.severity >= min_severity
         ]
 
     # Report results
     reporter = ConsoleReporter()
-    reporter.report(result, group_by=args.group_by)  # type: ignore[misc]
+    group_by_arg: str = args.group_by
+    reporter.report(result, group_by=group_by_arg)
 
     # Determine exit code
     has_critical_issues = any(

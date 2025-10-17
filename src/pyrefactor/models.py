@@ -18,6 +18,19 @@ class Severity(Enum):
         order = [Severity.INFO, Severity.LOW, Severity.MEDIUM, Severity.HIGH]
         return order.index(self) < order.index(other)
 
+    def __le__(self, other: "Severity") -> bool:
+        """Compare severity levels (less than or equal)."""
+        return self == other or self < other
+
+    def __gt__(self, other: "Severity") -> bool:
+        """Compare severity levels (greater than)."""
+        order = [Severity.INFO, Severity.LOW, Severity.MEDIUM, Severity.HIGH]
+        return order.index(self) > order.index(other)
+
+    def __ge__(self, other: "Severity") -> bool:
+        """Compare severity levels (greater than or equal)."""
+        return self == other or self > other
+
 
 @dataclass
 class Issue:

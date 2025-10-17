@@ -44,35 +44,35 @@ class Analyzer:
                 return analysis
 
             # Run all enabled detectors
-            detectors: list[BaseDetector] = []  # type: ignore[misc]
+            detectors: list[BaseDetector] = []
 
             # Complexity detector (always enabled)
             detectors.append(
-                ComplexityDetector(self.config, str(file_path), source_lines)  # type: ignore[misc]
+                ComplexityDetector(self.config, str(file_path), source_lines)
             )
 
             # Performance detector
             if self.config.performance.enabled:
                 detectors.append(
-                    PerformanceDetector(self.config, str(file_path), source_lines)  # type: ignore[misc]
+                    PerformanceDetector(self.config, str(file_path), source_lines)
                 )
 
             # Boolean logic detector
             if self.config.boolean_logic.enabled:
                 detectors.append(
-                    BooleanLogicDetector(self.config, str(file_path), source_lines)  # type: ignore[misc]
+                    BooleanLogicDetector(self.config, str(file_path), source_lines)
                 )
 
             # Loops detector
             if self.config.loops.enabled:
                 detectors.append(
-                    LoopsDetector(self.config, str(file_path), source_lines)  # type: ignore[misc]
+                    LoopsDetector(self.config, str(file_path), source_lines)
                 )
 
             # Duplication detector
             if self.config.duplication.enabled:
                 detectors.append(
-                    DuplicationDetector(self.config, str(file_path), source_lines)  # type: ignore[misc]
+                    DuplicationDetector(self.config, str(file_path), source_lines)
                 )
 
             # Run each detector
@@ -92,14 +92,14 @@ class Analyzer:
         file_path: Path,
     ) -> None:
         """Run all detectors and collect issues."""
-        for detector in detectors:  # type: ignore[misc]
+        for detector in detectors:
             try:
-                issues = detector.analyze(tree)  # type: ignore[misc]
-                for issue in issues:  # type: ignore[misc]
-                    analysis.add_issue(issue)  # type: ignore[misc]
+                issues = detector.analyze(tree)
+                for issue in issues:
+                    analysis.add_issue(issue)
             except Exception as e:
                 logger.error(
-                    "Error running %s on %s: %s",  # type: ignore[misc]
+                    "Error running %s on %s: %s",
                     detector.get_detector_name(),
                     file_path,
                     e,

@@ -2,14 +2,14 @@
 
 import sys
 from collections import defaultdict
-from typing import TextIO, cast
+from typing import TextIO
 
-from colorama import Fore, Style, init  # type: ignore[import-untyped]
+from colorama import Fore, Style, init
 
 from .models import AnalysisResult, Issue, Severity
 
 # Initialize colorama for cross-platform colored output
-init(autoreset=True)  # type: ignore[no-untyped-call]
+init(autoreset=True)
 
 
 class ConsoleReporter:
@@ -33,10 +33,15 @@ class ConsoleReporter:
 
     def _report_by_file(self, result: AnalysisResult) -> None:
         """Report issues grouped by file."""
+
+        def get_issue_line(issue: Issue) -> int:
+            """Extract line number from issue."""
+            return issue.line
+
         for analysis in result.file_analyses:
             if analysis.parse_error:
                 self._print_error(
-                    f"\n{Fore.RED}✗ {analysis.file_path}{Style.RESET_ALL}"  # type: ignore[misc]
+                    f"\n{Fore.RED}✗ {analysis.file_path}{Style.RESET_ALL}"
                 )
                 self._print_error(f"  Parse error: {analysis.parse_error}")
                 continue
@@ -45,10 +50,10 @@ class ConsoleReporter:
                 continue
 
             # Print file header
-            self._print_header(f"\n{Fore.CYAN}{analysis.file_path}{Style.RESET_ALL}")  # type: ignore[misc]
+            self._print_header(f"\n{Fore.CYAN}{analysis.file_path}{Style.RESET_ALL}")
 
             # Sort issues by line number
-            sorted_issues = sorted(analysis.issues, key=lambda x: x.line)
+            sorted_issues = sorted(analysis.issues, key=get_issue_line)
 
             # Print each issue
             for issue in sorted_issues:
@@ -56,7 +61,12 @@ class ConsoleReporter:
 
     def _report_by_severity(self, result: AnalysisResult) -> None:
         """Report issues grouped by severity."""
-        issues_by_severity: dict[Severity, list[Issue]] = defaultdict(list)  # type: ignore[misc]
+
+        def get_issue_file_and_line(issue: Issue) -> tuple[str, int]:
+            """Extract file and line from issue for sorting."""
+            return (issue.file, issue.line)
+
+        issues_by_severity: dict[Severity, list[Issue]] = defaultdict(list)
 
         for issue in result.get_all_issues():
             issues_by_severity[issue.severity].append(issue)
@@ -69,11 +79,11 @@ class ConsoleReporter:
 
             color = self._get_severity_color(severity)
             self._print_header(
-                f"\n{color}{severity.value.upper()} Severity Issues{Style.RESET_ALL}"  # type: ignore[misc]
+                f"\n{color}{severity.value.upper()} Severity Issues{Style.RESET_ALL}"
             )
 
             # Sort by file and line
-            sorted_issues = sorted(issues, key=lambda x: (x.file, x.line))
+            sorted_issues = sorted(issues, key=get_issue_file_and_line)
 
             for issue in sorted_issues:
                 self._print_issue(issue, include_file=True)
@@ -91,24 +101,26 @@ class ConsoleReporter:
 
         # Print main issue line
         self._print(
-            f"  {severity_color}{severity_icon} [{issue.rule_id}] "  # type: ignore[misc]
-            f"{location}{Style.RESET_ALL}"  # type: ignore[misc]
+            f"  {severity_color}{severity_icon} [{issue.rule_id}] "
+            f"{location}{Style.RESET_ALL}"
         )
         self._print(f"    {issue.message}")
 
         # Print suggestion if available
         if issue.suggestion:
-            self._print(f"    {Fore.GREEN}→ {issue.suggestion}{Style.RESET_ALL}")  # type: ignore[misc]
+            self._print(f"    {Fore.GREEN}→ {issue.suggestion}{Style.RESET_ALL}")
 
         # Print code snippet if available
         if issue.code_snippet:
-            self._print(f"    {Fore.LIGHTBLACK_EX}{issue.code_snippet}{Style.RESET_ALL}")  # type: ignore[misc]
+            self._print(
+                f"    {Fore.LIGHTBLACK_EX}{issue.code_snippet}{Style.RESET_ALL}"
+            )
 
     def _print_summary(self, result: AnalysisResult) -> None:
         """Print summary statistics."""
-        self._print_header(f"\n{Fore.YELLOW}{'=' * 70}{Style.RESET_ALL}")  # type: ignore[misc]
-        self._print_header(f"{Fore.YELLOW}Summary{Style.RESET_ALL}")  # type: ignore[misc]
-        self._print_header(f"{Fore.YELLOW}{'=' * 70}{Style.RESET_ALL}")  # type: ignore[misc]
+        self._print_header(f"\n{Fore.YELLOW}{'=' * 70}{Style.RESET_ALL}")
+        self._print_header(f"{Fore.YELLOW}Summary{Style.RESET_ALL}")
+        self._print_header(f"{Fore.YELLOW}{'=' * 70}{Style.RESET_ALL}")
 
         total_issues = result.total_issues()
         files_analyzed = result.files_analyzed()
@@ -130,7 +142,7 @@ class ConsoleReporter:
                 if count > 0:
                     color = self._get_severity_color(severity)
                     self._print(
-                        f"  {color}{severity.value.upper()}: {count}{Style.RESET_ALL}"  # type: ignore[misc]
+                        f"  {color}{severity.value.upper()}: {count}{Style.RESET_ALL}"
                     )
 
         # Exit code indicator
@@ -139,18 +151,18 @@ class ConsoleReporter:
             for issue in result.get_all_issues()
         ):
             self._print(
-                f"\n{Fore.RED}⚠ High or medium severity issues found{Style.RESET_ALL}"  # type: ignore[misc]
+                f"\n{Fore.RED}⚠ High or medium severity issues found{Style.RESET_ALL}"
             )
 
     def _get_severity_color(self, severity: Severity) -> str:
         """Get color for severity level."""
-        colors: dict[Severity, str] = {  # type: ignore[misc]
-            Severity.HIGH: Fore.RED,  # type: ignore[misc]
-            Severity.MEDIUM: Fore.YELLOW,  # type: ignore[misc]
-            Severity.LOW: Fore.BLUE,  # type: ignore[misc]
-            Severity.INFO: Fore.CYAN,  # type: ignore[misc]
+        colors: dict[Severity, str] = {
+            Severity.HIGH: str(Fore.RED),
+            Severity.MEDIUM: str(Fore.YELLOW),
+            Severity.LOW: str(Fore.BLUE),
+            Severity.INFO: str(Fore.CYAN),
         }
-        return cast(str, colors.get(severity, ""))  # type: ignore[misc]
+        return colors.get(severity, "")
 
     def _get_severity_icon(self, severity: Severity) -> str:
         """Get icon for severity level."""

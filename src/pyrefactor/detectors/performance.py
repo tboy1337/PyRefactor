@@ -12,7 +12,7 @@ class PerformanceDetector(BaseDetector):
 
     def __init__(self, config: Config, file_path: str, source_lines: list[str]) -> None:
         """Initialize performance detector."""
-        super().__init__(config, file_path, source_lines)  # type: ignore[misc]
+        super().__init__(config, file_path, source_lines)
         self.in_loop = False
         self.loop_stack: list[ast.AST] = []
 
@@ -77,9 +77,11 @@ class PerformanceDetector(BaseDetector):
         # Check for dict.keys() in membership test
         if isinstance(node.func, ast.Attribute):
             if node.func.attr == "keys" and self._is_dict_type(node.func.value):
-                parent = getattr(node, "_parent", None)
-                if isinstance(parent, ast.Compare) and isinstance(
-                    parent.ops[0], ast.In
+                parent: ast.AST | None = getattr(node, "_parent", None)
+                if (
+                    isinstance(parent, ast.Compare)
+                    and parent.ops
+                    and isinstance(parent.ops[0], ast.In)
                 ):
                     self.add_issue(
                         Issue(
@@ -110,12 +112,16 @@ class PerformanceDetector(BaseDetector):
 
         # Check for len() > 0 comparison
         if isinstance(node.func, ast.Name) and node.func.id == "len":
-            parent = getattr(node, "_parent", None)
-            if isinstance(parent, ast.Compare):
-                if any(isinstance(op, (ast.Gt, ast.GtE)) for op in parent.ops):
+            len_parent: ast.AST | None = getattr(node, "_parent", None)
+            if (
+                isinstance(len_parent, ast.Compare)
+                and len_parent.ops
+                and len_parent.comparators
+            ):
+                if any(isinstance(op, (ast.Gt, ast.GtE)) for op in len_parent.ops):
                     if any(
                         isinstance(comp, ast.Constant) and comp.value == 0
-                        for comp in parent.comparators
+                        for comp in len_parent.comparators
                     ):
                         self.add_issue(
                             Issue(
@@ -128,10 +134,10 @@ class PerformanceDetector(BaseDetector):
                                 suggestion="Use 'if container:' instead of 'if len(container) > 0:'",
                             )
                         )
-                elif any(isinstance(op, (ast.Eq, ast.NotEq)) for op in parent.ops):
+                elif any(isinstance(op, (ast.Eq, ast.NotEq)) for op in len_parent.ops):
                     if any(
                         isinstance(comp, ast.Constant) and comp.value == 0
-                        for comp in parent.comparators
+                        for comp in len_parent.comparators
                     ):
                         self.add_issue(
                             Issue(

@@ -30,28 +30,29 @@ class BaseDetector(ast.NodeVisitor, ABC):
     def get_source_line(self, line: int) -> str:
         """Get a specific source line (1-indexed)."""
         if 1 <= line <= len(self.source_lines):
-            return self.source_lines[line - 1]  # type: ignore[misc]
+            return self.source_lines[line - 1]
         return ""
 
     def get_source_snippet(self, start_line: int, end_line: int) -> str:
         """Get a snippet of source code."""
         if start_line < 1 or end_line > len(self.source_lines):
             return ""
-        return "\n".join(self.source_lines[start_line - 1 : end_line])  # type: ignore[misc]
+        return "\n".join(self.source_lines[start_line - 1 : end_line])
 
     def is_suppressed(self, node: ast.AST) -> bool:
         """Check if a node has a suppression comment."""
         if not hasattr(node, "lineno"):
             return False
 
-        line = self.get_source_line(node.lineno)  # type: ignore[misc]
+        lineno: int = node.lineno
+        line = self.get_source_line(lineno)
         # Check for suppression comments
         if "# pyrefactor: ignore" in line or "# noqa" in line:
             return True
 
         # Check previous line for suppression
-        if node.lineno > 1:  # type: ignore[misc]
-            prev_line = self.get_source_line(node.lineno - 1)  # type: ignore[misc]
+        if lineno > 1:
+            prev_line = self.get_source_line(lineno - 1)
             if "# pyrefactor: ignore" in prev_line or "# noqa" in prev_line:
                 return True
 

@@ -3,7 +3,7 @@
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 
 @dataclass
@@ -62,29 +62,34 @@ class Config:
 
     @classmethod
     def from_file(cls, config_path: Path) -> "Config":
-        """Load configuration from a TOML file."""
+        """Load configuration from a TOML file.
+
+        Technical note: This method works with dynamic TOML data which mypy
+        cannot fully type-check. Type ignores are used to suppress Any-related
+        warnings while maintaining runtime safety through try-except handling.
+        """
         try:
             with open(config_path, "rb") as f:
-                data: dict[str, Any] = tomllib.load(f)  # type: ignore[misc]
+                data = tomllib.load(f)  # type: ignore[misc]
 
             # Extract pyrefactor configuration
-            tool_section: dict[str, Any] = data.get("tool", {})  # type: ignore[assignment,misc]
-            pyrefactor_config: dict[str, Any] = tool_section.get("pyrefactor", {})  # type: ignore[assignment,misc]
+            tool_section = data.get("tool", {})  # type: ignore[misc,var-annotated]
+            pyrefactor_config = tool_section.get("pyrefactor", {})  # type: ignore[misc,var-annotated]
 
-            complexity_dict: dict[str, Any] = pyrefactor_config.get("complexity", {})  # type: ignore[assignment,misc]
-            performance_dict: dict[str, Any] = pyrefactor_config.get("performance", {})  # type: ignore[assignment,misc]
-            duplication_dict: dict[str, Any] = pyrefactor_config.get("duplication", {})  # type: ignore[assignment,misc]
-            boolean_dict: dict[str, Any] = pyrefactor_config.get("boolean_logic", {})  # type: ignore[assignment,misc]
-            loops_dict: dict[str, Any] = pyrefactor_config.get("loops", {})  # type: ignore[assignment,misc]
-            exclude_list: list[str] = pyrefactor_config.get("exclude_patterns", [])  # type: ignore[assignment,misc]
+            complexity_dict = pyrefactor_config.get("complexity", {})  # type: ignore[misc,var-annotated]
+            performance_dict = pyrefactor_config.get("performance", {})  # type: ignore[misc,var-annotated]
+            duplication_dict = pyrefactor_config.get("duplication", {})  # type: ignore[misc,var-annotated]
+            boolean_dict = pyrefactor_config.get("boolean_logic", {})  # type: ignore[misc,var-annotated]
+            loops_dict = pyrefactor_config.get("loops", {})  # type: ignore[misc,var-annotated]
+            exclude_list = pyrefactor_config.get("exclude_patterns", [])  # type: ignore[misc,var-annotated]
 
             return cls(
-                complexity=ComplexityConfig(**complexity_dict),  # type: ignore[arg-type,misc]
-                performance=PerformanceConfig(**performance_dict),  # type: ignore[arg-type,misc]
-                duplication=DuplicationConfig(**duplication_dict),  # type: ignore[arg-type,misc]
-                boolean_logic=BooleanLogicConfig(**boolean_dict),  # type: ignore[arg-type,misc]
-                loops=LoopsConfig(**loops_dict),  # type: ignore[arg-type,misc]
-                exclude_patterns=exclude_list,
+                complexity=ComplexityConfig(**complexity_dict),  # type: ignore[misc]
+                performance=PerformanceConfig(**performance_dict),  # type: ignore[misc]
+                duplication=DuplicationConfig(**duplication_dict),  # type: ignore[misc]
+                boolean_logic=BooleanLogicConfig(**boolean_dict),  # type: ignore[misc]
+                loops=LoopsConfig(**loops_dict),  # type: ignore[misc]
+                exclude_patterns=exclude_list,  # type: ignore[misc]
             )
         except FileNotFoundError:
             return cls()
@@ -94,7 +99,7 @@ class Config:
     @classmethod
     def load(cls, config_path: Optional[Path] = None) -> "Config":
         """Load configuration from file or use defaults."""
-        if config_path:
+        if config_path is not None:
             return cls.from_file(config_path)
 
         # Try to find pyproject.toml in current directory

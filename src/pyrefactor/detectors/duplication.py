@@ -15,7 +15,7 @@ class DuplicationDetector(BaseDetector):
 
     def __init__(self, config: Config, file_path: str, source_lines: list[str]) -> None:
         """Initialize duplication detector."""
-        super().__init__(config, file_path, source_lines)  # type: ignore[misc]
+        super().__init__(config, file_path, source_lines)
         self.code_blocks: dict[str, list[tuple[int, int, str]]] = {}
         self.checked = False
 
@@ -69,15 +69,20 @@ class DuplicationDetector(BaseDetector):
 
     def _find_duplicates(self) -> None:
         """Find and report duplicate code blocks."""
+
+        def get_line_number(item: tuple[int, int, str]) -> int:
+            """Extract line number from occurrence tuple."""
+            return item[0]
+
         for _, occurrences in self.code_blocks.items():
             if len(occurrences) > 1:
                 # Sort by line number
-                occurrences.sort(key=lambda x: x[0])
+                sorted_occurrences = sorted(occurrences, key=get_line_number)
 
                 # Report each duplicate (except the first occurrence)
-                first_start, first_end, first_code = occurrences[0]
+                first_start, first_end, first_code = sorted_occurrences[0]
 
-                for start, end, code in occurrences[1:]:
+                for start, end, code in sorted_occurrences[1:]:
                     # Check similarity
                     similarity = self._calculate_similarity(first_code, code)
                     threshold = self.config.duplication.similarity_threshold
