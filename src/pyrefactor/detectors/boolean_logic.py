@@ -1,6 +1,7 @@
 """Boolean logic detector for PyRefactor."""
 
 import ast
+from typing import cast
 
 from ..ast_visitor import BaseDetector
 from ..models import Issue, Severity
@@ -16,7 +17,7 @@ class BooleanLogicDetector(BaseDetector):
         """Return the name of this detector."""
         return "boolean_logic"
 
-    def _create_issue(
+    def _create_issue(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         node: ast.AST,
         severity: Severity,
@@ -27,8 +28,8 @@ class BooleanLogicDetector(BaseDetector):
         """Create an Issue object from common parameters."""
         return Issue(
             file=self.file_path,
-            line=node.lineno,
-            column=node.col_offset,
+            line=cast(int, getattr(node, "lineno", 0)),
+            column=cast(int, getattr(node, "col_offset", 0)),
             severity=severity,
             rule_id=rule_id,
             message=message,

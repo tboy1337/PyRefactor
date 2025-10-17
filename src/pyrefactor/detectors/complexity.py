@@ -38,7 +38,7 @@ class ComplexityDetector(BaseDetector):
         """Return the name of this detector."""
         return "complexity"
 
-    def _create_issue(  # pyrefactor: ignore
+    def _create_issue(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         node: ast.FunctionDef | ast.AsyncFunctionDef,
         severity: Severity,

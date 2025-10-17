@@ -1,6 +1,7 @@
 """Loop optimization detector for PyRefactor."""
 
 import ast
+from typing import cast
 
 from ..ast_visitor import BaseDetector
 from ..models import Issue, Severity
@@ -62,7 +63,7 @@ class LoopsDetector(BaseDetector):
         """Return the name of this detector."""
         return "loops"
 
-    def _create_issue(
+    def _create_issue(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         node: ast.AST,
         severity: Severity,
@@ -73,8 +74,8 @@ class LoopsDetector(BaseDetector):
         """Create an Issue object for loop-related issues."""
         return Issue(
             file=self.file_path,
-            line=node.lineno,
-            column=node.col_offset,
+            line=cast(int, getattr(node, "lineno", 0)),
+            column=cast(int, getattr(node, "col_offset", 0)),
             severity=severity,
             rule_id=rule_id,
             message=message,
@@ -103,30 +104,16 @@ class LoopsDetector(BaseDetector):
 
     def _check_range_len_pattern(self, node: ast.For) -> None:
         """Check for range(len(x)) that should use enumerate."""
-        if not isinstance(node.iter, ast.Call):
+        # Validate the basic pattern structure
+        if not self._is_range_len_call(node):
             return
 
-        if not isinstance(node.iter.func, ast.Name):
+        # Extract the collection being iterated
+        collection = self._extract_collection_from_range_len(node)
+        if collection is None:
             return
 
-        if node.iter.func.id != "range":
-            return
-
-        if not node.iter.args:
-            return
-
-        # Check if argument is len(something)
-        first_arg = node.iter.args[0]
-        if not isinstance(first_arg, ast.Call):
-            return
-
-        if not isinstance(first_arg.func, ast.Name) or first_arg.func.id != "len":
-            return
-
-        if not first_arg.args:
-            return
-
-        collection = first_arg.args[0]
+        # Check if the loop body actually uses indexed access
         if not self._loop_body_accesses_collection(node, collection):
             return
 
@@ -139,6 +126,33 @@ class LoopsDetector(BaseDetector):
                 "Replace 'for i in range(len(items)):' with 'for i, item in enumerate(items):'",
             )
         )
+
+    def _is_range_len_call(self, node: ast.For) -> bool:
+        """Check if the loop uses range(len(...)) pattern."""
+        if not isinstance(node.iter, ast.Call):
+            return False
+
+        if not isinstance(node.iter.func, ast.Name):
+            return False
+
+        return node.iter.func.id == "range" and bool(node.iter.args)
+
+    def _extract_collection_from_range_len(self, node: ast.For) -> ast.AST | None:
+        """Extract the collection from a range(len(...)) call."""
+        if not isinstance(node.iter, ast.Call) or not node.iter.args:
+            return None
+
+        first_arg = node.iter.args[0]
+        if not isinstance(first_arg, ast.Call):
+            return None
+
+        if not isinstance(first_arg.func, ast.Name) or first_arg.func.id != "len":
+            return None
+
+        if not first_arg.args:
+            return None
+
+        return first_arg.args[0]
 
     def _check_manual_index_tracking(self, node: ast.For) -> None:
         """Check for manual index variable incrementation."""
