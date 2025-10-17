@@ -1,6 +1,6 @@
 """Configuration management for PyRefactor."""
 
-import tomllib
+import configparser
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -62,34 +62,91 @@ class Config:
 
     @classmethod
     def from_file(cls, config_path: Path) -> "Config":
-        """Load configuration from a TOML file.
+        """Load configuration from an INI file.
 
-        Technical note: This method works with dynamic TOML data which mypy
+        Technical note: This method works with dynamic INI data which mypy
         cannot fully type-check. Type ignores are used to suppress Any-related
         warnings while maintaining runtime safety through try-except handling.
         """
         try:
-            with open(config_path, "rb") as f:
-                data = tomllib.load(f)  # type: ignore[misc]
+            config = configparser.ConfigParser()
+            config.read(config_path, encoding="utf-8")
 
-            # Extract pyrefactor configuration
-            tool_section = data.get("tool", {})  # type: ignore[misc,var-annotated]
-            pyrefactor_config = tool_section.get("pyrefactor", {})  # type: ignore[misc,var-annotated]
+            # Extract complexity configuration
+            complexity_dict: dict[str, int] = {}
+            if config.has_section("complexity"):
+                for key in [
+                    "max_branches",
+                    "max_nesting_depth",
+                    "max_function_lines",
+                    "max_arguments",
+                    "max_local_variables",
+                    "max_cyclomatic_complexity",
+                ]:
+                    if config.has_option("complexity", key):
+                        complexity_dict[key] = config.getint("complexity", key)
 
-            complexity_dict = pyrefactor_config.get("complexity", {})  # type: ignore[misc,var-annotated]
-            performance_dict = pyrefactor_config.get("performance", {})  # type: ignore[misc,var-annotated]
-            duplication_dict = pyrefactor_config.get("duplication", {})  # type: ignore[misc,var-annotated]
-            boolean_dict = pyrefactor_config.get("boolean_logic", {})  # type: ignore[misc,var-annotated]
-            loops_dict = pyrefactor_config.get("loops", {})  # type: ignore[misc,var-annotated]
-            exclude_list = pyrefactor_config.get("exclude_patterns", [])  # type: ignore[misc,var-annotated]
+            # Extract performance configuration
+            performance_dict: dict[str, bool] = {}
+            if config.has_section("performance"):
+                if config.has_option("performance", "enabled"):
+                    performance_dict["enabled"] = config.getboolean(
+                        "performance", "enabled"
+                    )
+
+            # Extract duplication configuration
+            duplication_dict: dict[str, int | float | bool] = {}
+            if config.has_section("duplication"):
+                if config.has_option("duplication", "enabled"):
+                    duplication_dict["enabled"] = config.getboolean(
+                        "duplication", "enabled"
+                    )
+                if config.has_option("duplication", "min_duplicate_lines"):
+                    duplication_dict["min_duplicate_lines"] = config.getint(
+                        "duplication", "min_duplicate_lines"
+                    )
+                if config.has_option("duplication", "similarity_threshold"):
+                    duplication_dict["similarity_threshold"] = config.getfloat(
+                        "duplication", "similarity_threshold"
+                    )
+
+            # Extract boolean logic configuration
+            boolean_dict: dict[str, int | bool] = {}
+            if config.has_section("boolean_logic"):
+                if config.has_option("boolean_logic", "enabled"):
+                    boolean_dict["enabled"] = config.getboolean(
+                        "boolean_logic", "enabled"
+                    )
+                if config.has_option("boolean_logic", "max_boolean_operators"):
+                    boolean_dict["max_boolean_operators"] = config.getint(
+                        "boolean_logic", "max_boolean_operators"
+                    )
+
+            # Extract loops configuration
+            loops_dict: dict[str, bool] = {}
+            if config.has_section("loops"):
+                if config.has_option("loops", "enabled"):
+                    loops_dict["enabled"] = config.getboolean("loops", "enabled")
+
+            # Extract exclude patterns
+            exclude_list: list[str] = []
+            if config.has_section("general"):
+                if config.has_option("general", "exclude_patterns"):
+                    patterns_str = config.get("general", "exclude_patterns")
+                    # Parse comma-separated patterns
+                    exclude_list = [
+                        pattern.strip()
+                        for pattern in patterns_str.split(",")
+                        if pattern.strip()
+                    ]
 
             return cls(
-                complexity=ComplexityConfig(**complexity_dict),  # type: ignore[misc]
-                performance=PerformanceConfig(**performance_dict),  # type: ignore[misc]
-                duplication=DuplicationConfig(**duplication_dict),  # type: ignore[misc]
-                boolean_logic=BooleanLogicConfig(**boolean_dict),  # type: ignore[misc]
-                loops=LoopsConfig(**loops_dict),  # type: ignore[misc]
-                exclude_patterns=exclude_list,  # type: ignore[misc]
+                complexity=ComplexityConfig(**complexity_dict),
+                performance=PerformanceConfig(**performance_dict),
+                duplication=DuplicationConfig(**duplication_dict),  # type: ignore[arg-type]
+                boolean_logic=BooleanLogicConfig(**boolean_dict),  # type: ignore[arg-type]
+                loops=LoopsConfig(**loops_dict),
+                exclude_patterns=exclude_list,
             )
         except FileNotFoundError:
             return cls()
@@ -102,9 +159,9 @@ class Config:
         if config_path is not None:
             return cls.from_file(config_path)
 
-        # Try to find pyproject.toml in current directory
-        pyproject = Path("pyproject.toml")
-        if pyproject.exists():
-            return cls.from_file(pyproject)
+        # Try to find pyrefactor.ini in current directory
+        ini_file = Path("pyrefactor.ini")
+        if ini_file.exists():
+            return cls.from_file(ini_file)
 
         return cls()

@@ -61,7 +61,7 @@ py -m pyrefactor src/
 py -m pyrefactor file1.py file2.py src/
 
 # Use custom configuration
-py -m pyrefactor --config custom.toml src/
+py -m pyrefactor --config custom.ini src/
 ```
 
 ### Command Line Options
@@ -74,7 +74,7 @@ usage: pyrefactor [-h] [-c CONFIG] [-g {file,severity}]
 
 Options:
   paths                 Python files or directories to analyze
-  -c, --config CONFIG   Path to configuration file (default: pyproject.toml)
+  -c, --config CONFIG   Path to configuration file (default: pyrefactor.ini)
   -g, --group-by {file,severity}
                         Group output by file or severity (default: file)
   --min-severity {info,low,medium,high}
@@ -92,10 +92,10 @@ Options:
 
 ## Configuration
 
-PyRefactor can be configured via a `pyproject.toml` file:
+PyRefactor can be configured via a `pyrefactor.ini` file:
 
-```toml
-[tool.pyrefactor.complexity]
+```ini
+[complexity]
 max_branches = 10
 max_nesting_depth = 3
 max_function_lines = 50
@@ -103,23 +103,23 @@ max_arguments = 5
 max_local_variables = 15
 max_cyclomatic_complexity = 10
 
-[tool.pyrefactor.performance]
+[performance]
 enabled = true
 
-[tool.pyrefactor.duplication]
+[duplication]
 enabled = true
 min_duplicate_lines = 5
 similarity_threshold = 0.85
 
-[tool.pyrefactor.boolean_logic]
+[boolean_logic]
 enabled = true
 max_boolean_operators = 3
 
-[tool.pyrefactor.loops]
+[loops]
 enabled = true
 
-[tool.pyrefactor]
-exclude_patterns = ["test_", "__pycache__", ".venv"]
+[general]
+exclude_patterns = test_*, __pycache__/*, .venv/*
 ```
 
 ## Suppressing Issues
@@ -264,7 +264,7 @@ PyRefactor uses a modular architecture with the following components:
 - **Detectors**: Individual modules for different analysis types
 - **Analyzer**: Orchestrates detectors and manages parallel processing
 - **Reporter**: Formats and displays results
-- **Config**: Manages configuration from TOML files
+- **Config**: Manages configuration from INI files
 
 ## Contributing
 

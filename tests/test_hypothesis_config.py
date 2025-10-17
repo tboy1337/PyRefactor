@@ -226,17 +226,17 @@ class TestConfigLoadingInvariants:
         st.integers(min_value=1, max_value=50),
         st.integers(min_value=1, max_value=10),
     )
-    def test_config_from_toml_with_valid_values(
+    def test_config_from_ini_with_valid_values(
         self, max_branches: int, max_nesting: int
     ) -> None:
-        """Property: Config can be loaded from TOML with valid values."""
-        toml_content = f"""
-[tool.pyrefactor.complexity]
+        """Property: Config can be loaded from INI with valid values."""
+        ini_content = f"""
+[complexity]
 max_branches = {max_branches}
 max_nesting_depth = {max_nesting}
 """
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write(toml_content)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".ini", delete=False) as f:
+            f.write(ini_content)
             temp_path = Path(f.name)
 
         try:
@@ -248,7 +248,7 @@ max_nesting_depth = {max_nesting}
 
     def test_config_from_nonexistent_file_returns_defaults(self) -> None:
         """Property: Loading from non-existent file returns defaults."""
-        config = Config.from_file(Path("/nonexistent/path/to/config.toml"))
+        config = Config.from_file(Path("/nonexistent/path/to/config.ini"))
         default_config = Config()
 
         # Should have default values
@@ -293,14 +293,14 @@ class TestConfigBoundaryValues:
         assert config.max_arguments >= 0
 
 
-class TestConfigTomlParsing:
-    """Test TOML parsing invariants."""
+class TestConfigIniParsing:
+    """Test INI parsing invariants."""
 
-    def test_empty_toml_uses_defaults(self) -> None:
-        """Property: Empty TOML file uses default values."""
-        toml_content = ""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write(toml_content)
+    def test_empty_ini_uses_defaults(self) -> None:
+        """Property: Empty INI file uses default values."""
+        ini_content = ""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".ini", delete=False) as f:
+            f.write(ini_content)
             temp_path = Path(f.name)
 
         try:
@@ -312,14 +312,14 @@ class TestConfigTomlParsing:
         finally:
             temp_path.unlink()
 
-    def test_partial_toml_preserves_unset_defaults(self) -> None:
-        """Property: Partial TOML preserves defaults for unspecified values."""
-        toml_content = """
-[tool.pyrefactor.complexity]
+    def test_partial_ini_preserves_unset_defaults(self) -> None:
+        """Property: Partial INI preserves defaults for unspecified values."""
+        ini_content = """
+[complexity]
 max_branches = 20
 """
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write(toml_content)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".ini", delete=False) as f:
+            f.write(ini_content)
             temp_path = Path(f.name)
 
         try:
@@ -337,11 +337,11 @@ max_branches = 20
         finally:
             temp_path.unlink()
 
-    def test_invalid_toml_raises_error(self) -> None:
-        """Property: Invalid TOML content raises ValueError."""
-        toml_content = "this is not valid { toml"
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write(toml_content)
+    def test_invalid_ini_raises_error(self) -> None:
+        """Property: Invalid INI content raises ValueError."""
+        ini_content = "[complexity\nmax_branches = not_a_number"
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".ini", delete=False) as f:
+            f.write(ini_content)
             temp_path = Path(f.name)
 
         try:
@@ -361,21 +361,18 @@ max_branches = 20
             max_size=5,
         )
     )
-    def test_exclude_patterns_preserved_in_toml(self, patterns: list[str]) -> None:
-        """Property: Exclude patterns are correctly loaded from TOML."""
-        # Format patterns for TOML array - escape backslashes and quotes
-        patterns_str = ", ".join(
-            f'"{p.replace(chr(92), chr(92)*2).replace(chr(34), chr(92)+chr(34))}"'
-            for p in patterns
-        )
-        toml_content = f"""
-[tool.pyrefactor]
-exclude_patterns = [{patterns_str}]
+    def test_exclude_patterns_preserved_in_ini(self, patterns: list[str]) -> None:
+        """Property: Exclude patterns are correctly loaded from INI."""
+        # Format patterns for INI comma-separated list
+        patterns_str = ", ".join(patterns)
+        ini_content = f"""
+[general]
+exclude_patterns = {patterns_str}
 """
         with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", suffix=".toml", delete=False
+            mode="w", encoding="utf-8", suffix=".ini", delete=False
         ) as f:
-            f.write(toml_content)
+            f.write(ini_content)
             temp_path = Path(f.name)
 
         try:

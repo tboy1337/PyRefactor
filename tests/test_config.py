@@ -37,15 +37,15 @@ class TestConfig:
         assert config.complexity.max_branches == 10
 
     def test_load_from_file(self, tmp_path: Path) -> None:
-        """Test loading from a TOML file."""
-        config_file = tmp_path / "pyproject.toml"
+        """Test loading from an INI file."""
+        config_file = tmp_path / "pyrefactor.ini"
         config_file.write_text(
             """
-[tool.pyrefactor.complexity]
+[complexity]
 max_branches = 15
 max_nesting_depth = 4
 
-[tool.pyrefactor.performance]
+[performance]
 enabled = false
 """
         )
@@ -58,15 +58,15 @@ enabled = false
 
     def test_load_invalid_file(self, tmp_path: Path) -> None:
         """Test loading from invalid config file."""
-        config_file = tmp_path / "invalid.toml"
-        config_file.write_text("invalid toml content {{{")
+        config_file = tmp_path / "invalid.ini"
+        config_file.write_text("[complexity\nmax_branches = not_a_number")
 
         with pytest.raises(ValueError, match="Error loading configuration"):
             Config.from_file(config_file)
 
     def test_load_nonexistent_file(self, tmp_path: Path) -> None:
         """Test loading from nonexistent file."""
-        config_file = tmp_path / "nonexistent.toml"
+        config_file = tmp_path / "nonexistent.ini"
 
         config = Config.from_file(config_file)
 

@@ -16,6 +16,9 @@ dependencies = [
 [project.scripts]
 pyrefactor = "pyrefactor.__main__:main"
 
+[tool.setuptools.package-data]
+pyrefactor = ["py.typed"]
+
 [tool.black]
 line-length = 88
 target-version = ['py313']
@@ -24,28 +27,3 @@ target-version = ['py313']
 profile = "black"
 line_length = 88
 
-[tool.pyrefactor]
-# Default configuration for pyrefactor
-
-[tool.pyrefactor.complexity]
-max_branches = 10
-max_nesting_depth = 3
-max_function_lines = 50
-max_arguments = 5
-max_local_variables = 15
-max_cyclomatic_complexity = 10
-
-[tool.pyrefactor.performance]
-enabled = true
-
-[tool.pyrefactor.duplication]
-enabled = true
-min_duplicate_lines = 5
-similarity_threshold = 0.85
-
-[tool.pyrefactor.boolean_logic]
-enabled = true
-max_boolean_operators = 3
-
-[tool.pyrefactor.loops]
-enabled = true
