@@ -27,6 +27,25 @@ class PerformanceDetector(BaseDetector):
         """Return the name of this detector."""
         return "performance"
 
+    def _create_issue(
+        self,
+        node: ast.AST,
+        severity: Severity,
+        rule_id: str,
+        message: str,
+        suggestion: str,
+    ) -> Issue:
+        """Create an Issue object for performance-related issues."""
+        return Issue(
+            file=self.file_path,
+            line=node.lineno,
+            column=node.col_offset,
+            severity=severity,
+            rule_id=rule_id,
+            message=message,
+            suggestion=suggestion,
+        )
+
     def _visit_loop(self, node: ast.For | ast.While) -> None:
         """Consolidated method to track loop entry and exit."""
         self.loop_stack.append(node)
@@ -56,27 +75,23 @@ class PerformanceDetector(BaseDetector):
 
         if self._matches_type_hint(node.target, "string"):
             self.add_issue(
-                Issue(
-                    file=self.file_path,
-                    line=node.lineno,
-                    column=node.col_offset,
-                    severity=Severity.MEDIUM,
-                    rule_id="P001",
-                    message="String concatenation in loop using += is inefficient",
-                    suggestion="Use str.join() with a list or io.StringIO for better performance",
+                self._create_issue(
+                    node,
+                    Severity.MEDIUM,
+                    "P001",
+                    "String concatenation in loop using += is inefficient",
+                    "Use str.join() with a list or io.StringIO for better performance",
                 )
             )
         # Check for list concatenation with +=
         elif self._matches_type_hint(node.target, "list"):
             self.add_issue(
-                Issue(
-                    file=self.file_path,
-                    line=node.lineno,
-                    column=node.col_offset,
-                    severity=Severity.LOW,
-                    rule_id="P002",
-                    message="List concatenation in loop using += may be inefficient",
-                    suggestion="Use list.extend() or list comprehension for better performance",
+                self._create_issue(
+                    node,
+                    Severity.LOW,
+                    "P002",
+                    "List concatenation in loop using += may be inefficient",
+                    "Use list.extend() or list comprehension for better performance",
                 )
             )
         self.generic_visit(node)
@@ -111,15 +126,13 @@ class PerformanceDetector(BaseDetector):
         if not parent.ops or not isinstance(parent.ops[0], ast.In):
             return
 
-        self.add_issue(
-            Issue(
-                file=self.file_path,
-                line=node.lineno,
-                column=node.col_offset,
-                severity=Severity.INFO,
-                rule_id="P003",
-                message="Unnecessary dict.keys() call in membership test",
-                suggestion="Use 'key in dict' instead of 'key in dict.keys()'",
+        self.add_issue(  # pyrefactor: ignore
+            self._create_issue(
+                node,
+                Severity.INFO,
+                "P003",
+                "Unnecessary dict.keys() call in membership test",
+                "Use 'key in dict' instead of 'key in dict.keys()'",
             )
         )
 
@@ -133,20 +146,18 @@ class PerformanceDetector(BaseDetector):
 
         if not node.args or not isinstance(node.args[0], ast.ListComp):
             return
-
+        # pyrefactor: ignore
         self.add_issue(
-            Issue(
-                file=self.file_path,
-                line=node.lineno,
-                column=node.col_offset,
-                severity=Severity.INFO,
-                rule_id="P004",
-                message="Redundant list() conversion of list comprehension",
-                suggestion="List comprehensions already return lists; remove list() wrapper",
+            self._create_issue(
+                node,
+                Severity.INFO,
+                "P004",
+                "Redundant list() conversion of list comprehension",
+                "List comprehensions already return lists; remove list() wrapper",
             )
         )
 
-    def _check_len_usage(self, node: ast.Call) -> None:
+    def _check_len_usage(self, node: ast.Call) -> None:  # pyrefactor: ignore
         """Check for len() calls and their usage patterns."""
         if not isinstance(node.func, ast.Name):
             return
@@ -191,34 +202,32 @@ class PerformanceDetector(BaseDetector):
 
         # Check for > or >= operators
         if any(isinstance(op, (ast.Gt, ast.GtE)) for op in len_parent.ops):
-            rule_id, message, suggestion = (
+            self._add_len_issue(  # pyrefactor: ignore
+                len_call,
                 "P005",
                 "Use truthiness instead of len() > 0",
                 "Use 'if container:' instead of 'if len(container) > 0:'",
             )
         # Check for == or != operators
         elif any(isinstance(op, (ast.Eq, ast.NotEq)) for op in len_parent.ops):
-            rule_id, message, suggestion = (
+            self._add_len_issue(  # pyrefactor: ignore
+                len_call,
                 "P006",
                 "Use truthiness instead of len() == 0",
                 "Use 'if not container:' instead of 'if len(container) == 0:'",
             )
-        else:
-            return
 
+    def _add_len_issue(
+        self, len_call: ast.Call, rule_id: str, message: str, suggestion: str
+    ) -> None:
+        """Add an issue for len() usage patterns."""
         self.add_issue(
-            Issue(
-                file=self.file_path,
-                line=len_call.lineno,
-                column=len_call.col_offset,
-                severity=Severity.INFO,
-                rule_id=rule_id,
-                message=message,
-                suggestion=suggestion,
-            )
+            self._create_issue(len_call, Severity.INFO, rule_id, message, suggestion)
         )
 
-    def _matches_type_hint(self, node: ast.AST, type_name: str) -> bool:
+    def _matches_type_hint(
+        self, node: ast.AST, type_name: str
+    ) -> bool:  # pyrefactor: ignore
         """Check if a node likely matches a given type based on naming heuristics.
 
         Args:

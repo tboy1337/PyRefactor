@@ -16,6 +16,25 @@ class BooleanLogicDetector(BaseDetector):
         """Return the name of this detector."""
         return "boolean_logic"
 
+    def _create_issue(
+        self,
+        node: ast.AST,
+        severity: Severity,
+        rule_id: str,
+        message: str,
+        suggestion: str,
+    ) -> Issue:
+        """Create an Issue object from common parameters."""
+        return Issue(
+            file=self.file_path,
+            line=node.lineno,
+            column=node.col_offset,
+            severity=severity,
+            rule_id=rule_id,
+            message=message,
+            suggestion=suggestion,
+        )
+
     def visit_BoolOp(self, node: ast.BoolOp) -> None:
         """Check for complex boolean operations."""
         if self.is_suppressed(node):
@@ -28,14 +47,12 @@ class BooleanLogicDetector(BaseDetector):
 
         if operator_count > max_operators:
             self.add_issue(
-                Issue(
-                    file=self.file_path,
-                    line=node.lineno,
-                    column=node.col_offset,
-                    severity=Severity.MEDIUM,
-                    rule_id="B001",
-                    message=f"Complex boolean expression with {operator_count} operators (max {max_operators})",
-                    suggestion="Extract boolean sub-expressions to named variables for clarity",
+                self._create_issue(
+                    node,
+                    Severity.MEDIUM,
+                    "B001",
+                    f"Complex boolean expression with {operator_count} operators (max {max_operators})",
+                    "Extract boolean sub-expressions to named variables for clarity",
                 )
             )
 
@@ -91,28 +108,18 @@ class BooleanLogicDetector(BaseDetector):
             )
         )
         self.add_issue(
-            Issue(
-                file=self.file_path,
-                line=node.lineno,
-                column=node.col_offset,
-                severity=Severity.INFO,
-                rule_id=rule_id,
-                message=message,
-                suggestion=suggestion,
-            )
+            self._create_issue(node, Severity.INFO, rule_id, message, suggestion)
         )
 
     def _report_boolean_is(self, node: ast.Compare) -> None:
         """Report issues with boolean 'is' comparisons."""
         self.add_issue(
-            Issue(
-                file=self.file_path,
-                line=node.lineno,
-                column=node.col_offset,
-                severity=Severity.MEDIUM,
-                rule_id="B004",
-                message="Using 'is' for boolean comparison",
-                suggestion="Use '==' for value comparison or use the boolean directly",
+            self._create_issue(
+                node,
+                Severity.MEDIUM,
+                "B004",
+                "Using 'is' for boolean comparison",
+                "Use '==' for value comparison or use the boolean directly",
             )
         )
 
@@ -148,14 +155,12 @@ class BooleanLogicDetector(BaseDetector):
             if isinstance(first_stmt, (ast.Return, ast.Raise)):
                 if nesting_count >= self.MIN_NESTING_FOR_EARLY_RETURN:
                     self.add_issue(
-                        Issue(
-                            file=self.file_path,
-                            line=node.lineno,
-                            column=node.col_offset,
-                            severity=Severity.MEDIUM,
-                            rule_id="B005",
-                            message=f"Deeply nested if statements ({nesting_count} levels) with early exit",
-                            suggestion="Use guard clauses with early returns to reduce nesting",
+                        self._create_issue(
+                            node,
+                            Severity.MEDIUM,
+                            "B005",
+                            f"Deeply nested if statements ({nesting_count} levels) with early exit",
+                            "Use guard clauses with early returns to reduce nesting",
                         )
                     )
             break
@@ -175,14 +180,12 @@ class BooleanLogicDetector(BaseDetector):
                     else ("B007", "Replace 'not (a or b)' with 'not a and not b'")
                 )
                 self.add_issue(
-                    Issue(
-                        file=self.file_path,
-                        line=node.lineno,
-                        column=node.col_offset,
-                        severity=Severity.INFO,
-                        rule_id=rule_id,
-                        message="Complex negation can be simplified using De Morgan's law",
-                        suggestion=suggestion,
+                    self._create_issue(
+                        node,
+                        Severity.INFO,
+                        rule_id,
+                        "Complex negation can be simplified using De Morgan's law",
+                        suggestion,
                     )
                 )
 

@@ -118,3 +118,29 @@ def func2():
 
         # Should detect as duplicates despite whitespace differences
         assert len(issues) > 0
+
+    def test_suppression_comment(self, default_config: Config) -> None:
+        """Test that suppression comments prevent duplication detection."""
+        source = """
+def func1():
+    x = 1
+    y = 2
+    z = 3
+    result = x + y + z
+    return result
+# pyrefactor: ignore
+def func2():
+    x = 1
+    y = 2
+    z = 3
+    result = x + y + z
+    return result
+"""
+        tree = ast.parse(source)
+        lines = source.split("\n")
+
+        detector = DuplicationDetector(default_config, "test.py", lines)
+        issues = detector.analyze(tree)
+
+        # Should not detect duplication due to suppression comment
+        assert len(issues) == 0

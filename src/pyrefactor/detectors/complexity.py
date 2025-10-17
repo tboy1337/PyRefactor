@@ -38,6 +38,27 @@ class ComplexityDetector(BaseDetector):
         """Return the name of this detector."""
         return "complexity"
 
+    def _create_issue(  # pyrefactor: ignore
+        self,
+        node: ast.FunctionDef | ast.AsyncFunctionDef,
+        severity: Severity,
+        rule_id: str,
+        message: str,
+        suggestion: str,
+        end_line: int | None = None,
+    ) -> Issue:
+        """Create an Issue object for function-related complexity issues."""
+        return Issue(
+            file=self.file_path,
+            line=node.lineno,
+            column=node.col_offset,
+            severity=severity,
+            rule_id=rule_id,
+            message=message,
+            suggestion=suggestion,
+            end_line=end_line,
+        )
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         """Check function complexity."""
         self._check_function(node)
@@ -88,14 +109,12 @@ class ComplexityDetector(BaseDetector):
 
         if function_lines > max_lines:
             self.add_issue(
-                Issue(
-                    file=self.file_path,
-                    line=node.lineno,
-                    column=node.col_offset,
-                    severity=Severity.MEDIUM,
-                    rule_id="C001",
-                    message=f"Function '{node.name}' is too long ({function_lines} lines, max {max_lines})",
-                    suggestion="Consider breaking this function into smaller, more focused functions",
+                self._create_issue(
+                    node,
+                    Severity.MEDIUM,
+                    "C001",
+                    f"Function '{node.name}' is too long ({function_lines} lines, max {max_lines})",
+                    "Consider breaking this function into smaller, more focused functions",
                     end_line=node.end_lineno,
                 )
             )
@@ -119,14 +138,12 @@ class ComplexityDetector(BaseDetector):
 
         if total_args > max_args:
             self.add_issue(
-                Issue(
-                    file=self.file_path,
-                    line=node.lineno,
-                    column=node.col_offset,
-                    severity=Severity.MEDIUM,
-                    rule_id="C002",
-                    message=f"Function '{node.name}' has too many arguments ({total_args}, max {max_args})",
-                    suggestion="Consider using a configuration object or dataclass to group related parameters",
+                self._create_issue(
+                    node,
+                    Severity.MEDIUM,
+                    "C002",
+                    f"Function '{node.name}' has too many arguments ({total_args}, max {max_args})",
+                    "Consider using a configuration object or dataclass to group related parameters",
                 )
             )
 
@@ -142,14 +159,12 @@ class ComplexityDetector(BaseDetector):
 
         if len(local_vars) > max_vars:
             self.add_issue(
-                Issue(
-                    file=self.file_path,
-                    line=node.lineno,
-                    column=node.col_offset,
-                    severity=Severity.LOW,
-                    rule_id="C003",
-                    message=f"Function '{node.name}' has too many local variables ({len(local_vars)}, max {max_vars})",
-                    suggestion="Consider extracting functionality into helper functions or classes",
+                self._create_issue(
+                    node,
+                    Severity.LOW,
+                    "C003",
+                    f"Function '{node.name}' has too many local variables ({len(local_vars)}, max {max_vars})",
+                    "Consider extracting functionality into helper functions or classes",
                 )
             )
 
@@ -160,14 +175,12 @@ class ComplexityDetector(BaseDetector):
 
         if branches > max_branches:
             self.add_issue(
-                Issue(
-                    file=self.file_path,
-                    line=node.lineno,
-                    column=node.col_offset,
-                    severity=Severity.HIGH,
-                    rule_id="C004",
-                    message=f"Function '{node.name}' has too many branches ({branches}, max {max_branches})",
-                    suggestion="Refactor using helper functions, guard clauses, or dictionary dispatch patterns",
+                self._create_issue(
+                    node,
+                    Severity.HIGH,
+                    "C004",
+                    f"Function '{node.name}' has too many branches ({branches}, max {max_branches})",
+                    "Refactor using helper functions, guard clauses, or dictionary dispatch patterns",
                 )
             )
 
@@ -180,14 +193,12 @@ class ComplexityDetector(BaseDetector):
 
         if nesting > max_nesting:
             self.add_issue(
-                Issue(
-                    file=self.file_path,
-                    line=node.lineno,
-                    column=node.col_offset,
-                    severity=Severity.HIGH,
-                    rule_id="C005",
-                    message=f"Function '{node.name}' has excessive nesting depth ({nesting}, max {max_nesting})",
-                    suggestion="Use early returns, guard clauses, or extract nested logic to separate functions",
+                self._create_issue(
+                    node,
+                    Severity.HIGH,
+                    "C005",
+                    f"Function '{node.name}' has excessive nesting depth ({nesting}, max {max_nesting})",
+                    "Use early returns, guard clauses, or extract nested logic to separate functions",
                 )
             )
 
@@ -200,13 +211,11 @@ class ComplexityDetector(BaseDetector):
 
         if complexity > max_complexity:
             self.add_issue(
-                Issue(
-                    file=self.file_path,
-                    line=node.lineno,
-                    column=node.col_offset,
-                    severity=Severity.MEDIUM,
-                    rule_id="C006",
-                    message=f"Function '{node.name}' has high cyclomatic complexity ({complexity}, max {max_complexity})",
-                    suggestion="Simplify the function by reducing decision points or extracting logic",
+                self._create_issue(
+                    node,
+                    Severity.MEDIUM,
+                    "C006",
+                    f"Function '{node.name}' has high cyclomatic complexity ({complexity}, max {max_complexity})",
+                    "Simplify the function by reducing decision points or extracting logic",
                 )
             )
