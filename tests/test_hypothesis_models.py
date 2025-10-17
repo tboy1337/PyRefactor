@@ -1,7 +1,7 @@
 """Property-based tests for data models using Hypothesis."""
 
 import pytest
-from hypothesis import assume, given
+from hypothesis import given
 from hypothesis import strategies as st
 
 from pyrefactor.models import AnalysisResult, FileAnalysis, Issue, Severity
@@ -105,11 +105,14 @@ class TestSeverityProperties:
     @given(severity_strategy())
     def test_severity_equal_to_itself(self, severity: Severity) -> None:
         """Property: A severity is always equal to itself."""
-        assert severity == severity
-        assert severity <= severity
-        assert severity >= severity
-        assert not severity < severity
-        assert not severity > severity
+        # Test equality
+        assert severity == severity  # pylint: disable=comparison-with-itself
+        # Test ordering with itself
+        assert severity <= severity  # pylint: disable=comparison-with-itself
+        assert severity >= severity  # pylint: disable=comparison-with-itself
+        # These should be False for self-comparison
+        assert not severity < severity  # pylint: disable=comparison-with-itself
+        assert not severity > severity  # pylint: disable=comparison-with-itself
 
     @given(severity_strategy(), severity_strategy())
     def test_severity_ordering_transitivity(self, s1: Severity, s2: Severity) -> None:
@@ -124,7 +127,7 @@ class TestSeverityProperties:
     @given(severity_strategy(), severity_strategy())
     def test_severity_ordering_antisymmetry(self, s1: Severity, s2: Severity) -> None:
         """Property: If s1 <= s2 and s2 <= s1, then s1 == s2."""
-        if s1 <= s2 and s2 <= s1:
+        if s1 <= s2 <= s1:
             assert s1 == s2
 
     @given(severity_strategy(), severity_strategy(), severity_strategy())
@@ -132,7 +135,7 @@ class TestSeverityProperties:
         self, s1: Severity, s2: Severity, s3: Severity
     ) -> None:
         """Property: If s1 < s2 and s2 < s3, then s1 < s3."""
-        if s1 < s2 and s2 < s3:
+        if s1 < s2 < s3:
             assert s1 < s3
 
     @given(severity_strategy())

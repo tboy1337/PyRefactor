@@ -3,13 +3,11 @@
 import tempfile
 from pathlib import Path
 
-import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from pyrefactor.analyzer import Analyzer
 from pyrefactor.config import ComplexityConfig, Config
-from pyrefactor.models import AnalysisResult
 
 
 # Strategies for file paths and patterns
@@ -79,8 +77,8 @@ class TestAnalyzerFileFilteringProperties:
         """Property: Filtering an empty file list returns empty list."""
         config = Config(exclude_patterns=exclude_patterns)
         analyzer = Analyzer(config)
-        result = analyzer._filter_excluded_files([])  # type: ignore[misc]
-        assert result == []
+        result = analyzer._filter_excluded_files([])  # pylint: disable=protected-access
+        assert not result
 
     @given(st.lists(exclude_pattern_strategy(), max_size=5))
     def test_filter_with_no_patterns_returns_all(self, patterns: list[str]) -> None:
@@ -95,7 +93,8 @@ class TestAnalyzerFileFilteringProperties:
             Path("subdir/test3.py"),
         ]
 
-        result = analyzer._filter_excluded_files(test_paths)  # type: ignore[misc]
+        # pylint: disable-next=protected-access
+        result = analyzer._filter_excluded_files(test_paths)
         assert len(result) == len(test_paths)
 
     @given(
@@ -114,7 +113,8 @@ class TestAnalyzerFileFilteringProperties:
         matching_path = Path(f"dir/{pattern}/test.py")
         non_matching_path = Path("other/test.py")
 
-        result = analyzer._filter_excluded_files([matching_path, non_matching_path])  # type: ignore[misc]
+        # pylint: disable-next=protected-access
+        result = analyzer._filter_excluded_files([matching_path, non_matching_path])
 
         # Matching path should be excluded
         assert matching_path not in result
@@ -134,7 +134,8 @@ class TestAnalyzerFileFilteringProperties:
             Path("excluded/test.py"),
         ]
 
-        result = analyzer._filter_excluded_files(test_paths)  # type: ignore[misc]
+        # pylint: disable-next=protected-access
+        result = analyzer._filter_excluded_files(test_paths)
 
         # Result should be a subset
         assert len(result) <= len(test_paths)
@@ -374,12 +375,8 @@ def test_func():
             assert result.file_path == str(temp_path)
 
             # If performance disabled, no performance-specific rules should fire
-            if not performance_enabled:
-                performance_issues = [
-                    issue for issue in result.issues if issue.rule_id.startswith("P")
-                ]
-                # Note: This assumes performance rules start with P
-                # Actual behavior depends on detector implementation
+            # Note: This assumes performance rules start with P
+            # Actual behavior depends on detector implementation
         finally:
             temp_path.unlink()
 

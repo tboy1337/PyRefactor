@@ -238,14 +238,16 @@ class TestSeverityColorProperties:
     def test_get_severity_color_returns_string(self, severity: Severity) -> None:
         """Property: Color getter always returns a string."""
         reporter = ConsoleReporter()
-        color = reporter._get_severity_color(severity)  # type: ignore[misc]
+        # pylint: disable-next=protected-access
+        color = reporter._get_severity_color(severity)
         assert isinstance(color, str)
 
     @given(severity_strategy())
     def test_get_severity_icon_returns_string(self, severity: Severity) -> None:
         """Property: Icon getter always returns a string."""
         reporter = ConsoleReporter()
-        icon = reporter._get_severity_icon(severity)  # type: ignore[misc]
+        # pylint: disable-next=protected-access
+        icon = reporter._get_severity_icon(severity)
         assert isinstance(icon, str)
         assert len(icon) > 0
 
@@ -253,14 +255,16 @@ class TestSeverityColorProperties:
         """Property: All severity levels have defined colors."""
         reporter = ConsoleReporter()
         for severity in [Severity.INFO, Severity.LOW, Severity.MEDIUM, Severity.HIGH]:
-            color = reporter._get_severity_color(severity)  # type: ignore[misc]
+            # pylint: disable-next=protected-access
+            color = reporter._get_severity_color(severity)
             assert isinstance(color, str)
 
     def test_all_severities_have_icons(self) -> None:
         """Property: All severity levels have defined icons."""
         reporter = ConsoleReporter()
         for severity in [Severity.INFO, Severity.LOW, Severity.MEDIUM, Severity.HIGH]:
-            icon = reporter._get_severity_icon(severity)  # type: ignore[misc]
+            # pylint: disable-next=protected-access
+            icon = reporter._get_severity_icon(severity)
             assert isinstance(icon, str)
             assert len(icon) > 0
 
@@ -341,8 +345,8 @@ class TestIssueOutputProperties:
             # Suggestion should appear in output
             assert (
                 any(
-                    issue.suggestion[i : i + 5] in output_str  # type: ignore[index]
-                    for i in range(len(issue.suggestion) - 5)  # type: ignore[arg-type]
+                    issue.suggestion[i : i + 5] in output_str
+                    for i in range(len(issue.suggestion) - 5)
                 )
                 or issue.suggestion in output_str
             )
@@ -381,7 +385,8 @@ class TestReportGroupingProperties:
         reporter1 = ConsoleReporter(output=output1)
         reporter2 = ConsoleReporter(output=output2)
 
-        reporter1.report(result, group_by="invalid_grouping")  # type: ignore[arg-type]
+        # Testing invalid input - should default to file grouping
+        reporter1.report(result, group_by="invalid_grouping")  # Intentional test
         reporter2.report(result, group_by="file")
 
         # Both should produce output (same behavior)

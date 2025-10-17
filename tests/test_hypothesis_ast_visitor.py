@@ -2,8 +2,7 @@
 
 import ast
 
-import pytest
-from hypothesis import assume, given
+from hypothesis import given
 from hypothesis import strategies as st
 
 from pyrefactor.ast_visitor import (
@@ -440,7 +439,6 @@ def test_func():
         try:
             func = parse_function(code)
             complexity = calculate_cyclomatic_complexity(func)
-            branches = count_branches(func)
 
             # Complexity starts at 1 (base), branches start at 0
             # For simple if statements without else, complexity should be >= branches

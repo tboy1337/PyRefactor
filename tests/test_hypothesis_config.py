@@ -197,7 +197,7 @@ class TestConfigProperties:
         config = Config()
         assert isinstance(config.complexity, ComplexityConfig)
         assert isinstance(config.performance, PerformanceConfig)
-        assert config.exclude_patterns == []
+        assert not config.exclude_patterns
 
     @given(config_strategy())
     def test_config_complexity_thresholds_consistent(self, config: Config) -> None:

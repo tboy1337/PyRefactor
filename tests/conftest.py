@@ -1,8 +1,8 @@
 """Pytest configuration and fixtures."""
 
 import ast
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -87,7 +87,7 @@ def test_function():
 
 
 @pytest.fixture
-def parse_code() -> Any:
+def parse_code() -> Callable[[str], ast.Module]:
     """Provide a function to parse Python code."""
 
     def _parse(code: str) -> ast.Module:
