@@ -69,15 +69,10 @@ class DuplicationDetector(BaseDetector):
 
     def _find_duplicates(self) -> None:
         """Find and report duplicate code blocks."""
-
-        def get_line_number(item: tuple[int, int, str]) -> int:
-            """Extract line number from occurrence tuple."""
-            return item[0]
-
         for _, occurrences in self.code_blocks.items():
             if len(occurrences) > 1:
                 # Sort by line number
-                sorted_occurrences = sorted(occurrences, key=get_line_number)
+                sorted_occurrences = sorted(occurrences, key=lambda item: item[0])
 
                 # Report each duplicate (except the first occurrence)
                 first_start, first_end, first_code = sorted_occurrences[0]

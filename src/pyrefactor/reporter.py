@@ -48,27 +48,20 @@ class ConsoleReporter:
 
     def _report_by_file(self, result: AnalysisResult) -> None:
         """Report issues grouped by file."""
-
-        def get_issue_line(issue: Issue) -> int:
-            """Extract line number from issue."""
-            return issue.line
-
         for analysis in result.file_analyses:
             if analysis.parse_error:
-                self._print_error(
-                    f"\n{Fore.RED}✗ {analysis.file_path}{Style.RESET_ALL}"
-                )
-                self._print_error(f"  Parse error: {analysis.parse_error}")
+                self._print(f"\n{Fore.RED}✗ {analysis.file_path}{Style.RESET_ALL}")
+                self._print(f"  Parse error: {analysis.parse_error}")
                 continue
 
             if not analysis.issues:
                 continue
 
             # Print file header
-            self._print_header(f"\n{Fore.CYAN}{analysis.file_path}{Style.RESET_ALL}")
+            self._print(f"\n{Fore.CYAN}{analysis.file_path}{Style.RESET_ALL}")
 
             # Sort issues by line number
-            sorted_issues = sorted(analysis.issues, key=get_issue_line)
+            sorted_issues = sorted(analysis.issues, key=lambda issue: issue.line)
 
             # Print each issue
             for issue in sorted_issues:
@@ -76,11 +69,6 @@ class ConsoleReporter:
 
     def _report_by_severity(self, result: AnalysisResult) -> None:
         """Report issues grouped by severity."""
-
-        def get_issue_file_and_line(issue: Issue) -> tuple[str, int]:
-            """Extract file and line from issue for sorting."""
-            return (issue.file, issue.line)
-
         issues_by_severity: dict[Severity, list[Issue]] = defaultdict(list)
 
         for issue in result.get_all_issues():
@@ -93,12 +81,12 @@ class ConsoleReporter:
                 continue
 
             color = self._get_severity_color(severity)
-            self._print_header(
+            self._print(
                 f"\n{color}{severity.value.upper()} Severity Issues{Style.RESET_ALL}"
             )
 
             # Sort by file and line
-            sorted_issues = sorted(issues, key=get_issue_file_and_line)
+            sorted_issues = sorted(issues, key=lambda issue: (issue.file, issue.line))
 
             for issue in sorted_issues:
                 self._print_issue(issue, include_file=True)
@@ -133,9 +121,9 @@ class ConsoleReporter:
 
     def _print_summary(self, result: AnalysisResult) -> None:
         """Print summary statistics."""
-        self._print_header(f"\n{Fore.YELLOW}{'=' * 70}{Style.RESET_ALL}")
-        self._print_header(f"{Fore.YELLOW}Summary{Style.RESET_ALL}")
-        self._print_header(f"{Fore.YELLOW}{'=' * 70}{Style.RESET_ALL}")
+        self._print(f"\n{Fore.YELLOW}{'=' * 70}{Style.RESET_ALL}")
+        self._print(f"{Fore.YELLOW}Summary{Style.RESET_ALL}")
+        self._print(f"{Fore.YELLOW}{'=' * 70}{Style.RESET_ALL}")
 
         total_issues = result.total_issues()
         files_analyzed = result.files_analyzed()
@@ -180,7 +168,3 @@ class ConsoleReporter:
     def _print(self, message: str) -> None:
         """Print a message to output."""
         print(message, file=self.output)
-
-    # Alias methods for semantic clarity
-    _print_header = _print
-    _print_error = _print

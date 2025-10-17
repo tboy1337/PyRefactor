@@ -11,6 +11,26 @@ from ..ast_visitor import (
 from ..models import Issue, Severity
 
 
+class LocalVarVisitor(ast.NodeVisitor):
+    """Visitor to count local variables in a function."""
+
+    def __init__(self) -> None:
+        self.vars: set[str] = set()
+
+    def visit_Name(self, name_node: ast.Name) -> None:
+        """Track variable assignments."""
+        if isinstance(name_node.ctx, ast.Store):
+            self.vars.add(name_node.id)
+
+    def visit_FunctionDef(self, func_node: ast.FunctionDef) -> None:
+        """Don't descend into nested functions."""
+        ...
+
+    def visit_AsyncFunctionDef(self, func_node: ast.AsyncFunctionDef) -> None:
+        """Don't descend into nested async functions."""
+        ...
+
+
 class ComplexityDetector(BaseDetector):
     """Detects complexity issues in code."""
 
@@ -119,27 +139,6 @@ class ComplexityDetector(BaseDetector):
         self, node: ast.FunctionDef | ast.AsyncFunctionDef
     ) -> None:
         """Check if function has too many local variables."""
-        local_vars: set[str] = set()
-
-        class LocalVarVisitor(ast.NodeVisitor):
-            """Visitor to count local variables."""
-
-            def __init__(self) -> None:
-                self.vars: set[str] = set()
-
-            def visit_Name(self, name_node: ast.Name) -> None:
-                """Track variable assignments."""
-                if isinstance(name_node.ctx, ast.Store):
-                    self.vars.add(name_node.id)
-
-            def visit_FunctionDef(self, func_node: ast.FunctionDef) -> None:
-                """Don't descend into nested functions."""
-                ...
-
-            def visit_AsyncFunctionDef(self, func_node: ast.AsyncFunctionDef) -> None:
-                """Don't descend into nested async functions."""
-                ...
-
         visitor = LocalVarVisitor()
         visitor.visit(node)
         local_vars = visitor.vars

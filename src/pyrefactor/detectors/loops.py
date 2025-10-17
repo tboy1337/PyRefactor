@@ -6,6 +6,50 @@ from ..ast_visitor import BaseDetector
 from ..models import Issue, Severity
 
 
+class IndexTracker(ast.NodeVisitor):
+    """Track manual index increments in loops."""
+
+    def __init__(self) -> None:
+        self.manual_indices: set[str] = set()
+
+    def visit_AugAssign(self, aug_node: ast.AugAssign) -> None:
+        """Track += operations."""
+        if isinstance(aug_node.target, ast.Name):
+            if isinstance(aug_node.op, ast.Add):
+                if isinstance(aug_node.value, ast.Constant):
+                    if aug_node.value.value == 1:
+                        self.manual_indices.add(aug_node.target.id)
+
+
+class InvariantChecker(ast.NodeVisitor):
+    """Check for loop-invariant computations."""
+
+    def __init__(self, var_name: str) -> None:
+        self.var_name = var_name
+        self.invariant_calls: list[ast.Call] = []
+
+    def visit_Call(self, call_node: ast.Call) -> None:
+        """Check if call depends on loop variable."""
+        if not self._depends_on_var(call_node):
+            # Check if it's a potentially expensive call
+            if isinstance(call_node.func, ast.Attribute):
+                if call_node.func.attr in (
+                    "compile",
+                    "search",
+                    "match",
+                    "split",
+                ):
+                    self.invariant_calls.append(call_node)
+        self.generic_visit(call_node)
+
+    def _depends_on_var(self, node: ast.AST) -> bool:
+        """Check if node uses the loop variable."""
+        for child in ast.walk(node):
+            if isinstance(child, ast.Name) and child.id == self.var_name:
+                return True
+        return False
+
+
 class LoopsDetector(BaseDetector):
     """Detects loop optimization opportunities."""
 
@@ -69,23 +113,6 @@ class LoopsDetector(BaseDetector):
 
     def _check_manual_index_tracking(self, node: ast.For) -> None:
         """Check for manual index variable incrementation."""
-        # Look for pattern where an index is manually incremented in loop
-
-        class IndexTracker(ast.NodeVisitor):
-            """Track manual index increments."""
-
-            def __init__(self) -> None:
-                self.manual_indices: set[str] = set()
-                self.initialized: set[str] = set()
-
-            def visit_AugAssign(self, aug_node: ast.AugAssign) -> None:
-                """Track += operations."""
-                if isinstance(aug_node.target, ast.Name):
-                    if isinstance(aug_node.op, ast.Add):
-                        if isinstance(aug_node.value, ast.Constant):
-                            if aug_node.value.value == 1:
-                                self.manual_indices.add(aug_node.target.id)
-
         tracker = IndexTracker()
         for stmt in node.body:
             tracker.visit(stmt)
@@ -137,35 +164,6 @@ class LoopsDetector(BaseDetector):
             return
 
         loop_var_name = loop_var.id
-
-        class InvariantChecker(ast.NodeVisitor):
-            """Check for loop-invariant computations."""
-
-            def __init__(self, var_name: str) -> None:
-                self.var_name = var_name
-                self.invariant_calls: list[ast.Call] = []
-
-            def visit_Call(self, call_node: ast.Call) -> None:
-                """Check if call depends on loop variable."""
-                if not self._depends_on_var(call_node):
-                    # Check if it's a potentially expensive call
-                    if isinstance(call_node.func, ast.Attribute):
-                        if call_node.func.attr in (
-                            "compile",
-                            "search",
-                            "match",
-                            "split",
-                        ):
-                            self.invariant_calls.append(call_node)
-                self.generic_visit(call_node)
-
-            def _depends_on_var(self, node: ast.AST) -> bool:
-                """Check if node uses the loop variable."""
-                for child in ast.walk(node):
-                    if isinstance(child, ast.Name) and child.id == self.var_name:
-                        return True
-                return False
-
         checker = InvariantChecker(loop_var_name)
         for stmt in node.body:
             checker.visit(stmt)

@@ -30,6 +30,15 @@ class Args:
     version: bool
 
 
+# Class-level constant for severity mapping to avoid recreation
+SEVERITY_MAP: dict[str, Severity] = {
+    "info": Severity.INFO,
+    "low": Severity.LOW,
+    "medium": Severity.MEDIUM,
+    "high": Severity.HIGH,
+}
+
+
 def parse_arguments() -> Args:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -164,13 +173,7 @@ def _analyze_files_safely(
 
 def _get_min_severity(severity_str: str) -> Severity:
     """Get Severity enum from string."""
-    severity_map: dict[str, Severity] = {
-        "info": Severity.INFO,
-        "low": Severity.LOW,
-        "medium": Severity.MEDIUM,
-        "high": Severity.HIGH,
-    }
-    return severity_map[severity_str]
+    return SEVERITY_MAP[severity_str]
 
 
 def _filter_by_severity(result: AnalysisResult, min_severity: Severity) -> None:

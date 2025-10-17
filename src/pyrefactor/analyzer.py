@@ -26,6 +26,32 @@ class Analyzer:
         """Initialize analyzer with configuration."""
         self.config = config
 
+    def _create_detectors(
+        self, file_path: str, source_lines: list[str]
+    ) -> list[BaseDetector]:
+        """Create all enabled detectors for a file.
+
+        Factory method to consolidate detector initialization and reduce duplication.
+        """
+        detectors: list[BaseDetector] = []
+
+        # Complexity detector (always enabled)
+        detectors.append(ComplexityDetector(self.config, file_path, source_lines))
+
+        # Conditionally enabled detectors
+        detector_configs = [
+            (self.config.performance.enabled, PerformanceDetector),
+            (self.config.boolean_logic.enabled, BooleanLogicDetector),
+            (self.config.loops.enabled, LoopsDetector),
+            (self.config.duplication.enabled, DuplicationDetector),
+        ]
+
+        for enabled, detector_class in detector_configs:
+            if enabled:
+                detectors.append(detector_class(self.config, file_path, source_lines))
+
+        return detectors
+
     def analyze_file(self, file_path: Path) -> FileAnalysis:
         """Analyze a single Python file."""
         analysis = FileAnalysis(file_path=str(file_path))
@@ -43,39 +69,8 @@ class Analyzer:
                 analysis.parse_error = f"Syntax error: {e}"
                 return analysis
 
-            # Run all enabled detectors
-            detectors: list[BaseDetector] = []
-
-            # Complexity detector (always enabled)
-            detectors.append(
-                ComplexityDetector(self.config, str(file_path), source_lines)
-            )
-
-            # Performance detector
-            if self.config.performance.enabled:
-                detectors.append(
-                    PerformanceDetector(self.config, str(file_path), source_lines)
-                )
-
-            # Boolean logic detector
-            if self.config.boolean_logic.enabled:
-                detectors.append(
-                    BooleanLogicDetector(self.config, str(file_path), source_lines)
-                )
-
-            # Loops detector
-            if self.config.loops.enabled:
-                detectors.append(
-                    LoopsDetector(self.config, str(file_path), source_lines)
-                )
-
-            # Duplication detector
-            if self.config.duplication.enabled:
-                detectors.append(
-                    DuplicationDetector(self.config, str(file_path), source_lines)
-                )
-
-            # Run each detector
+            # Create and run all enabled detectors
+            detectors = self._create_detectors(str(file_path), source_lines)
             self._run_detectors(detectors, tree, analysis, file_path)
 
         except Exception as e:

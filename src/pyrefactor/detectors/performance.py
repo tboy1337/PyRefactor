@@ -20,21 +20,21 @@ class PerformanceDetector(BaseDetector):
         """Return the name of this detector."""
         return "performance"
 
-    def visit_For(self, node: ast.For) -> None:
-        """Track when we're inside a loop."""
+    def _visit_loop(self, node: ast.For | ast.While) -> None:
+        """Consolidated method to track loop entry and exit."""
         self.loop_stack.append(node)
         self.in_loop = True
         self.generic_visit(node)
         self.loop_stack.pop()
         self.in_loop = len(self.loop_stack) > 0
 
+    def visit_For(self, node: ast.For) -> None:
+        """Track when we're inside a for loop."""
+        self._visit_loop(node)
+
     def visit_While(self, node: ast.While) -> None:
         """Track when we're inside a while loop."""
-        self.loop_stack.append(node)
-        self.in_loop = True
-        self.generic_visit(node)
-        self.loop_stack.pop()
-        self.in_loop = len(self.loop_stack) > 0
+        self._visit_loop(node)
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         """Check for inefficient augmented assignments in loops."""

@@ -79,10 +79,7 @@ class AnalysisResult:
 
     def get_all_issues(self) -> list[Issue]:
         """Get all issues from all files."""
-        issues: list[Issue] = []
-        for analysis in self.file_analyses:
-            issues.extend(analysis.issues)
-        return issues
+        return [issue for analysis in self.file_analyses for issue in analysis.issues]
 
     def get_issues_by_severity(self, severity: Severity) -> list[Issue]:
         """Get all issues matching a specific severity."""
