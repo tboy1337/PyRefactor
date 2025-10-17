@@ -3,8 +3,10 @@
 import argparse
 import logging
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
+from . import __version__
 from .analyzer import Analyzer
 from .config import Config
 from .models import AnalysisResult, Severity
@@ -15,6 +17,7 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
+@dataclass
 class Args:
     """Type-safe argument namespace."""
 
@@ -98,22 +101,22 @@ Exit Codes:
 
     namespace = parser.parse_args()
     # Convert to our typed class
-    args = Args()
-    args.paths = namespace.paths
-    args.config = namespace.config
-    args.group_by = namespace.group_by
-    args.min_severity = namespace.min_severity
-    args.jobs = namespace.jobs
-    args.verbose = namespace.verbose
-    args.version = namespace.version
-    return args
+    # Note: argparse returns Any type for namespace attributes
+    return Args(
+        paths=namespace.paths,  # type: ignore[misc]
+        config=namespace.config,  # type: ignore[misc]
+        group_by=namespace.group_by,  # type: ignore[misc]
+        min_severity=namespace.min_severity,  # type: ignore[misc]
+        jobs=namespace.jobs,  # type: ignore[misc]
+        verbose=namespace.verbose,  # type: ignore[misc]
+        version=namespace.version,  # type: ignore[misc]
+    )
 
 
 def _handle_version(args: Args) -> int | None:
     """Handle version flag. Returns exit code if version flag is set, None otherwise."""
     if args.version:
-        version = "1.0.0"
-        print(f"PyRefactor version {version}")
+        print(f"PyRefactor version {__version__}")
         return 0
     return None
 

@@ -15,6 +15,21 @@ init(autoreset=True)
 class ConsoleReporter:
     """Reporter that outputs results to console."""
 
+    # Class-level constants for severity styling
+    SEVERITY_COLORS: dict[Severity, str] = {
+        Severity.HIGH: Fore.RED,
+        Severity.MEDIUM: Fore.YELLOW,
+        Severity.LOW: Fore.BLUE,
+        Severity.INFO: Fore.CYAN,
+    }
+
+    SEVERITY_ICONS: dict[Severity, str] = {
+        Severity.HIGH: "✗",
+        Severity.MEDIUM: "⚠",
+        Severity.LOW: "ℹ",
+        Severity.INFO: "→",
+    }
+
     def __init__(self, output: TextIO = sys.stdout) -> None:
         """Initialize reporter with output stream."""
         self.output = output
@@ -156,32 +171,16 @@ class ConsoleReporter:
 
     def _get_severity_color(self, severity: Severity) -> str:
         """Get color for severity level."""
-        colors: dict[Severity, str] = {
-            Severity.HIGH: str(Fore.RED),
-            Severity.MEDIUM: str(Fore.YELLOW),
-            Severity.LOW: str(Fore.BLUE),
-            Severity.INFO: str(Fore.CYAN),
-        }
-        return colors.get(severity, "")
+        return self.SEVERITY_COLORS.get(severity, "")
 
     def _get_severity_icon(self, severity: Severity) -> str:
         """Get icon for severity level."""
-        icons = {
-            Severity.HIGH: "✗",
-            Severity.MEDIUM: "⚠",
-            Severity.LOW: "ℹ",
-            Severity.INFO: "→",
-        }
-        return icons.get(severity, "•")
+        return self.SEVERITY_ICONS.get(severity, "•")
 
     def _print(self, message: str) -> None:
         """Print a message to output."""
         print(message, file=self.output)
 
-    def _print_header(self, message: str) -> None:
-        """Print a header message."""
-        print(message, file=self.output)
-
-    def _print_error(self, message: str) -> None:
-        """Print an error message."""
-        print(message, file=self.output)
+    # Alias methods for semantic clarity
+    _print_header = _print
+    _print_error = _print

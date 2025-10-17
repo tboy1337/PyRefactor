@@ -1,10 +1,12 @@
 """Data models for PyRefactor."""
 
+import functools
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
 
+@functools.total_ordering
 class Severity(Enum):
     """Severity levels for detected issues."""
 
@@ -17,19 +19,6 @@ class Severity(Enum):
         """Compare severity levels."""
         order = [Severity.INFO, Severity.LOW, Severity.MEDIUM, Severity.HIGH]
         return order.index(self) < order.index(other)
-
-    def __le__(self, other: "Severity") -> bool:
-        """Compare severity levels (less than or equal)."""
-        return self == other or self < other
-
-    def __gt__(self, other: "Severity") -> bool:
-        """Compare severity levels (greater than)."""
-        order = [Severity.INFO, Severity.LOW, Severity.MEDIUM, Severity.HIGH]
-        return order.index(self) > order.index(other)
-
-    def __ge__(self, other: "Severity") -> bool:
-        """Compare severity levels (greater than or equal)."""
-        return self == other or self > other
 
 
 @dataclass

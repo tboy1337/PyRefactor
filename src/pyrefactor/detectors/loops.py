@@ -191,29 +191,17 @@ class LoopsDetector(BaseDetector):
             return False
 
         index_var = loop_node.target.id
+        collection_dump = ast.dump(collection)
 
-        class AccessChecker(ast.NodeVisitor):
-            """Check for indexed access to collection."""
-
-            def __init__(self, idx_var: str, coll: ast.AST) -> None:
-                self.index_var = idx_var
-                self.collection = coll
-                self.has_indexed_access = False
-
-            def visit_Subscript(self, sub_node: ast.Subscript) -> None:
-                """Check for collection[index] pattern."""
-                if isinstance(sub_node.slice, ast.Name):
-                    if sub_node.slice.id == self.index_var:
-                        # Check if value matches collection
-                        if ast.dump(sub_node.value) == ast.dump(self.collection):
-                            self.has_indexed_access = True
-                self.generic_visit(sub_node)
-
-        checker = AccessChecker(index_var, collection)
-        for stmt in loop_node.body:
-            checker.visit(stmt)
-
-        return checker.has_indexed_access
+        # Check if any subscript in the loop body matches the pattern collection[index]
+        return any(
+            isinstance(node, ast.Subscript)
+            and isinstance(node.slice, ast.Name)
+            and node.slice.id == index_var
+            and ast.dump(node.value) == collection_dump
+            for stmt in loop_node.body
+            for node in ast.walk(stmt)
+        )
 
     def visit_While(self, node: ast.While) -> None:
         """Check while loops for optimization opportunities."""

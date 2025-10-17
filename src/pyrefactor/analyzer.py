@@ -164,14 +164,10 @@ class Analyzer:
         if not self.config.exclude_patterns:
             return files
 
-        filtered: list[Path] = []
-        for file_path in files:
-            excluded = False
-            for pattern in self.config.exclude_patterns:
-                if pattern in str(file_path):
-                    excluded = True
-                    break
-            if not excluded:
-                filtered.append(file_path)
-
-        return filtered
+        return [
+            file_path
+            for file_path in files
+            if not any(
+                pattern in str(file_path) for pattern in self.config.exclude_patterns
+            )
+        ]
