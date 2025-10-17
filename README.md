@@ -1,44 +1,60 @@
 # PyRefactor
 
-A comprehensive Python refactoring and optimization linter that detects code quality issues beyond what traditional linters catch. PyRefactor focuses on identifying refactoring opportunities, performance anti-patterns, and optimization suggestions.
+A powerful Python refactoring and optimization linter that analyzes your code for performance issues, complexity problems, and opportunities for improvement.
+
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+
+## Overview
+
+PyRefactor uses Abstract Syntax Tree (AST) analysis to identify code patterns that can be refactored for better performance, readability, and maintainability. It provides actionable insights with severity levels and detailed explanations for each detected issue.
 
 ## Features
 
-### Complexity Detection
-- Functions with excessive branches (>10 by default)
-- Deep nesting levels (>3 by default)
-- Long functions (>50 lines by default)
-- Too many function arguments (>5 by default)
-- Too many local variables (>15 by default)
-- High cyclomatic complexity (>10 by default)
+- **Multi-threaded Analysis**: Analyze multiple files in parallel for faster results
+- **Configurable Detectors**: Enable or disable specific detectors based on your needs
+- **Severity Levels**: Issues categorized as INFO, LOW, MEDIUM, or HIGH severity
+- **Multiple Output Formats**: Group results by file or severity level
+- **Flexible Configuration**: Configure via `pyproject.toml`, custom config files, or command-line arguments
+- **Cross-platform**: Works on Windows, macOS, and Linux
 
-### Performance Anti-Patterns
-- String concatenation in loops (suggest `str.join()`)
-- List concatenation in loops (suggest `list.extend()`)
-- Inefficient dictionary key checks (suggest `in dict` instead of `in dict.keys()`)
-- Redundant list conversions
-- Using `len() > 0` instead of truthiness checks
+## Detectors
 
-### Boolean Logic Simplification
-- Complex boolean expressions (>3 operators)
-- Redundant boolean comparisons (`x == True`)
-- De Morgan's law simplification opportunities
-- Early return opportunities in nested conditions
+PyRefactor includes the following specialized detectors:
 
-### Loop Optimization
-- `range(len())` patterns that should use `enumerate()`
-- Manual index tracking in loops
-- Nested loops that could benefit from dictionary lookups
-- Loop-invariant code that should be hoisted
+### Complexity Detector
+Identifies functions and methods with high cyclomatic complexity that should be refactored for better maintainability.
 
-### Code Duplication
-- Identical code blocks (>5 lines by default)
-- Similar code with minor variations
-- Token-based similarity analysis
+### Performance Detector
+Finds performance anti-patterns including:
+- Inefficient string concatenation in loops
+- Multiple function calls that could be cached
+- Inefficient list operations
+- Unnecessary comprehensions
+
+### Boolean Logic Detector
+Detects overcomplicated boolean expressions and suggests simplifications:
+- Complex conditional chains
+- Redundant boolean operations
+- Opportunities for boolean algebra simplification
+
+### Loops Detector
+Identifies loop-related issues:
+- Nested loops that could be optimized
+- Loop invariant code that should be hoisted
+- Loops that could be replaced with comprehensions or built-in functions
+
+### Duplication Detector
+Finds duplicated code blocks that should be extracted into reusable functions.
 
 ## Installation
 
-```bash
+### From Source
+
+```powershell
+# Clone the repository
+git clone https://github.com/tboy1337/PyRefactor.git
+cd PyRefactor
+
 # Install dependencies
 py -m pip install -r requirements.txt
 
@@ -46,241 +62,206 @@ py -m pip install -r requirements.txt
 py -m pip install -e .
 ```
 
+### Requirements
+
+- Python 3.13 or higher
+- colorama (for colored console output)
+
 ## Usage
 
 ### Basic Usage
 
-```bash
+```powershell
 # Analyze a single file
-py -m pyrefactor myfile.py
+pyrefactor myfile.py
 
 # Analyze a directory
-py -m pyrefactor src/
+pyrefactor src/
 
 # Analyze multiple files
-py -m pyrefactor file1.py file2.py src/
+pyrefactor file1.py file2.py src/module.py
 
-# Use custom configuration
-py -m pyrefactor --config custom.ini src/
+# Analyze with custom configuration
+pyrefactor --config custom.toml src/
 ```
 
-### Command Line Options
+### Command-line Options
 
 ```
-usage: pyrefactor [-h] [-c CONFIG] [-g {file,severity}]
-                  [--min-severity {info,low,medium,high}]
-                  [-j JOBS] [-v] [--version]
-                  paths [paths ...]
-
-Options:
+positional arguments:
   paths                 Python files or directories to analyze
-  -c, --config CONFIG   Path to configuration file (default: pyrefactor.ini)
-  -g, --group-by {file,severity}
+
+options:
+  -h, --help            show this help message and exit
+  -c CONFIG, --config CONFIG
+                        Path to configuration file (default: pyproject.toml)
+  -g {file,severity}, --group-by {file,severity}
                         Group output by file or severity (default: file)
   --min-severity {info,low,medium,high}
                         Minimum severity level to report (default: info)
-  -j, --jobs JOBS       Number of parallel jobs (default: 4)
+  -j JOBS, --jobs JOBS  Number of parallel jobs (default: 4)
   -v, --verbose         Enable verbose logging
   --version             Show version and exit
 ```
 
+### Examples
+
+```powershell
+# Show only HIGH and MEDIUM severity issues
+pyrefactor --min-severity medium src/
+
+# Group results by severity level
+pyrefactor --group-by severity src/
+
+# Use 8 parallel workers for faster analysis
+pyrefactor --jobs 8 large_project/
+
+# Verbose output with detailed logging
+pyrefactor -v src/
+```
+
 ### Exit Codes
 
-- `0` - No issues or only INFO/LOW severity issues
+PyRefactor uses the following exit codes:
+
+- `0` - No issues found, or only INFO/LOW severity issues
 - `1` - MEDIUM or HIGH severity issues found
-- `2` - Error during analysis
+- `2` - Error during analysis (syntax errors, invalid paths, etc.)
+
+This makes PyRefactor suitable for use in CI/CD pipelines where you can fail builds based on code quality issues.
 
 ## Configuration
 
-PyRefactor can be configured via a `pyrefactor.ini` file:
+PyRefactor can be configured using a TOML configuration file. By default, it looks for configuration in `pyproject.toml` or a file specified with `--config`.
 
-```ini
-[complexity]
-max_branches = 10
-max_nesting_depth = 3
-max_function_lines = 50
-max_arguments = 5
-max_local_variables = 15
-max_cyclomatic_complexity = 10
+### Example Configuration
 
-[performance]
+```toml
+[tool.pyrefactor]
+# Patterns to exclude from analysis
+exclude_patterns = [
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".git",
+    "build",
+    "dist",
+]
+
+[tool.pyrefactor.complexity]
+# Maximum allowed cyclomatic complexity
+max_complexity = 10
+
+[tool.pyrefactor.performance]
 enabled = true
+# Minimum number of string concatenations to report
+min_concatenations = 3
+# Minimum number of duplicate calls to report
+min_duplicate_calls = 3
 
-[duplication]
+[tool.pyrefactor.boolean_logic]
 enabled = true
-min_duplicate_lines = 5
-similarity_threshold = 0.85
+# Minimum depth of nested boolean expressions to report
+min_depth = 3
 
-[boolean_logic]
+[tool.pyrefactor.loops]
 enabled = true
-max_boolean_operators = 3
+# Maximum allowed nesting depth for loops
+max_nesting = 3
 
-[loops]
+[tool.pyrefactor.duplication]
 enabled = true
-
-[general]
-exclude_patterns = test_*, __pycache__/*, .venv/*
+# Minimum number of lines for a code block to be considered for duplication detection
+min_lines = 5
+# Minimum similarity threshold (0.0 to 1.0)
+similarity_threshold = 0.8
 ```
 
-## Suppressing Issues
+### Configuration File Location
 
-Use inline comments to suppress specific issues:
+PyRefactor searches for configuration in the following order:
 
-```python
-def long_function():  # pyrefactor: ignore
-    # This function is intentionally long
-    pass
+1. Path specified with `--config` option
+2. `pyproject.toml` in the current directory
+3. `pyrefactor.ini` in the current directory
+4. Default configuration values
 
-for i in range(len(items)):  # noqa
-    print(items[i])
+## Integration
+
+### Pre-commit Hook
+
+Add PyRefactor to your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: pyrefactor
+        name: PyRefactor
+        entry: pyrefactor
+        language: system
+        types: [python]
+        args: [--min-severity=medium]
 ```
 
-## Rule Reference
+### CI/CD Integration
 
-### Complexity Rules (C)
+#### GitHub Actions
 
-- **C001**: Function too long
-- **C002**: Too many arguments
-- **C003**: Too many local variables
-- **C004**: Too many branches
-- **C005**: Excessive nesting depth
-- **C006**: High cyclomatic complexity
+```yaml
+name: Code Quality
 
-### Performance Rules (P)
+on: [push, pull_request]
 
-- **P001**: String concatenation in loop
-- **P002**: List concatenation in loop
-- **P003**: Unnecessary dict.keys() call
-- **P004**: Redundant list() conversion
-- **P005**: Use truthiness instead of len() > 0
-- **P006**: Use truthiness instead of len() == 0
-
-### Boolean Logic Rules (B)
-
-- **B001**: Complex boolean expression
-- **B002**: Redundant comparison with True
-- **B003**: Redundant comparison with False
-- **B004**: Using 'is' for boolean comparison
-- **B005**: Deeply nested if statements with early exit
-- **B006**: Complex negation (De Morgan's law - and)
-- **B007**: Complex negation (De Morgan's law - or)
-
-### Loop Rules (L)
-
-- **L001**: Use enumerate() instead of range(len())
-- **L002**: Manual index tracking
-- **L003**: Nested loops with comparisons
-- **L004**: Loop-invariant code
-
-### Duplication Rules (D)
-
-- **D001**: Duplicate code block
-
-## Examples
-
-### Before and After
-
-**Before:**
-```python
-def process_items(item_list, user_id, admin_flag, debug_mode, log_level, cache):
-    result_str = ""
-    for i in range(len(item_list)):
-        if len(item_list[i]) > 0:
-            if admin_flag == True:
-                if user_id in cache.keys():
-                    result_str += str(item_list[i])
-    return result_str
+jobs:
+  pyrefactor:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+      - name: Install dependencies
+        run: |
+          py -m pip install --upgrade pip
+          py -m pip install pyrefactor
+      - name: Run PyRefactor
+        run: pyrefactor --min-severity medium src/
 ```
 
-**Issues Detected:**
-- C002: Too many arguments (6, max 5)
-- P001: String concatenation in loop
-- P005: Use truthiness instead of len() > 0
-- P003: Unnecessary dict.keys() call
-- B002: Redundant comparison with True
-- L001: Use enumerate() instead of range(len())
+## Troubleshooting
 
-**After:**
-```python
-def process_items(item_list, context):
-    if not (context.admin_flag and context.user_id in context.cache):
-        return ""
+### Common Issues
 
-    return ", ".join(
-        str(item)
-        for item in item_list
-        if item
-    )
-```
+**Issue**: `ModuleNotFoundError: No module named 'pyrefactor'`
 
-## Development
+**Solution**: Make sure PyRefactor is installed: `py -m pip install -e .`
 
-### Running Tests
+---
 
-```bash
-# Run all tests
-py -m pytest
+**Issue**: Syntax errors when analyzing Python 3.12 or older code
 
-# Run with coverage
-py -m pytest --cov=src/pyrefactor --cov-report=html
+**Solution**: PyRefactor requires Python 3.13+. Ensure your environment is using Python 3.13 or newer.
 
-# Run specific test file
-py -m pytest tests/test_complexity_detector.py
+---
 
-# Run in parallel
-py -m pytest -n auto
-```
+**Issue**: Analysis is slow on large codebases
 
-### Code Quality
-
-```bash
-# Run mypy
-py -m mypy src/pyrefactor
-
-# Run pylint
-py -m pylint src/pyrefactor > pylint_output.txt
-
-# Run black
-py -m black src/ tests/
-
-# Run isort
-py -m isort src/ tests/
-
-# Remove trailing whitespace
-py -m autopep8 --in-place --select=W291,W293 src/ tests/
-```
-
-### Running PyRefactor on Itself
-
-```bash
-py -m pyrefactor src/pyrefactor/
-```
-
-## Architecture
-
-PyRefactor uses a modular architecture with the following components:
-
-- **AST Visitors**: Traverse Python's Abstract Syntax Tree to analyze code
-- **Detectors**: Individual modules for different analysis types
-- **Analyzer**: Orchestrates detectors and manages parallel processing
-- **Reporter**: Formats and displays results
-- **Config**: Manages configuration from INI files
+**Solution**: Increase the number of parallel workers: `pyrefactor --jobs 8 src/`
 
 ## Contributing
 
-Contributions are welcome! Please ensure:
+Contributions are welcome! Please note that this project is under a Commercial Restricted License (CRL). For commercial use, please contact the copyright holder.
 
-1. All tests pass
-2. Code coverage remains >90%
-3. Mypy type checking passes with strict settings
-4. Pylint reports no errors
-5. Code is formatted with black and isort
+### Guidelines
+
+1. Follow the existing code style (Black, isort)
+2. Add tests for new features
+3. Ensure all tests pass and coverage remains >95%
+4. Update documentation as needed
+5. Run type checking and linting before submitting
 
 ## License
 
-Copyright 2025 tboy1337
-
-## Author
-
-tboy1337
-
+This project is licensed under the CRL license - see [LICENSE.md](LICENSE.md) for details.
