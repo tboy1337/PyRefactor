@@ -82,11 +82,9 @@ class DuplicationDetector(BaseDetector):
                 )
 
                 # Report each duplicate (except the first occurrence)
-                first_start, first_end, first_code, first_normalized = (
-                    sorted_occurrences[0]
-                )
+                first_start, first_end, _, first_normalized = sorted_occurrences[0]
 
-                for start, end, code, normalized in sorted_occurrences[1:]:
+                for start, end, _, normalized in sorted_occurrences[1:]:
                     # Check similarity using already-normalized code
                     similarity = self._calculate_similarity_from_normalized(
                         first_normalized, normalized
