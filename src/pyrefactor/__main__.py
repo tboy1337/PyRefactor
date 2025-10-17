@@ -36,7 +36,7 @@ Exit Codes:
 
     parser.add_argument(
         "paths",
-        nargs="+",
+        nargs="*",
         type=Path,
         help="Python files or directories to analyze",
     )
@@ -97,6 +97,11 @@ def main() -> int:
         version = "1.0.0"
         print(f"PyRefactor version {version}")
         return 0
+
+    # Check if paths were provided
+    if not args.paths:
+        logger.error("No paths provided")
+        return 2
 
     # Configure logging
     verbose_flag: bool = args.verbose

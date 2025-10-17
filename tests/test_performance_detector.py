@@ -117,3 +117,106 @@ for item in items:
         issues = detector.analyze(tree)
 
         assert len(issues) == 0
+
+    def test_while_loop_tracking(self, default_config: Config) -> None:
+        """Test that while loops are tracked for performance issues."""
+        source = """
+result_str = ""
+while condition:
+    result_str += "text"
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert len(issues) > 0
+        assert any(issue.rule_id == "P001" for issue in issues)
+
+    def test_dict_keys_in_membership_test(self, default_config: Config) -> None:
+        """Test detection of dict.keys() in membership test."""
+        source = """
+if key in my_dict.keys():
+    pass
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert len(issues) > 0
+        assert any(issue.rule_id == "P003" for issue in issues)
+        assert any("dict.keys()" in issue.message for issue in issues)
+
+    def test_call_suppression(self, default_config: Config) -> None:
+        """Test suppression of call warnings."""
+        source = """
+result = list([x for x in range(10)])  # pyrefactor: ignore
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert len(issues) == 0
+
+    def test_non_string_augassign(self, default_config: Config) -> None:
+        """Test that non-string augassign doesn't trigger string warning."""
+        source = """
+result = 0
+for item in items:
+    result += item
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        # Should not trigger P001 (not a string operation)
+        assert not any(issue.rule_id == "P001" for issue in issues)
+
+    def test_non_list_augassign(self, default_config: Config) -> None:
+        """Test that non-list augassign doesn't trigger list warning."""
+        source = """
+result = 0
+for item in items:
+    result += 1
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        # Should not trigger P002 (not a list operation)
+        assert not any(issue.rule_id == "P002" for issue in issues)
+
+    def test_non_dict_keys_call(self, default_config: Config) -> None:
+        """Test that non-dict.keys() calls don't trigger warning."""
+        source = """
+if key in something.keys():
+    pass
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        # Should not trigger P003 (not a dict type based on name)
+        assert not any(issue.rule_id == "P003" for issue in issues)
+
+    def test_nested_loops(self, default_config: Config) -> None:
+        """Test that nested loops are tracked correctly."""
+        source = """
+result_str = ""
+for i in range(10):
+    for j in range(10):
+        result_str += str(i)
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        # Should detect string concatenation in nested loop
+        assert len(issues) > 0
+        assert any(issue.rule_id == "P001" for issue in issues)

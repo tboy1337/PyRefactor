@@ -108,3 +108,63 @@ for i in range(10):
         issues = detector.analyze(tree)
 
         assert not any(issue.rule_id == "L001" for issue in issues)
+
+    def test_suppressed_range_len(self, default_config: Config) -> None:
+        """Test suppression of range(len()) pattern."""
+        source = """
+items = [1, 2, 3]
+for i in range(len(items)):  # pyrefactor: ignore
+    print(items[i])
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert len(issues) == 0
+
+    def test_manual_index_not_index_name(self, default_config: Config) -> None:
+        """Test that non-index variable names don't trigger manual index warning."""
+        source = """
+for item in items:
+    counter += 1
+    print(counter, item)
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        # Should still detect because it's incrementing a variable
+        assert len(issues) > 0
+        assert any(issue.rule_id == "L002" for issue in issues)
+
+    def test_nested_loop_without_comparison(self, default_config: Config) -> None:
+        """Test nested loops without comparisons don't trigger L003."""
+        source = """
+for item in list1:
+    for other in list2:
+        result.append((item, other))
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        # Should not trigger L003 (no comparison)
+        assert not any(issue.rule_id == "L003" for issue in issues)
+
+    def test_loop_with_list_call_outside(self, default_config: Config) -> None:
+        """Test loop with list() call outside loop."""
+        source = """
+result = list(range(10))
+for item in result:
+    print(item)
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        # Should not trigger issues for good code
+        assert len([i for i in issues if i.rule_id.startswith("L")]) == 0

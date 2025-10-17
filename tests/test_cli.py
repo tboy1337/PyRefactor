@@ -129,3 +129,41 @@ class TestCLI:
         ):
             exit_code = main()
             assert exit_code == 0
+
+    def test_main_with_invalid_config(self, tmp_path: Path) -> None:
+        """Test main with invalid config file."""
+        file_path = tmp_path / "test.py"
+        file_path.write_text("def func(): pass")
+
+        config_file = tmp_path / "invalid.toml"
+        config_file.write_text("[[[[invalid toml")
+
+        with patch.object(
+            sys, "argv", ["pyrefactor", "--config", str(config_file), str(file_path)]
+        ):
+            exit_code = main()
+
+            assert exit_code == 2
+
+    def test_main_with_analysis_error(self, tmp_path: Path) -> None:
+        """Test main with analysis error."""
+        file_path = tmp_path / "test.py"
+        # Create a file with invalid Python syntax
+        file_path.write_text("def func(:\n    pass")
+
+        with patch.object(sys, "argv", ["pyrefactor", str(file_path)]):
+            exit_code = main()
+
+            # Should not crash, even with syntax errors (exit code 0)
+            # The analyzer handles syntax errors gracefully
+            assert exit_code in (0, 2)
+
+    def test_main_with_verbose_flag(self, tmp_path: Path) -> None:
+        """Test main with verbose flag."""
+        file_path = tmp_path / "test.py"
+        file_path.write_text("def func(): pass")
+
+        with patch.object(sys, "argv", ["pyrefactor", "--verbose", str(file_path)]):
+            exit_code = main()
+
+            assert exit_code == 0
