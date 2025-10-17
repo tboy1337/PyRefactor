@@ -1,0 +1,180 @@
+"""Boolean logic detector for PyRefactor."""
+
+import ast
+from typing import Any
+
+from ..ast_visitor import BaseDetector
+from ..models import Issue, Severity
+
+
+class BooleanLogicDetector(BaseDetector):
+    """Detects complex boolean logic that can be simplified."""
+
+    def get_detector_name(self) -> str:
+        """Return the name of this detector."""
+        return "boolean_logic"
+
+    def visit_BoolOp(self, node: ast.BoolOp) -> None:
+        """Check for complex boolean operations."""
+        if self.is_suppressed(node):
+            self.generic_visit(node)
+            return
+
+        # Count total operators in the expression
+        operator_count = self._count_operators(node)
+        max_operators = self.config.boolean_logic.max_boolean_operators
+
+        if operator_count > max_operators:
+            self.add_issue(
+                Issue(
+                    file=self.file_path,
+                    line=node.lineno,
+                    column=node.col_offset,
+                    severity=Severity.MEDIUM,
+                    rule_id="B001",
+                    message=f"Complex boolean expression with {operator_count} operators (max {max_operators})",
+                    suggestion="Extract boolean sub-expressions to named variables for clarity",
+                )
+            )
+
+        self.generic_visit(node)
+
+    def visit_Compare(self, node: ast.Compare) -> None:
+        """Check for redundant boolean comparisons."""
+        if self.is_suppressed(node):
+            self.generic_visit(node)
+            return
+
+        # Check for comparison with True/False
+        for i, comparator in enumerate(node.comparators):
+            if isinstance(comparator, ast.Constant) and isinstance(
+                comparator.value, bool
+            ):
+                op = node.ops[i]
+                if isinstance(op, ast.Eq):
+                    if comparator.value:
+                        self.add_issue(
+                            Issue(
+                                file=self.file_path,
+                                line=node.lineno,
+                                column=node.col_offset,
+                                severity=Severity.INFO,
+                                rule_id="B002",
+                                message="Redundant comparison with True",
+                                suggestion="Remove '== True' and use the boolean expression directly",
+                            )
+                        )
+                    else:
+                        self.add_issue(
+                            Issue(
+                                file=self.file_path,
+                                line=node.lineno,
+                                column=node.col_offset,
+                                severity=Severity.INFO,
+                                rule_id="B003",
+                                message="Redundant comparison with False",
+                                suggestion="Use 'not expr' instead of 'expr == False'",
+                            )
+                        )
+                elif isinstance(op, ast.Is):
+                    self.add_issue(
+                        Issue(
+                            file=self.file_path,
+                            line=node.lineno,
+                            column=node.col_offset,
+                            severity=Severity.MEDIUM,
+                            rule_id="B004",
+                            message="Using 'is' for boolean comparison",
+                            suggestion="Use '==' for value comparison or use the boolean directly",
+                        )
+                    )
+
+        self.generic_visit(node)
+
+    def visit_If(self, node: ast.If) -> None:
+        """Check for opportunities to use early returns."""
+        if self.is_suppressed(node):
+            self.generic_visit(node)
+            return
+
+        # Check for nested if statements that could use early returns
+        if self.current_function:
+            self._check_early_return_opportunity(node)
+
+        self.generic_visit(node)
+
+    def _check_early_return_opportunity(self, node: ast.If) -> None:
+        """Check if nested ifs could benefit from early returns."""
+        # Look for pattern: if x: if y: if z: return
+        nesting_count = 0
+        current: ast.AST = node
+
+        while isinstance(current, ast.If):
+            nesting_count += 1
+            # Check if body contains only another If or a return
+            if len(current.body) == 1:
+                if isinstance(current.body[0], ast.If):
+                    current = current.body[0]
+                    continue
+                elif isinstance(current.body[0], (ast.Return, ast.Raise)):
+                    if nesting_count >= 3:
+                        self.add_issue(
+                            Issue(
+                                file=self.file_path,
+                                line=node.lineno,
+                                column=node.col_offset,
+                                severity=Severity.MEDIUM,
+                                rule_id="B005",
+                                message=f"Deeply nested if statements ({nesting_count} levels) with early exit",
+                                suggestion="Use guard clauses with early returns to reduce nesting",
+                            )
+                        )
+                    break
+            break
+
+    def visit_UnaryOp(self, node: ast.UnaryOp) -> None:
+        """Check for De Morgan's law opportunities."""
+        if self.is_suppressed(node):
+            self.generic_visit(node)
+            return
+
+        # Check for not (a and b) or not (a or b)
+        if isinstance(node.op, ast.Not) and isinstance(node.operand, ast.BoolOp):
+            if isinstance(node.operand.op, ast.And):
+                self.add_issue(
+                    Issue(
+                        file=self.file_path,
+                        line=node.lineno,
+                        column=node.col_offset,
+                        severity=Severity.INFO,
+                        rule_id="B006",
+                        message="Complex negation can be simplified using De Morgan's law",
+                        suggestion="Replace 'not (a and b)' with 'not a or not b'",
+                    )
+                )
+            elif isinstance(node.operand.op, ast.Or):
+                self.add_issue(
+                    Issue(
+                        file=self.file_path,
+                        line=node.lineno,
+                        column=node.col_offset,
+                        severity=Severity.INFO,
+                        rule_id="B007",
+                        message="Complex negation can be simplified using De Morgan's law",
+                        suggestion="Replace 'not (a or b)' with 'not a and not b'",
+                    )
+                )
+
+        self.generic_visit(node)
+
+    def _count_operators(self, node: ast.BoolOp) -> int:
+        """Count the number of boolean operators in an expression."""
+        count = len(node.values) - 1  # n values = n-1 operators
+
+        # Recursively count nested operators
+        for value in node.values:
+            if isinstance(value, ast.BoolOp):
+                count += self._count_operators(value)
+
+        return count
+

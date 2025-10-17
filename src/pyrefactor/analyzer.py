@@ -1,0 +1,168 @@
+"""Main analyzer orchestrator for PyRefactor."""
+
+import ast
+import concurrent.futures
+import logging
+from pathlib import Path
+from typing import Union
+
+from .ast_visitor import BaseDetector
+from .config import Config
+from .detectors import (
+    BooleanLogicDetector,
+    ComplexityDetector,
+    DuplicationDetector,
+    LoopsDetector,
+    PerformanceDetector,
+)
+from .models import AnalysisResult, FileAnalysis, Issue
+
+logger = logging.getLogger(__name__)
+
+
+class Analyzer:
+    """Main analyzer that orchestrates all detectors."""
+
+    def __init__(self, config: Config) -> None:
+        """Initialize analyzer with configuration."""
+        self.config = config
+
+    def analyze_file(self, file_path: Path) -> FileAnalysis:
+        """Analyze a single Python file."""
+        analysis = FileAnalysis(file_path=str(file_path))
+
+        try:
+            # Read the file
+            source_code = file_path.read_text(encoding="utf-8")
+            source_lines = source_code.splitlines()
+            analysis.lines_of_code = len(source_lines)
+
+            # Parse the AST
+            try:
+                tree = ast.parse(source_code, filename=str(file_path))
+            except SyntaxError as e:
+                analysis.parse_error = f"Syntax error: {e}"
+                return analysis
+
+            # Run all enabled detectors
+            detectors: list[BaseDetector] = []  # type: ignore[misc]
+
+            # Complexity detector (always enabled)
+            detectors.append(
+                ComplexityDetector(self.config, str(file_path), source_lines)  # type: ignore[misc]
+            )
+
+            # Performance detector
+            if self.config.performance.enabled:
+                detectors.append(
+                    PerformanceDetector(self.config, str(file_path), source_lines)  # type: ignore[misc]
+                )
+
+            # Boolean logic detector
+            if self.config.boolean_logic.enabled:
+                detectors.append(
+                    BooleanLogicDetector(self.config, str(file_path), source_lines)  # type: ignore[misc]
+                )
+
+            # Loops detector
+            if self.config.loops.enabled:
+                detectors.append(
+                    LoopsDetector(self.config, str(file_path), source_lines)  # type: ignore[misc]
+                )
+
+            # Duplication detector
+            if self.config.duplication.enabled:
+                detectors.append(
+                    DuplicationDetector(self.config, str(file_path), source_lines)  # type: ignore[misc]
+                )
+
+            # Run each detector
+            for detector in detectors:  # type: ignore[misc]
+                try:
+                    issues = detector.analyze(tree)  # type: ignore[misc]
+                    for issue in issues:  # type: ignore[misc]
+                        analysis.add_issue(issue)  # type: ignore[misc]
+                except Exception as e:
+                    logger.error(
+                        f"Error running {detector.get_detector_name()} on {file_path}: {e}"  # type: ignore[misc]
+                    )
+
+        except Exception as e:
+            analysis.parse_error = f"Error analyzing file: {e}"
+            logger.error(f"Error analyzing {file_path}: {e}")
+
+        return analysis
+
+    def analyze_directory(
+        self, directory: Path, max_workers: int = 4
+    ) -> AnalysisResult:
+        """Analyze all Python files in a directory."""
+        result = AnalysisResult()
+
+        # Find all Python files
+        python_files = list(directory.rglob("*.py"))
+
+        # Filter excluded patterns
+        python_files = self._filter_excluded_files(python_files)
+
+        if not python_files:
+            logger.warning(f"No Python files found in {directory}")
+            return result
+
+        # Analyze files in parallel
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=max_workers
+        ) as executor:
+            future_to_file = {
+                executor.submit(self.analyze_file, file_path): file_path
+                for file_path in python_files
+            }
+
+            for future in concurrent.futures.as_completed(future_to_file):
+                file_path = future_to_file[future]
+                try:
+                    analysis = future.result()
+                    result.add_file_analysis(analysis)
+                except Exception as e:
+                    logger.error(f"Error analyzing {file_path}: {e}")
+                    result.add_file_analysis(
+                        FileAnalysis(
+                            file_path=str(file_path),
+                            parse_error=f"Analysis failed: {e}",
+                        )
+                    )
+
+        return result
+
+    def analyze_files(self, file_paths: list[Path]) -> AnalysisResult:
+        """Analyze a list of Python files."""
+        result = AnalysisResult()
+
+        for file_path in file_paths:
+            if file_path.is_file():
+                analysis = self.analyze_file(file_path)
+                result.add_file_analysis(analysis)
+            elif file_path.is_dir():
+                dir_result = self.analyze_directory(file_path)
+                for analysis in dir_result.file_analyses:
+                    result.add_file_analysis(analysis)
+
+        return result
+
+    def _filter_excluded_files(self, files: list[Path]) -> list[Path]:
+        """Filter out files matching exclusion patterns."""
+        if not self.config.exclude_patterns:
+            return files
+
+        filtered: list[Path] = []
+        for file_path in files:
+            excluded = False
+            for pattern in self.config.exclude_patterns:
+                if pattern in str(file_path):
+                    excluded = True
+                    break
+            if not excluded:
+                filtered.append(file_path)
+
+        return filtered
+

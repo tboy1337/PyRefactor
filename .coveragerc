@@ -1,0 +1,90 @@
+[run]
+# Source code directories to measure coverage for
+source = src
+
+# Omit specific files or patterns from coverage
+omit =
+    */tests/*
+    */test_*.py
+    */__pycache__/*
+    */site-packages/*
+    */dist-packages/*
+    */.venv/*
+    */venv/*
+    setup.py
+    */pyrefactor.egg-info/*
+
+# Enable branch coverage to track both line and branch coverage
+branch = True
+
+# Run tests in parallel for better performance
+parallel = True
+
+# Store coverage data file
+data_file = .coverage
+
+[report]
+# Show missing lines in coverage report
+show_missing = True
+
+# Skip empty files in the report
+skip_empty = True
+
+# Skip files with 100% coverage in the report (optional)
+skip_covered = False
+
+# Precision for coverage percentage display
+precision = 2
+
+# Sort report by name
+sort = Name
+
+# Fail if coverage falls below these thresholds
+# >95% for line + branch coverage as per user rules
+fail_under = 95.0
+
+# Exclude lines from coverage with these patterns
+exclude_lines =
+    # Standard pragma for excluding lines
+    pragma: no cover
+    
+    # Don't complain about missing debug-only code
+    def __repr__
+    def __str__
+    
+    # Don't complain if tests don't hit defensive assertion code
+    raise AssertionError
+    raise NotImplementedError
+    
+    # Don't complain if non-runnable code isn't run
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    if typing.TYPE_CHECKING:
+    
+    # Don't complain about abstract methods
+    @abstractmethod
+    @abc.abstractmethod
+    
+    # Don't complain about overload definitions
+    @overload
+    @typing.overload
+    
+    # Don't complain about ellipsis in protocol/stub definitions
+    \.\.\.
+
+[html]
+# Directory for HTML coverage report
+directory = htmlcov
+
+# Title for HTML report
+title = PyRefactor Coverage Report
+
+[xml]
+# Output file for XML coverage report (for CI/CD)
+output = coverage.xml
+
+[json]
+# Output file for JSON coverage report
+output = coverage.json
+pretty_print = True
+show_contexts = True

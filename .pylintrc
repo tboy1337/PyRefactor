@@ -1,0 +1,309 @@
+[MAIN]
+# Python version for syntax checking
+py-version=3.13
+
+# Use multiple processes to speed up Pylint (0 = auto-detect cores)
+jobs=0
+
+# Allow loading of arbitrary C extensions
+unsafe-load-any-extension=no
+
+# Enable suggestion mode for helpful recommendations
+suggestion-mode=yes
+
+# Pickle collected data for later comparisons
+persistent=yes
+
+# List of plugins (as comma separated values of python module names)
+load-plugins=
+
+# Discover python modules and packages in the file system subtree
+recursive=yes
+
+# Files or directories to be skipped
+ignore=CVS,.git,__pycache__,.venv,venv,build,dist,*.egg-info
+
+# Ignore patterns for files or directories
+ignore-patterns=^\.#,.*\.pyc$,.*\.pyo$
+
+[MESSAGES CONTROL]
+# Disable specific warnings and errors
+# too-few-public-methods: Not always a code smell
+# fixme: TODO comments are tracked elsewhere
+# duplicate-code: Can produce false positives with similar test structures
+disable=
+    too-few-public-methods,
+    fixme
+
+# Enable specific warnings that are disabled by default
+enable=
+    useless-suppression,
+    deprecated-pragma,
+    use-symbolic-message-instead
+
+[REPORTS]
+# Set the output format
+output-format=text
+
+# Include message's id in output
+include-ids=yes
+
+# Put messages in a separate file for each module / package
+files-output=no
+
+# Add a score to the report
+score=yes
+
+# Evaluation expression for the global evaluation score
+evaluation=10.0 - ((float(5 * error + warning + refactor + convention) / statement) * 10)
+
+[REFACTORING]
+# Maximum number of nested blocks for function / method body
+max-nested-blocks=3
+
+# Complete function names which should not be checked for complexity
+never-returning-functions=sys.exit,argparse.parse_error
+
+[BASIC]
+# Naming style matching correct argument names
+argument-naming-style=snake_case
+
+# Naming style matching correct attribute names
+attr-naming-style=snake_case
+
+# Naming style matching correct class attribute names
+class-attribute-naming-style=any
+
+# Naming style matching correct class constant names
+class-const-naming-style=UPPER_CASE
+
+# Naming style matching correct class names
+class-naming-style=PascalCase
+
+# Naming style matching correct constant names
+const-naming-style=UPPER_CASE
+
+# Naming style matching correct function names
+function-naming-style=snake_case
+
+# Naming style matching correct inline iteration names
+inlinevar-naming-style=any
+
+# Naming style matching correct method names
+method-naming-style=snake_case
+
+# Naming style matching correct module names
+module-naming-style=snake_case
+
+# Naming style matching correct variable names
+variable-naming-style=snake_case
+
+# Good variable names which should always be accepted
+good-names=i,j,k,ex,Run,_,id,x,y,z,a,b,c,d,e,f,g,h,m,n,p,q,r,s,t,u,v,w
+
+# Bad variable names which should always be rejected
+bad-names=foo,bar,baz,toto,tutu,tata
+
+# Include a hint for the correct naming format with invalid-name
+include-naming-hint=yes
+
+[FORMAT]
+# Maximum number of characters on a single line
+max-line-length=88
+
+# Regexp for a line that is allowed to be longer than the limit
+ignore-long-lines=^\s*(# )?<?https?://\S+>?$
+
+# Allow the body of an if to be on the same line as the test if there is no else
+single-line-if-stmt=no
+
+# Allow the body of a class to be on the same line as the declaration
+single-line-class-stmt=no
+
+# Maximum number of lines in a module
+max-module-lines=1000
+
+# String used as indentation unit (spaces)
+indent-string='    '
+
+# Number of spaces of indent required inside a hanging or continued line
+indent-after-paren=4
+
+# Expected format of line ending
+expected-line-ending-format=auto
+
+[LOGGING]
+# The type of string formatting that logging methods do
+logging-format-style=old
+
+# Logging modules to check that the string format arguments are in logging function parameter format
+logging-modules=logging
+
+[MISCELLANEOUS]
+# List of note tags to take in consideration (separated by a comma)
+notes=FIXME,XXX,TODO
+
+[SIMILARITIES]
+# Minimum lines number of a similarity
+min-similarity-lines=4
+
+# Ignore comments when computing similarities
+ignore-comments=yes
+
+# Ignore docstrings when computing similarities
+ignore-docstrings=yes
+
+# Ignore imports when computing similarities
+ignore-imports=yes
+
+# Signatures are removed from the similarity computation
+ignore-signatures=yes
+
+[SPELLING]
+# Limits count of emitted suggestions for spelling mistakes
+max-spelling-suggestions=4
+
+# Spelling dictionary name (requires pylint-spelling plugin)
+# spelling-dict=
+
+# List of comma separated words that should be considered directives if they appear at the beginning of a comment
+spelling-ignore-comment-directives=fmt: on,fmt: off,noqa:,noqa,nosec,isort:skip,mypy:
+
+[STRING]
+# This flag controls whether inconsistent-quotes generates a warning when the character used as a quote delimiter is used inconsistently within a module
+check-quote-consistency=yes
+
+# This flag controls whether the implicit-str-concat should generate a warning on implicit string concatenation in sequences defined over several lines
+check-str-concat-over-line-jumps=no
+
+[TYPECHECK]
+# List of decorators that produce context managers
+contextmanager-decorators=contextlib.contextmanager
+
+# List of members which are set dynamically and missed by pylint inference
+generated-members=
+
+# Tells whether missing members accessed in mixin class should be ignored
+ignore-mixin-members=yes
+
+# Tells whether to warn about missing members when the owner of the attribute is inferred to be None
+ignore-none=yes
+
+# This flag controls whether pylint should warn about no-member and similar checks whenever an opaque object is returned when inferring
+ignore-on-opaque-inference=yes
+
+# List of symbolic message names to ignore for Mixin class
+ignored-checks-for-mixins=no-member,not-async-context-manager,not-context-manager,attribute-defined-outside-init
+
+# List of class names for which member attributes should not be checked
+ignored-classes=optparse.Values,thread._local,_thread._local,SQLObject
+
+# Show a hint with possible names when a member name was not found
+missing-member-hint=yes
+
+# The minimum edit distance a name should have in order to be considered a similar match for a missing member name
+missing-member-hint-distance=1
+
+# The total number of similar names that should be taken in consideration when showing a hint for a missing member
+missing-member-max-choices=1
+
+# Regex pattern to define which classes are considered mixins
+mixin-class-rgx=.*[Mm]ixin
+
+[VARIABLES]
+# Tells whether we should check for unused import in __init__ files
+init-import=no
+
+# List of qualified module names which can have objects that can redefine builtins
+redefining-modules-names=six.moves,past.builtins,future.builtins,builtins,io
+
+# A regular expression matching the name of dummy variables
+dummy-variables-rgx=_+$|(_[a-zA-Z0-9_]*[a-zA-Z0-9]+?$)|dummy|^ignored_|^unused_
+
+# Argument names that match this expression will be ignored
+ignored-argument-names=_.*|^ignored_|^unused_
+
+# Tells whether unused global variables should be treated as a violation
+allow-global-unused-variables=yes
+
+# List of names allowed to shadow builtins
+allowed-redefined-builtins=
+
+# Tells whether to warn about redefined builtins
+allow-redefined-builtins=no
+
+[CLASSES]
+# List of method names used to declare (i.e. assign) instance attributes
+defining-attr-methods=__init__,__new__,setUp,__post_init__
+
+# List of member names, which should be excluded from the protected access warning
+exclude-protected=_asdict,_fields,_replace,_source,_make
+
+# List of valid names for the first argument in a class method
+valid-classmethod-first-arg=cls
+
+# List of valid names for the first argument in a metaclass class method
+valid-metaclass-classmethod-first-arg=mcs
+
+# Warn about protected attribute access inside special methods
+check-protected-access-in-special-methods=no
+
+[DESIGN]
+# Maximum number of arguments for function / method
+max-args=5
+
+# Maximum number of attributes for a class
+max-attributes=7
+
+# Maximum number of boolean expressions in an if statement
+max-bool-expr=5
+
+# Maximum number of branch for function / method body
+max-branches=10
+
+# Maximum number of locals for function / method body
+max-locals=15
+
+# Maximum number of parents for a class
+max-parents=7
+
+# Maximum number of public methods for a class
+max-public-methods=20
+
+# Maximum number of return / yield for function / method body
+max-returns=6
+
+# Maximum number of statements in function / method body
+max-statements=50
+
+# Minimum number of public methods for a class
+min-public-methods=2
+
+[IMPORTS]
+# Allow wildcard imports from modules that define __all__
+allow-wildcard-with-all=no
+
+# Deprecated modules which should not be used
+deprecated-modules=optparse,tkinter.tix
+
+# Output a graph (.gv or any supported image format) of external dependencies
+ext-import-graph=
+
+# Output a graph (.gv or any supported image format) of all (i.e. internal and external) dependencies
+import-graph=
+
+# Output a graph (.gv or any supported image format) of internal dependencies
+int-import-graph=
+
+# Force import order to recognize a module as part of the standard compatibility libraries
+known-standard-library=
+
+# Force import order to recognize a module as part of a third party library
+known-third-party=enchant
+
+# Couples of modules and preferred modules, separated by a comma
+preferred-modules=
+
+[EXCEPTIONS]
+# Exceptions that will emit a warning when caught
+overgeneral-exceptions=BaseException,Exception
