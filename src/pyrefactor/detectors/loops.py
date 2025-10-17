@@ -98,23 +98,30 @@ class LoopsDetector(BaseDetector):
 
         # Check if argument is len(something)
         first_arg = node.iter.args[0]
-        if isinstance(first_arg, ast.Call):
-            if isinstance(first_arg.func, ast.Name) and first_arg.func.id == "len":
-                # Check if the loop body accesses the collection
-                if first_arg.args:
-                    collection = first_arg.args[0]
-                    if self._loop_body_accesses_collection(node, collection):
-                        self.add_issue(
-                            Issue(
-                                file=self.file_path,
-                                line=node.lineno,
-                                column=node.col_offset,
-                                severity=Severity.LOW,
-                                rule_id="L001",
-                                message="Use enumerate() instead of range(len())",
-                                suggestion="Replace 'for i in range(len(items)):' with 'for i, item in enumerate(items):'",
-                            )
-                        )
+        if not isinstance(first_arg, ast.Call):
+            return
+
+        if not (isinstance(first_arg.func, ast.Name) and first_arg.func.id == "len"):
+            return
+
+        if not first_arg.args:
+            return
+
+        collection = first_arg.args[0]
+        if not self._loop_body_accesses_collection(node, collection):
+            return
+
+        self.add_issue(
+            Issue(
+                file=self.file_path,
+                line=node.lineno,
+                column=node.col_offset,
+                severity=Severity.LOW,
+                rule_id="L001",
+                message="Use enumerate() instead of range(len())",
+                suggestion="Replace 'for i in range(len(items)):' with 'for i, item in enumerate(items):'",
+            )
+        )
 
     def _check_manual_index_tracking(self, node: ast.For) -> None:
         """Check for manual index variable incrementation."""

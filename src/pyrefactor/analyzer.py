@@ -144,15 +144,24 @@ class Analyzer:
         result = AnalysisResult()
 
         for file_path in file_paths:
-            if file_path.is_file():
-                analysis = self.analyze_file(file_path)
-                result.add_file_analysis(analysis)
-            elif file_path.is_dir():
-                dir_result = self.analyze_directory(file_path)
-                for analysis in dir_result.file_analyses:
-                    result.add_file_analysis(analysis)
+            self._process_path(file_path, result)
 
         return result
+
+    def _process_path(self, file_path: Path, result: AnalysisResult) -> None:
+        """Process a single file or directory path.
+
+        Args:
+            file_path: Path to file or directory
+            result: AnalysisResult to add analyses to
+        """
+        if file_path.is_file():
+            analysis = self.analyze_file(file_path)
+            result.add_file_analysis(analysis)
+        elif file_path.is_dir():
+            dir_result = self.analyze_directory(file_path)
+            for analysis in dir_result.file_analyses:
+                result.add_file_analysis(analysis)
 
     def _filter_excluded_files(self, files: list[Path]) -> list[Path]:
         """Filter out files matching exclusion patterns."""

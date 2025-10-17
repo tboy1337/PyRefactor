@@ -33,7 +33,7 @@ class PerformanceDetector(BaseDetector):
         self.in_loop = True
         self.generic_visit(node)
         self.loop_stack.pop()
-        self.in_loop = len(self.loop_stack) > 0
+        self.in_loop = bool(self.loop_stack)
 
     def visit_For(self, node: ast.For) -> None:
         """Track when we're inside a for loop."""
@@ -45,34 +45,40 @@ class PerformanceDetector(BaseDetector):
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         """Check for inefficient augmented assignments in loops."""
-        if self.in_loop and not self.is_suppressed(node):
-            # Check for string concatenation with +=
-            if isinstance(node.op, ast.Add):
-                if self._matches_type_hint(node.target, "string"):
-                    self.add_issue(
-                        Issue(
-                            file=self.file_path,
-                            line=node.lineno,
-                            column=node.col_offset,
-                            severity=Severity.MEDIUM,
-                            rule_id="P001",
-                            message="String concatenation in loop using += is inefficient",
-                            suggestion="Use str.join() with a list or io.StringIO for better performance",
-                        )
-                    )
-                # Check for list concatenation with +=
-                elif self._matches_type_hint(node.target, "list"):
-                    self.add_issue(
-                        Issue(
-                            file=self.file_path,
-                            line=node.lineno,
-                            column=node.col_offset,
-                            severity=Severity.LOW,
-                            rule_id="P002",
-                            message="List concatenation in loop using += may be inefficient",
-                            suggestion="Use list.extend() or list comprehension for better performance",
-                        )
-                    )
+        if not self.in_loop or self.is_suppressed(node):
+            self.generic_visit(node)
+            return
+
+        # Check for string concatenation with +=
+        if not isinstance(node.op, ast.Add):
+            self.generic_visit(node)
+            return
+
+        if self._matches_type_hint(node.target, "string"):
+            self.add_issue(
+                Issue(
+                    file=self.file_path,
+                    line=node.lineno,
+                    column=node.col_offset,
+                    severity=Severity.MEDIUM,
+                    rule_id="P001",
+                    message="String concatenation in loop using += is inefficient",
+                    suggestion="Use str.join() with a list or io.StringIO for better performance",
+                )
+            )
+        # Check for list concatenation with +=
+        elif self._matches_type_hint(node.target, "list"):
+            self.add_issue(
+                Issue(
+                    file=self.file_path,
+                    line=node.lineno,
+                    column=node.col_offset,
+                    severity=Severity.LOW,
+                    rule_id="P002",
+                    message="List concatenation in loop using += may be inefficient",
+                    suggestion="Use list.extend() or list comprehension for better performance",
+                )
+            )
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
@@ -81,49 +87,74 @@ class PerformanceDetector(BaseDetector):
             self.generic_visit(node)
             return
 
-        # Check for dict.keys() in membership test
-        if isinstance(node.func, ast.Attribute):
-            if node.func.attr == "keys" and self._matches_type_hint(
-                node.func.value, "dict"
-            ):
-                parent: ast.AST | None = getattr(node, "_parent", None)
-                if (
-                    isinstance(parent, ast.Compare)
-                    and parent.ops
-                    and isinstance(parent.ops[0], ast.In)
-                ):
-                    self.add_issue(
-                        Issue(
-                            file=self.file_path,
-                            line=node.lineno,
-                            column=node.col_offset,
-                            severity=Severity.INFO,
-                            rule_id="P003",
-                            message="Unnecessary dict.keys() call in membership test",
-                            suggestion="Use 'key in dict' instead of 'key in dict.keys()'",
-                        )
-                    )
-
-        # Check for redundant list() conversions
-        if isinstance(node.func, ast.Name) and node.func.id == "list":
-            if node.args and isinstance(node.args[0], ast.ListComp):
-                self.add_issue(
-                    Issue(
-                        file=self.file_path,
-                        line=node.lineno,
-                        column=node.col_offset,
-                        severity=Severity.INFO,
-                        rule_id="P004",
-                        message="Redundant list() conversion of list comprehension",
-                        suggestion="List comprehensions already return lists; remove list() wrapper",
-                    )
-                )
-
-        # Check for len() comparison patterns
-        if isinstance(node.func, ast.Name) and node.func.id == "len":
-            self._check_len_comparison(node)
+        self._check_dict_keys_usage(node)
+        self._check_redundant_list_conversion(node)
+        self._check_len_usage(node)
 
         self.generic_visit(node)
+
+    def _check_dict_keys_usage(self, node: ast.Call) -> None:
+        """Check for unnecessary dict.keys() in membership tests."""
+        if not isinstance(node.func, ast.Attribute):
+            return
+
+        if node.func.attr != "keys":
+            return
+
+        if not self._matches_type_hint(node.func.value, "dict"):
+            return
+
+        parent: ast.AST | None = getattr(node, "_parent", None)
+        if not isinstance(parent, ast.Compare):
+            return
+
+        if not parent.ops or not isinstance(parent.ops[0], ast.In):
+            return
+
+        self.add_issue(
+            Issue(
+                file=self.file_path,
+                line=node.lineno,
+                column=node.col_offset,
+                severity=Severity.INFO,
+                rule_id="P003",
+                message="Unnecessary dict.keys() call in membership test",
+                suggestion="Use 'key in dict' instead of 'key in dict.keys()'",
+            )
+        )
+
+    def _check_redundant_list_conversion(self, node: ast.Call) -> None:
+        """Check for redundant list() conversions of list comprehensions."""
+        if not isinstance(node.func, ast.Name):
+            return
+
+        if node.func.id != "list":
+            return
+
+        if not node.args or not isinstance(node.args[0], ast.ListComp):
+            return
+
+        self.add_issue(
+            Issue(
+                file=self.file_path,
+                line=node.lineno,
+                column=node.col_offset,
+                severity=Severity.INFO,
+                rule_id="P004",
+                message="Redundant list() conversion of list comprehension",
+                suggestion="List comprehensions already return lists; remove list() wrapper",
+            )
+        )
+
+    def _check_len_usage(self, node: ast.Call) -> None:
+        """Check for len() calls and their usage patterns."""
+        if not isinstance(node.func, ast.Name):
+            return
+
+        if node.func.id != "len":
+            return
+
+        self._check_len_comparison(node)
 
     def visit_Compare(self, node: ast.Compare) -> None:
         """Check for inefficient comparisons."""

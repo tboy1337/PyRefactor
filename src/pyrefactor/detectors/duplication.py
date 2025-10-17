@@ -74,36 +74,64 @@ class DuplicationDetector(BaseDetector):
 
     def _find_duplicates(self) -> None:
         """Find and report duplicate code blocks."""
+        reported_ranges: list[tuple[int, int]] = []
+
         for _, occurrences in self.code_blocks.items():
-            if len(occurrences) > 1:
-                # Sort by line number
-                sorted_occurrences = sorted(
-                    occurrences, key=lambda item: item[0]  # type: ignore[misc]
+            if len(occurrences) <= 1:
+                continue
+
+            # Sort by line number
+            sorted_occurrences = sorted(
+                occurrences, key=lambda item: item[0]  # type: ignore[misc]
+            )
+
+            # Report each duplicate (except the first occurrence)
+            first_start, first_end, _, first_normalized = sorted_occurrences[0]
+
+            for start, end, _, normalized in sorted_occurrences[1:]:
+                # Skip if this range overlaps with already reported ranges
+                if self._overlaps_with_reported(start, end, reported_ranges):
+                    continue
+
+                # Check similarity using already-normalized code
+                similarity = self._calculate_similarity_from_normalized(
+                    first_normalized, normalized
                 )
+                threshold = self.config.duplication.similarity_threshold
 
-                # Report each duplicate (except the first occurrence)
-                first_start, first_end, _, first_normalized = sorted_occurrences[0]
-
-                for start, end, _, normalized in sorted_occurrences[1:]:
-                    # Check similarity using already-normalized code
-                    similarity = self._calculate_similarity_from_normalized(
-                        first_normalized, normalized
-                    )
-                    threshold = self.config.duplication.similarity_threshold
-
-                    if similarity >= threshold:
-                        self.add_issue(
-                            Issue(
-                                file=self.file_path,
-                                line=start,
-                                column=0,
-                                severity=Severity.MEDIUM,
-                                rule_id="D001",
-                                message=f"Duplicate code block (lines {start}-{end}) similar to lines {first_start}-{first_end}",
-                                suggestion="Extract duplicated code to a reusable function or method",
-                                end_line=end,
-                            )
+                if similarity >= threshold:
+                    self.add_issue(
+                        Issue(
+                            file=self.file_path,
+                            line=start,
+                            column=0,
+                            severity=Severity.MEDIUM,
+                            rule_id="D001",
+                            message=f"Duplicate code block (lines {start}-{end}) similar to lines {first_start}-{first_end}",
+                            suggestion="Extract duplicated code to a reusable function or method",
+                            end_line=end,
                         )
+                    )
+                    reported_ranges.append((start, end))
+
+    def _overlaps_with_reported(
+        self, start: int, end: int, reported: list[tuple[int, int]]
+    ) -> bool:
+        """Check if a range overlaps with any already reported range.
+
+        Args:
+            start: Start line of the range
+            end: End line of the range
+            reported: List of already reported ranges
+
+        Returns:
+            True if the range overlaps with any reported range
+        """
+        for reported_start, reported_end in reported:
+            # Check for any overlap
+            if not (end < reported_start or start > reported_end):
+                return True
+        return False
 
     def _is_meaningful_block(self, code: str) -> bool:
         """Check if a code block is meaningful (not just whitespace/comments)."""
@@ -121,24 +149,32 @@ class DuplicationDetector(BaseDetector):
         """Normalize code for comparison by tokenizing and removing literals."""
         try:
             tokens = tokenize.generate_tokens(StringIO(code).readline)
-            normalized_tokens: list[str] = []
-
-            for token in tokens:
-                if token.type == tokenize.NAME:
-                    normalized_tokens.append(token.string)
-                elif token.type == tokenize.OP:
-                    normalized_tokens.append(token.string)
-                elif token.type in (tokenize.NUMBER, tokenize.STRING):
-                    # Replace literals with placeholders
-                    normalized_tokens.append("LITERAL")
-                elif token.type == tokenize.NEWLINE:
-                    normalized_tokens.append("\n")
-
-            return " ".join(normalized_tokens)
+            normalized_tokens = [self._normalize_token(token) for token in tokens]
+            # Filter out None values
+            return " ".join(token for token in normalized_tokens if token)
         except (tokenize.TokenError, IndentationError, SyntaxError):
             # Return empty string for code blocks that can't be tokenized
             # (e.g., incomplete blocks with inconsistent indentation)
             return ""
+
+    def _normalize_token(self, token: tokenize.TokenInfo) -> str | None:
+        """Normalize a single token for comparison.
+
+        Args:
+            token: Token to normalize
+
+        Returns:
+            Normalized token string or None if token should be skipped
+        """
+        if token.type == tokenize.NAME:
+            return token.string
+        if token.type == tokenize.OP:
+            return token.string
+        if token.type in (tokenize.NUMBER, tokenize.STRING):
+            return "LITERAL"
+        if token.type == tokenize.NEWLINE:
+            return "\n"
+        return None
 
     def _calculate_similarity_from_normalized(
         self, normalized1: str, normalized2: str
