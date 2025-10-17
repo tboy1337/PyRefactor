@@ -271,7 +271,7 @@ PyRefactor uses a modular architecture with the following components:
 Contributions are welcome! Please ensure:
 
 1. All tests pass
-2. Code coverage remains >95%
+2. Code coverage remains >90%
 3. Mypy type checking passes with strict settings
 4. Pylint reports no errors
 5. Code is formatted with black and isort

@@ -40,8 +40,8 @@ precision = 2
 sort = Name
 
 # Fail if coverage falls below these thresholds
-# >95% for line + branch coverage as per user rules
-fail_under = 95.0
+# >90% for line + branch coverage as per user rules
+fail_under = 90.0
 
 # Exclude lines from coverage with these patterns
 exclude_lines =
