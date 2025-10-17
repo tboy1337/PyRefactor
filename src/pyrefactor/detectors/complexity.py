@@ -1,6 +1,7 @@
 """Complexity detector for PyRefactor."""
 
 import ast
+from dataclasses import dataclass
 
 from ..ast_visitor import (
     BaseDetector,
@@ -9,6 +10,17 @@ from ..ast_visitor import (
     count_nesting_depth,
 )
 from ..models import Issue, Severity
+
+
+@dataclass
+class IssueParams:
+    """Parameters for creating a complexity issue."""
+
+    severity: Severity
+    rule_id: str
+    message: str
+    suggestion: str
+    end_line: int | None = None
 
 
 class LocalVarVisitor(ast.NodeVisitor):
@@ -38,25 +50,21 @@ class ComplexityDetector(BaseDetector):
         """Return the name of this detector."""
         return "complexity"
 
-    def _create_issue(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def _create_issue(
         self,
         node: ast.FunctionDef | ast.AsyncFunctionDef,
-        severity: Severity,
-        rule_id: str,
-        message: str,
-        suggestion: str,
-        end_line: int | None = None,
+        params: IssueParams,
     ) -> Issue:
         """Create an Issue object for function-related complexity issues."""
         return Issue(
             file=self.file_path,
             line=node.lineno,
             column=node.col_offset,
-            severity=severity,
-            rule_id=rule_id,
-            message=message,
-            suggestion=suggestion,
-            end_line=end_line,
+            severity=params.severity,
+            rule_id=params.rule_id,
+            message=params.message,
+            suggestion=params.suggestion,
+            end_line=params.end_line,
         )
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
@@ -111,11 +119,13 @@ class ComplexityDetector(BaseDetector):
             self.add_issue(
                 self._create_issue(
                     node,
-                    Severity.MEDIUM,
-                    "C001",
-                    f"Function '{node.name}' is too long ({function_lines} lines, max {max_lines})",
-                    "Consider breaking this function into smaller, more focused functions",
-                    end_line=node.end_lineno,
+                    IssueParams(
+                        severity=Severity.MEDIUM,
+                        rule_id="C001",
+                        message=f"Function '{node.name}' is too long ({function_lines} lines, max {max_lines})",
+                        suggestion="Consider breaking this function into smaller, more focused functions",
+                        end_line=node.end_lineno,
+                    ),
                 )
             )
 
@@ -140,10 +150,12 @@ class ComplexityDetector(BaseDetector):
             self.add_issue(
                 self._create_issue(
                     node,
-                    Severity.MEDIUM,
-                    "C002",
-                    f"Function '{node.name}' has too many arguments ({total_args}, max {max_args})",
-                    "Consider using a configuration object or dataclass to group related parameters",
+                    IssueParams(
+                        severity=Severity.MEDIUM,
+                        rule_id="C002",
+                        message=f"Function '{node.name}' has too many arguments ({total_args}, max {max_args})",
+                        suggestion="Consider using a configuration object or dataclass to group related parameters",
+                    ),
                 )
             )
 
@@ -161,10 +173,12 @@ class ComplexityDetector(BaseDetector):
             self.add_issue(
                 self._create_issue(
                     node,
-                    Severity.LOW,
-                    "C003",
-                    f"Function '{node.name}' has too many local variables ({len(local_vars)}, max {max_vars})",
-                    "Consider extracting functionality into helper functions or classes",
+                    IssueParams(
+                        severity=Severity.LOW,
+                        rule_id="C003",
+                        message=f"Function '{node.name}' has too many local variables ({len(local_vars)}, max {max_vars})",
+                        suggestion="Consider extracting functionality into helper functions or classes",
+                    ),
                 )
             )
 
@@ -177,10 +191,12 @@ class ComplexityDetector(BaseDetector):
             self.add_issue(
                 self._create_issue(
                     node,
-                    Severity.HIGH,
-                    "C004",
-                    f"Function '{node.name}' has too many branches ({branches}, max {max_branches})",
-                    "Refactor using helper functions, guard clauses, or dictionary dispatch patterns",
+                    IssueParams(
+                        severity=Severity.HIGH,
+                        rule_id="C004",
+                        message=f"Function '{node.name}' has too many branches ({branches}, max {max_branches})",
+                        suggestion="Refactor using helper functions, guard clauses, or dictionary dispatch patterns",
+                    ),
                 )
             )
 
@@ -195,10 +211,12 @@ class ComplexityDetector(BaseDetector):
             self.add_issue(
                 self._create_issue(
                     node,
-                    Severity.HIGH,
-                    "C005",
-                    f"Function '{node.name}' has excessive nesting depth ({nesting}, max {max_nesting})",
-                    "Use early returns, guard clauses, or extract nested logic to separate functions",
+                    IssueParams(
+                        severity=Severity.HIGH,
+                        rule_id="C005",
+                        message=f"Function '{node.name}' has excessive nesting depth ({nesting}, max {max_nesting})",
+                        suggestion="Use early returns, guard clauses, or extract nested logic to separate functions",
+                    ),
                 )
             )
 
@@ -213,9 +231,11 @@ class ComplexityDetector(BaseDetector):
             self.add_issue(
                 self._create_issue(
                     node,
-                    Severity.MEDIUM,
-                    "C006",
-                    f"Function '{node.name}' has high cyclomatic complexity ({complexity}, max {max_complexity})",
-                    "Simplify the function by reducing decision points or extracting logic",
+                    IssueParams(
+                        severity=Severity.MEDIUM,
+                        rule_id="C006",
+                        message=f"Function '{node.name}' has high cyclomatic complexity ({complexity}, max {max_complexity})",
+                        suggestion="Simplify the function by reducing decision points or extracting logic",
+                    ),
                 )
             )
