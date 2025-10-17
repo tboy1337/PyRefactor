@@ -1,5 +1,6 @@
 """Console reporter for PyRefactor."""
 
+import io
 import sys
 from collections import defaultdict
 from typing import TextIO
@@ -30,9 +31,40 @@ class ConsoleReporter:
         Severity.INFO: "→",
     }
 
+    # ASCII fallback icons for terminals that don't support Unicode
+    ASCII_ICONS: dict[Severity, str] = {
+        Severity.HIGH: "X",
+        Severity.MEDIUM: "!",
+        Severity.LOW: "i",
+        Severity.INFO: ">",
+    }
+
     def __init__(self, output: TextIO = sys.stdout) -> None:
         """Initialize reporter with output stream."""
-        self.output = output
+        # Try to ensure UTF-8 encoding for Unicode symbols
+        if output is sys.stdout:
+            try:
+                # Reconfigure stdout to use UTF-8 encoding
+                if hasattr(sys.stdout, "reconfigure"):
+                    # Python 3.7+ TextIOWrapper.reconfigure method
+                    sys.stdout.reconfigure(encoding="utf-8")
+                    self.output = sys.stdout
+                    self.use_unicode = True
+                else:
+                    # Wrap stdout with UTF-8 text wrapper
+                    self.output = io.TextIOWrapper(
+                        sys.stdout.buffer,  # type: ignore[misc]
+                        encoding="utf-8",
+                        errors="replace",
+                    )
+                    self.use_unicode = True
+            except (AttributeError, OSError):
+                # Fall back to ASCII icons if UTF-8 is not available
+                self.output = output
+                self.use_unicode = False
+        else:
+            self.output = output
+            self.use_unicode = True
 
     def report(self, result: AnalysisResult, group_by: str = "file") -> None:
         """Generate and print report."""
@@ -167,7 +199,9 @@ class ConsoleReporter:
 
     def _get_severity_icon(self, severity: Severity) -> str:
         """Get icon for severity level."""
-        return self.SEVERITY_ICONS.get(severity, "•")
+        if self.use_unicode:
+            return self.SEVERITY_ICONS.get(severity, "•")
+        return self.ASCII_ICONS.get(severity, "*")
 
     def _print(self, message: str) -> None:
         """Print a message to output."""

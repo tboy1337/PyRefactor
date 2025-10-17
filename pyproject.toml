@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyrefactor"
-version = "1.0.0"
+version = "1.0.1"
 description = "A Python refactoring and optimization linter"
 authors = [{name = "tboy1337"}]
 readme = "README.md"

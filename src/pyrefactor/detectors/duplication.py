@@ -135,7 +135,9 @@ class DuplicationDetector(BaseDetector):
                     normalized_tokens.append("\n")
 
             return " ".join(normalized_tokens)
-        except tokenize.TokenError:
+        except (tokenize.TokenError, IndentationError, SyntaxError):
+            # Return empty string for code blocks that can't be tokenized
+            # (e.g., incomplete blocks with inconsistent indentation)
             return ""
 
     def _calculate_similarity_from_normalized(
