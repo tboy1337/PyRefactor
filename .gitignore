@@ -212,6 +212,7 @@ secrets.json
 htmlcov/
 .coverage
 coverage.xml
+coverage.json
 
 # Pylint report
 pylint-report.txt
