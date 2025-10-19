@@ -89,6 +89,7 @@ for key in my_dict:
     assert len(issues) == 1
     assert issues[0].rule_id == "R007"
     assert issues[0].severity == Severity.MEDIUM
+    assert issues[0].suggestion is not None
     assert ".items()" in issues[0].suggestion
 
 

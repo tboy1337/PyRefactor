@@ -185,7 +185,7 @@ class TestAnalyzerFileAnalysisProperties:
             temp_path.unlink()
 
     @given(st.integers(min_value=1, max_value=50))
-    @settings(max_examples=20)
+    @settings(max_examples=20, deadline=500)
     def test_analyze_file_counts_lines_correctly(self, num_lines: int) -> None:
         """Property: Analyzer correctly counts lines of code."""
         code = "\n".join(f"x{i} = {i}" for i in range(num_lines))

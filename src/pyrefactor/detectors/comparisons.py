@@ -248,15 +248,20 @@ class ComparisonsDetector(BaseDetector):
             return
 
         # Get the singleton value
-        singleton_val = singleton.value if isinstance(singleton, ast.Constant) else None
+        if not isinstance(singleton, ast.Constant):
+            return
+
+        singleton_val = singleton.value
         checking_for_absence = isinstance(op, ast.NotEq)
 
         # Handle None comparisons
         if singleton_val is None:
             self._report_none_comparison(node, checking_for_absence)
         # Handle True/False comparisons
-        elif singleton_val in (True, False):
-            self._report_bool_comparison(node, op, singleton_val, other)
+        elif singleton_val is True or singleton_val is False:
+            # Type narrowing: at this point singleton_val is bool
+            bool_val: bool = bool(singleton_val)
+            self._report_bool_comparison(node, op, bool_val, other)
 
     def _check_unidiomatic_typecheck(self, node: ast.Compare) -> None:
         """Check for type(x) == Y instead of isinstance(x, Y)."""
@@ -268,24 +273,18 @@ class ComparisonsDetector(BaseDetector):
             return
 
         # Check for type(x) == Y or type(x) is Y
-        is_type_check = False
-
-        if isinstance(node.left, ast.Call):
-            if (
-                isinstance(node.left.func, ast.Name)
-                and node.left.func.id == "type"
-                and len(node.left.args) == 1
-            ):
-                is_type_check = True
-
-        if not is_type_check:
+        if not isinstance(node.left, ast.Call):
             return
 
-        obj = (
-            ast.unparse(node.left.args[0])
-            if hasattr(ast, "unparse") and node.left.args
-            else "obj"
-        )
+        if not (
+            isinstance(node.left.func, ast.Name)
+            and node.left.func.id == "type"
+            and len(node.left.args) == 1
+        ):
+            return
+
+        # At this point, node.left is a Call with args
+        obj = ast.unparse(node.left.args[0]) if hasattr(ast, "unparse") else "obj"
         type_name = (
             ast.unparse(node.comparators[0])
             if hasattr(ast, "unparse") and node.comparators

@@ -94,6 +94,36 @@ class DictOperationsDetector(BaseDetector):
         if_stmt = node.body[0]
         else_stmt = node.orelse[0]
 
+        # Validate assignments structure
+        if not self._validate_assignment_structure(if_stmt, else_stmt):
+            return None
+
+        # Cast to Assign after validation
+        if_assign = cast(ast.Assign, if_stmt)
+        else_assign = cast(ast.Assign, else_stmt)
+
+        # Extract and validate condition components
+        condition_data = self._extract_condition_data(node.test)
+        if not condition_data:
+            return None
+
+        key_name, dict_name = condition_data
+
+        # Verify if_stmt accesses dict[key]
+        if not self._verify_dict_key_access(if_assign, dict_name, key_name):
+            return None
+
+        var_name = cast(ast.Name, if_assign.targets[0]).id
+        default_val = (
+            ast.unparse(else_assign.value) if hasattr(ast, "unparse") else "..."
+        )
+
+        return (var_name, key_name.id, dict_name.id, default_val)
+
+    def _validate_assignment_structure(
+        self, if_stmt: ast.stmt, else_stmt: ast.stmt
+    ) -> bool:
+        """Validate that both if and else branches have valid assignment structure."""
         # Validate assignments
         if not (
             isinstance(if_stmt, ast.Assign)
@@ -103,36 +133,43 @@ class DictOperationsDetector(BaseDetector):
             and isinstance(if_stmt.targets[0], ast.Name)
             and isinstance(else_stmt.targets[0], ast.Name)
         ):
-            return None
+            return False
 
         # Both should assign to the same variable
         if if_stmt.targets[0].id != else_stmt.targets[0].id:
-            return None
+            return False
 
         # Validate if-body is dict[key] access
-        if not isinstance(if_stmt.value, ast.Subscript):
+        return isinstance(if_stmt.value, ast.Subscript)
+
+    def _extract_condition_data(
+        self, test: ast.expr
+    ) -> tuple[ast.Name, ast.Name] | None:
+        """Extract key and dict names from the condition."""
+        if not isinstance(test, ast.Compare):
             return None
 
-        # Extract names from condition
-        key_name = node.test.left
-        dict_name = node.test.comparators[0]
+        key_name = test.left
+        if not test.comparators:
+            return None
+        dict_name = test.comparators[0]
 
         if not isinstance(key_name, ast.Name) or not isinstance(dict_name, ast.Name):
             return None
 
-        # Verify if_stmt accesses dict[key]
-        if not (
-            isinstance(if_stmt.value.value, ast.Name)
+        return (key_name, dict_name)
+
+    def _verify_dict_key_access(
+        self, if_stmt: ast.Assign, dict_name: ast.Name, key_name: ast.Name
+    ) -> bool:
+        """Verify that if_stmt accesses dict[key] correctly."""
+        return (
+            isinstance(if_stmt.value, ast.Subscript)
+            and isinstance(if_stmt.value.value, ast.Name)
             and if_stmt.value.value.id == dict_name.id
             and isinstance(if_stmt.value.slice, ast.Name)
             and if_stmt.value.slice.id == key_name.id
-        ):
-            return None
-
-        var_name = if_stmt.targets[0].id
-        default_val = ast.unparse(else_stmt.value) if hasattr(ast, "unparse") else "..."
-
-        return (var_name, key_name.id, dict_name.id, default_val)
+        )
 
     def visit_For(self, node: ast.For) -> None:
         """Check for dictionary iteration improvements."""

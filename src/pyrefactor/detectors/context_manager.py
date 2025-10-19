@@ -4,6 +4,7 @@ import ast
 from typing import cast
 
 from ..ast_visitor import BaseDetector
+from ..config import Config
 from ..models import Issue, Severity
 
 # Functions that return context managers and should be used with 'with'
@@ -31,7 +32,7 @@ CONTEXT_MANAGER_METHODS = frozenset({"open", "acquire", "start"})
 class ContextManagerDetector(BaseDetector):
     """Detects resource-allocating operations that should use 'with' statements."""
 
-    def __init__(self, config, file_path: str, source_lines: list[str]) -> None:
+    def __init__(self, config: Config, file_path: str, source_lines: list[str]) -> None:
         """Initialize context manager detector."""
         super().__init__(config, file_path, source_lines)
         self.resource_assignments: dict[str, ast.Assign | ast.AnnAssign] = {}
