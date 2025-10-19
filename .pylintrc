@@ -47,10 +47,8 @@ disable=
     import-outside-toplevel,
     unnecessary-ellipsis,
     unused-argument,
-    too-many-nested-blocks,
     inconsistent-quotes,
     line-too-long,
-    too-many-branches,
     trailing-newlines
 
 # Enable specific warnings that are disabled by default

@@ -9,7 +9,11 @@ from .ast_visitor import BaseDetector
 from .config import Config
 from .detectors import (
     BooleanLogicDetector,
+    ComparisonsDetector,
     ComplexityDetector,
+    ContextManagerDetector,
+    ControlFlowDetector,
+    DictOperationsDetector,
     DuplicationDetector,
     LoopsDetector,
     PerformanceDetector,
@@ -44,6 +48,10 @@ class Analyzer:
             (self.config.boolean_logic.enabled, BooleanLogicDetector),
             (self.config.loops.enabled, LoopsDetector),
             (self.config.duplication.enabled, DuplicationDetector),
+            (self.config.context_manager.enabled, ContextManagerDetector),
+            (self.config.control_flow.enabled, ControlFlowDetector),
+            (self.config.dict_operations.enabled, DictOperationsDetector),
+            (self.config.comparisons.enabled, ComparisonsDetector),
         ]
 
         for enabled, detector_class in detector_configs:

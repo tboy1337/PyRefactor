@@ -46,6 +46,37 @@ Identifies loop-related issues:
 ### Duplication Detector
 Finds duplicated code blocks that should be extracted into reusable functions.
 
+### Context Manager Detector
+Detects resource-allocating operations that should use `with` statements:
+- File operations (`open()`, etc.)
+- Lock acquisitions
+- Context managers not used properly
+- **Impact**: Prevents resource leaks and ensures proper cleanup
+
+### Control Flow Detector
+Identifies unnecessary control flow patterns:
+- Unnecessary `else` after `return` statement
+- Unnecessary `else` after `raise` statement
+- Unnecessary `else` after `break` statement
+- Unnecessary `else` after `continue` statement
+- **Impact**: Reduces nesting and improves code readability
+
+### Dictionary Operations Detector
+Finds inefficient or non-idiomatic dictionary operations:
+- Opportunities to use `dict.get(key, default)` instead of if/else
+- Unnecessary `.keys()` calls when iterating
+- Loops that should use `.items()` instead of indexing
+- Opportunities for dictionary comprehensions
+- **Impact**: More Pythonic and performant code
+
+### Comparisons Detector
+Detects non-idiomatic comparison patterns:
+- Multiple `==` comparisons that could use `in` operator
+- Comparisons that could be chained (e.g., `a < b < c`)
+- Singleton comparisons with `==` instead of `is` (for `None`, `True`, `False`)
+- Using `type()` instead of `isinstance()` for type checking
+- **Impact**: Cleaner, more idiomatic code
+
 ## Installation
 
 ### From Source
@@ -175,6 +206,18 @@ enabled = true
 min_lines = 5
 # Minimum similarity threshold (0.0 to 1.0)
 similarity_threshold = 0.8
+
+[tool.pyrefactor.context_manager]
+enabled = true
+
+[tool.pyrefactor.control_flow]
+enabled = true
+
+[tool.pyrefactor.dict_operations]
+enabled = true
+
+[tool.pyrefactor.comparisons]
+enabled = true
 ```
 
 ### Configuration File Location
