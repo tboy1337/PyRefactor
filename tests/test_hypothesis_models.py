@@ -106,13 +106,13 @@ class TestSeverityProperties:
     def test_severity_equal_to_itself(self, severity: Severity) -> None:
         """Property: A severity is always equal to itself."""
         # Test equality
-        assert severity == severity  # pylint: disable=comparison-with-itself
+        assert severity == severity
         # Test ordering with itself
-        assert severity <= severity  # pylint: disable=comparison-with-itself
-        assert severity >= severity  # pylint: disable=comparison-with-itself
+        assert severity <= severity
+        assert severity >= severity
         # These should be False for self-comparison
-        assert not severity < severity  # pylint: disable=comparison-with-itself
-        assert not severity > severity  # pylint: disable=comparison-with-itself
+        assert not severity < severity
+        assert not severity > severity
 
     @given(severity_strategy(), severity_strategy())
     def test_severity_ordering_transitivity(self, s1: Severity, s2: Severity) -> None:

@@ -77,7 +77,7 @@ class TestAnalyzerFileFilteringProperties:
         """Property: Filtering an empty file list returns empty list."""
         config = Config(exclude_patterns=exclude_patterns)
         analyzer = Analyzer(config)
-        result = analyzer._filter_excluded_files([])  # pylint: disable=protected-access
+        result = analyzer._filter_excluded_files([])
         assert not result
 
     @given(st.lists(exclude_pattern_strategy(), max_size=5))
@@ -93,7 +93,6 @@ class TestAnalyzerFileFilteringProperties:
             Path("subdir/test3.py"),
         ]
 
-        # pylint: disable-next=protected-access
         result = analyzer._filter_excluded_files(test_paths)
         assert len(result) == len(test_paths)
 
@@ -113,7 +112,6 @@ class TestAnalyzerFileFilteringProperties:
         matching_path = Path(f"dir/{pattern}/test.py")
         non_matching_path = Path("other/test.py")
 
-        # pylint: disable-next=protected-access
         result = analyzer._filter_excluded_files([matching_path, non_matching_path])
 
         # Matching path should be excluded
@@ -134,7 +132,6 @@ class TestAnalyzerFileFilteringProperties:
             Path("excluded/test.py"),
         ]
 
-        # pylint: disable-next=protected-access
         result = analyzer._filter_excluded_files(test_paths)
 
         # Result should be a subset

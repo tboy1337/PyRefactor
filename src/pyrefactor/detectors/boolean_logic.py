@@ -17,7 +17,7 @@ class BooleanLogicDetector(BaseDetector):
         """Return the name of this detector."""
         return "boolean_logic"
 
-    def _create_issue(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def _create_issue(
         self,
         node: ast.AST,
         severity: Severity,

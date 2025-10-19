@@ -17,7 +17,7 @@ class ComparisonsDetector(BaseDetector):
         """Return the name of this detector."""
         return "comparisons"
 
-    def _create_issue(  # pylint: disable=too-many-arguments
+    def _create_issue(
         self,
         node: ast.AST,
         *,

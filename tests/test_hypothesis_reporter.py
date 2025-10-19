@@ -238,7 +238,6 @@ class TestSeverityColorProperties:
     def test_get_severity_color_returns_string(self, severity: Severity) -> None:
         """Property: Color getter always returns a string."""
         reporter = ConsoleReporter()
-        # pylint: disable-next=protected-access
         color = reporter._get_severity_color(severity)
         assert isinstance(color, str)
 
@@ -246,7 +245,6 @@ class TestSeverityColorProperties:
     def test_get_severity_icon_returns_string(self, severity: Severity) -> None:
         """Property: Icon getter always returns a string."""
         reporter = ConsoleReporter()
-        # pylint: disable-next=protected-access
         icon = reporter._get_severity_icon(severity)
         assert isinstance(icon, str)
         assert len(icon) > 0
@@ -255,7 +253,6 @@ class TestSeverityColorProperties:
         """Property: All severity levels have defined colors."""
         reporter = ConsoleReporter()
         for severity in [Severity.INFO, Severity.LOW, Severity.MEDIUM, Severity.HIGH]:
-            # pylint: disable-next=protected-access
             color = reporter._get_severity_color(severity)
             assert isinstance(color, str)
 
@@ -263,7 +260,6 @@ class TestSeverityColorProperties:
         """Property: All severity levels have defined icons."""
         reporter = ConsoleReporter()
         for severity in [Severity.INFO, Severity.LOW, Severity.MEDIUM, Severity.HIGH]:
-            # pylint: disable-next=protected-access
             icon = reporter._get_severity_icon(severity)
             assert isinstance(icon, str)
             assert len(icon) > 0

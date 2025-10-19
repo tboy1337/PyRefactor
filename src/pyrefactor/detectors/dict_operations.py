@@ -14,7 +14,7 @@ class DictOperationsDetector(BaseDetector):
         """Return the name of this detector."""
         return "dict_operations"
 
-    def _create_issue(  # pylint: disable=too-many-arguments
+    def _create_issue(
         self,
         node: ast.AST,
         *,
