@@ -122,28 +122,7 @@ class ContextManagerDetector(BaseDetector):
         if isinstance(node.value, ast.Call) and self._is_context_manager_call(
             node.value
         ):
-            # Skip if already in a with statement
-            if self._is_used_in_with_context(node.value):
-                self.generic_visit(node)
-                return
-
-            # Skip if this is in a return statement or being passed
-            if self._is_used_in_return(node.value):
-                self.generic_visit(node)
-                return
-
-            # Get the function name for a better error message
-            func_name = self._get_func_name(node.value)
-
-            self.add_issue(
-                self._create_issue(
-                    node,
-                    severity=Severity.HIGH,
-                    rule_id="R001",
-                    message=f"Resource-allocating operation '{func_name}' should use 'with' statement",
-                    suggestion=f"Use 'with {func_name}(...) as resource:' to ensure proper resource cleanup",
-                )
-            )
+            self._check_and_report_context_manager(node, node.value)
 
         self.generic_visit(node)
 
@@ -156,24 +135,34 @@ class ContextManagerDetector(BaseDetector):
         # Check if the expression contains a context manager call (could be chained)
         cm_call = self._find_context_manager_call(node.value)
         if cm_call:
-            # Skip if already in a with statement
-            if self._is_used_in_with_context(cm_call):
-                self.generic_visit(node)
-                return
-
-            func_name = self._get_func_name(cm_call)
-
-            self.add_issue(
-                self._create_issue(
-                    node,
-                    severity=Severity.HIGH,
-                    rule_id="R001",
-                    message=f"Resource-allocating operation '{func_name}' should use 'with' statement",
-                    suggestion=f"Use 'with {func_name}(...) as resource:' to ensure proper resource cleanup",
-                )
-            )
+            self._check_and_report_context_manager(node, cm_call)
 
         self.generic_visit(node)
+
+    def _check_and_report_context_manager(
+        self, node: ast.AST, cm_call: ast.Call
+    ) -> None:
+        """Check and report if a context manager call should use 'with' statement."""
+        # Skip if already in a with statement
+        if self._is_used_in_with_context(cm_call):
+            return
+
+        # Skip if this is in a return statement or being passed
+        if self._is_used_in_return(cm_call):
+            return
+
+        # Get the function name for a better error message
+        func_name = self._get_func_name(cm_call)
+
+        self.add_issue(
+            self._create_issue(
+                node,
+                severity=Severity.HIGH,
+                rule_id="R001",
+                message=f"Resource-allocating operation '{func_name}' should use 'with' statement",
+                suggestion=f"Use 'with {func_name}(...) as resource:' to ensure proper resource cleanup",
+            )
+        )
 
     def _find_context_manager_call(self, node: ast.AST) -> ast.Call | None:
         """Find a context manager call in an expression tree."""

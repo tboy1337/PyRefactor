@@ -108,52 +108,75 @@ class ComparisonsDetector(BaseDetector):
 
         # Check pairs of comparisons
         for i in range(len(node.values) - 1):
-            if not isinstance(node.values[i], ast.Compare) or not isinstance(
-                node.values[i + 1], ast.Compare
-            ):
-                continue
+            chain_info = self._try_extract_chainable_pair(
+                node.values[i], node.values[i + 1]
+            )
+            if chain_info:
+                self._report_chainable_comparison(node, chain_info)
+                return  # Report once
 
-            comp1 = cast(ast.Compare, node.values[i])
-            comp2 = cast(ast.Compare, node.values[i + 1])
+    def _try_extract_chainable_pair(
+        self, val1: ast.expr, val2: ast.expr
+    ) -> tuple[str, str, str, str, str] | None:
+        """Try to extract chainable comparison info from two values.
 
-            # Both should be single comparisons
-            if len(comp1.ops) != 1 or len(comp2.ops) != 1:
-                continue
+        Returns (left1_str, op1, mid_str, op2, right2_str) if chainable, else None.
+        """
+        # Both must be comparisons
+        if not isinstance(val1, ast.Compare) or not isinstance(val2, ast.Compare):
+            return None
 
-            # Check if comp1's right operand matches comp2's left operand
-            if not comp1.comparators:
-                continue
+        comp1 = val1
+        comp2 = val2
 
-            right1 = comp1.comparators[0]
-            left2 = comp2.left
+        # Both should be single comparisons
+        if len(comp1.ops) != 1 or len(comp2.ops) != 1:
+            return None
 
-            if ast.dump(right1) == ast.dump(left2):
-                # Can be chained!
-                op1 = self._get_op_str(comp1.ops[0])
-                op2 = self._get_op_str(comp2.ops[0])
+        # Check if comp1's right operand matches comp2's left operand
+        if not comp1.comparators:
+            return None
 
-                if op1 and op2:
-                    left1_str = (
-                        ast.unparse(comp1.left) if hasattr(ast, "unparse") else "a"
-                    )
-                    mid_str = ast.unparse(right1) if hasattr(ast, "unparse") else "b"
-                    right2_str = (
-                        ast.unparse(comp2.comparators[0])
-                        if hasattr(ast, "unparse") and comp2.comparators
-                        else "c"
-                    )
+        right1 = comp1.comparators[0]
+        left2 = comp2.left
 
-                    self.add_issue(
-                        self._create_issue(
-                            node,
-                            severity=Severity.LOW,
-                            rule_id="R012",
-                            message="Comparison can be chained for better readability",
-                            suggestion=f"Use '{left1_str} {op1} {mid_str} {op2} {right2_str}' "
-                            f"instead of separate comparisons",
-                        )
-                    )
-                    return  # Report once
+        # Check if they share a common operand
+        if ast.dump(right1) != ast.dump(left2):
+            return None
+
+        # Get operator strings
+        op1 = self._get_op_str(comp1.ops[0])
+        op2 = self._get_op_str(comp2.ops[0])
+
+        if not op1 or not op2:
+            return None
+
+        # Extract string representations
+        left1_str = ast.unparse(comp1.left) if hasattr(ast, "unparse") else "a"
+        mid_str = ast.unparse(right1) if hasattr(ast, "unparse") else "b"
+        right2_str = (
+            ast.unparse(comp2.comparators[0])
+            if hasattr(ast, "unparse") and comp2.comparators
+            else "c"
+        )
+
+        return (left1_str, op1, mid_str, op2, right2_str)
+
+    def _report_chainable_comparison(
+        self, node: ast.BoolOp, chain_info: tuple[str, str, str, str, str]
+    ) -> None:
+        """Report a chainable comparison issue."""
+        left1_str, op1, mid_str, op2, right2_str = chain_info
+        self.add_issue(
+            self._create_issue(
+                node,
+                severity=Severity.LOW,
+                rule_id="R012",
+                message="Comparison can be chained for better readability",
+                suggestion=f"Use '{left1_str} {op1} {mid_str} {op2} {right2_str}' "
+                f"instead of separate comparisons",
+            )
+        )
 
     def visit_Compare(self, node: ast.Compare) -> None:
         """Check for singleton comparisons and type checks."""
@@ -200,18 +223,7 @@ class ComparisonsDetector(BaseDetector):
         other_str = ast.unparse(other) if hasattr(ast, "unparse") else "expr"
 
         # Determine the suggested replacement
-        if singleton_val is True:
-            suggestion = (
-                f"Use '{other_str}' directly instead of comparing with True"
-                if isinstance(op, ast.Eq)
-                else f"Use 'not {other_str}' instead of '!= True'"
-            )
-        else:  # False
-            suggestion = (
-                f"Use 'not {other_str}' instead of comparing with False"
-                if isinstance(op, ast.Eq)
-                else f"Use '{other_str}' directly instead of '!= False'"
-            )
+        suggestion = self._get_bool_comparison_suggestion(singleton_val, op, other_str)
 
         self.add_issue(
             self._create_issue(
@@ -222,6 +234,22 @@ class ComparisonsDetector(BaseDetector):
                 suggestion=suggestion,
             )
         )
+
+    def _get_bool_comparison_suggestion(
+        self, singleton_val: bool, op: ast.cmpop, other_str: str
+    ) -> str:
+        """Generate suggestion text for boolean comparison."""
+        is_eq = isinstance(op, ast.Eq)
+
+        if singleton_val:  # True
+            if is_eq:
+                return f"Use '{other_str}' directly instead of comparing with True"
+            return f"Use 'not {other_str}' instead of '!= True'"
+
+        # False
+        if is_eq:
+            return f"Use 'not {other_str}' instead of comparing with False"
+        return f"Use '{other_str}' directly instead of '!= False'"
 
     def _check_singleton_comparison(self, node: ast.Compare) -> None:
         """Check for comparisons with True/False/None using == instead of is.
@@ -257,11 +285,10 @@ class ComparisonsDetector(BaseDetector):
         # Handle None comparisons
         if singleton_val is None:
             self._report_none_comparison(node, checking_for_absence)
-        # Handle True/False comparisons
-        elif singleton_val is True or singleton_val is False:
+        # Handle True/False comparisons (using isinstance for type checking)
+        elif isinstance(singleton_val, bool):
             # Type narrowing: at this point singleton_val is bool
-            bool_val: bool = bool(singleton_val)
-            self._report_bool_comparison(node, op, bool_val, other)
+            self._report_bool_comparison(node, op, singleton_val, other)
 
     def _check_unidiomatic_typecheck(self, node: ast.Compare) -> None:
         """Check for type(x) == Y instead of isinstance(x, Y)."""
@@ -276,11 +303,12 @@ class ComparisonsDetector(BaseDetector):
         if not isinstance(node.left, ast.Call):
             return
 
-        if not (
-            isinstance(node.left.func, ast.Name)
-            and node.left.func.id == "type"
-            and len(node.left.args) == 1
-        ):
+        # Early return if not a type() call with one argument
+        if not isinstance(node.left.func, ast.Name):
+            return
+        if node.left.func.id != "type":
+            return
+        if len(node.left.args) != 1:
             return
 
         # At this point, node.left is a Call with args

@@ -34,31 +34,41 @@ class ControlFlowDetector(BaseDetector):
             suggestion=suggestion,
         )
 
+    # Map terminator types to rule IDs
+    _TERMINATOR_RULES = {
+        "return": "R002",
+        "raise": "R003",
+        "break": "R004",
+        "continue": "R005",
+    }
+
     def visit_If(self, node: ast.If) -> None:
         """Check for unnecessary else clauses."""
         if self.is_suppressed(node):
             self.generic_visit(node)
             return
 
-        # Check if all paths in if/elif chain end with a terminating statement
-        if node.orelse:
-            # Check if if-body always terminates
-            if_terminates = self._always_terminates(node.body)
-
-            if if_terminates:
-                # Determine what kind of termination
-                terminator = self._get_terminator_type(node.body)
-
-                if terminator == "return":
-                    self._report_unnecessary_else(node, "R002", "return")
-                elif terminator == "raise":
-                    self._report_unnecessary_else(node, "R003", "raise")
-                elif terminator == "break":
-                    self._report_unnecessary_else(node, "R004", "break")
-                elif terminator == "continue":
-                    self._report_unnecessary_else(node, "R005", "continue")
-
+        self._check_unnecessary_else(node)
         self.generic_visit(node)
+
+    def _check_unnecessary_else(self, node: ast.If) -> None:
+        """Check if the else clause is unnecessary after a terminating statement."""
+        # Early return if no else clause
+        if not node.orelse:
+            return
+
+        # Check if if-body always terminates
+        if not self._always_terminates(node.body):
+            return
+
+        # Determine what kind of termination
+        terminator = self._get_terminator_type(node.body)
+
+        # Report issue if we have a known terminator
+        if terminator in self._TERMINATOR_RULES:
+            self._report_unnecessary_else(
+                node, self._TERMINATOR_RULES[terminator], terminator
+            )
 
     def _always_terminates(self, body: list[ast.stmt]) -> bool:
         """Check if a code block always terminates (return/raise/break/continue)."""

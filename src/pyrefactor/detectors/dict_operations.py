@@ -124,15 +124,22 @@ class DictOperationsDetector(BaseDetector):
         self, if_stmt: ast.stmt, else_stmt: ast.stmt
     ) -> bool:
         """Validate that both if and else branches have valid assignment structure."""
-        # Validate assignments
-        if not (
-            isinstance(if_stmt, ast.Assign)
-            and isinstance(else_stmt, ast.Assign)
-            and len(if_stmt.targets) == 1
-            and len(else_stmt.targets) == 1
-            and isinstance(if_stmt.targets[0], ast.Name)
-            and isinstance(else_stmt.targets[0], ast.Name)
-        ):
+        # Check both are assignments
+        if not isinstance(if_stmt, ast.Assign):
+            return False
+        if not isinstance(else_stmt, ast.Assign):
+            return False
+
+        # Check both have exactly one target
+        if len(if_stmt.targets) != 1:
+            return False
+        if len(else_stmt.targets) != 1:
+            return False
+
+        # Check both targets are simple names
+        if not isinstance(if_stmt.targets[0], ast.Name):
+            return False
+        if not isinstance(else_stmt.targets[0], ast.Name):
             return False
 
         # Both should assign to the same variable
@@ -163,13 +170,23 @@ class DictOperationsDetector(BaseDetector):
         self, if_stmt: ast.Assign, dict_name: ast.Name, key_name: ast.Name
     ) -> bool:
         """Verify that if_stmt accesses dict[key] correctly."""
-        return (
-            isinstance(if_stmt.value, ast.Subscript)
-            and isinstance(if_stmt.value.value, ast.Name)
-            and if_stmt.value.value.id == dict_name.id
-            and isinstance(if_stmt.value.slice, ast.Name)
-            and if_stmt.value.slice.id == key_name.id
-        )
+        # Check if value is a subscript
+        if not isinstance(if_stmt.value, ast.Subscript):
+            return False
+
+        # Check if the subscript is on the correct dict
+        if not isinstance(if_stmt.value.value, ast.Name):
+            return False
+        if if_stmt.value.value.id != dict_name.id:
+            return False
+
+        # Check if the slice uses the correct key
+        if not isinstance(if_stmt.value.slice, ast.Name):
+            return False
+        if if_stmt.value.slice.id != key_name.id:
+            return False
+
+        return True
 
     def visit_For(self, node: ast.For) -> None:
         """Check for dictionary iteration improvements."""
@@ -253,13 +270,23 @@ class DictOperationsDetector(BaseDetector):
         self, node: ast.AST, dict_name: str, key_name: str
     ) -> bool:
         """Check if node is a dict[key] subscript."""
-        return (
-            isinstance(node, ast.Subscript)
-            and isinstance(node.value, ast.Name)
-            and node.value.id == dict_name
-            and isinstance(node.slice, ast.Name)
-            and node.slice.id == key_name
-        )
+        # Check if node is a subscript
+        if not isinstance(node, ast.Subscript):
+            return False
+
+        # Check if subscript is on the correct dict
+        if not isinstance(node.value, ast.Name):
+            return False
+        if node.value.id != dict_name:
+            return False
+
+        # Check if slice is the correct key
+        if not isinstance(node.slice, ast.Name):
+            return False
+        if node.slice.id != key_name:
+            return False
+
+        return True
 
     def visit_Call(self, node: ast.Call) -> None:
         """Check for dict comprehension opportunities."""
@@ -274,9 +301,13 @@ class DictOperationsDetector(BaseDetector):
 
     def _check_dict_comprehension(self, node: ast.Call) -> None:
         """Check if dict() call can be replaced with dict comprehension."""
-        if not (isinstance(node.func, ast.Name) and node.func.id == "dict"):
+        # Check if it's a dict() call
+        if not isinstance(node.func, ast.Name):
+            return
+        if node.func.id != "dict":
             return
 
+        # Check if it has arguments
         if not node.args:
             return
 
@@ -286,7 +317,10 @@ class DictOperationsDetector(BaseDetector):
         if not isinstance(arg, ast.ListComp):
             return
 
-        if not (isinstance(arg.elt, ast.Tuple) and len(arg.elt.elts) == 2):
+        # Check if element is a 2-tuple
+        if not isinstance(arg.elt, ast.Tuple):
+            return
+        if len(arg.elt.elts) != 2:
             return
 
         self.add_issue(
