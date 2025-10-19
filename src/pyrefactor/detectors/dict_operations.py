@@ -14,7 +14,7 @@ class DictOperationsDetector(BaseDetector):
         """Return the name of this detector."""
         return "dict_operations"
 
-    def _create_issue(
+    def _create_issue(  # pylint: disable=too-many-arguments
         self,
         node: ast.AST,
         *,
@@ -231,24 +231,37 @@ class DictOperationsDetector(BaseDetector):
             return
 
         # Pattern: dict([(k, v) for ...]) or dict([...])
-        if isinstance(node.func, ast.Name) and node.func.id == "dict":
-            if node.args:
-                arg = node.args[0]
-                # Check if it's a list comprehension with tuples
-                if isinstance(arg, ast.ListComp):
-                    if isinstance(arg.elt, ast.Tuple) and len(arg.elt.elts) == 2:
-                        self.add_issue(
-                            self._create_issue(
-                                node,
-                                severity=Severity.LOW,
-                                rule_id="R010",
-                                message="Consider using dictionary comprehension instead of dict()",
-                                suggestion="Use '{k: v for ...}' instead of 'dict([(k, v) for ...])' "
-                                "for better readability and performance",
-                            )
-                        )
+        self._check_dict_comprehension(node)
 
         self.generic_visit(node)
+
+    def _check_dict_comprehension(self, node: ast.Call) -> None:
+        """Check if dict() call can be replaced with dict comprehension."""
+        if not (isinstance(node.func, ast.Name) and node.func.id == "dict"):
+            return
+
+        if not node.args:
+            return
+
+        arg = node.args[0]
+
+        # Check if it's a list comprehension with tuples
+        if not isinstance(arg, ast.ListComp):
+            return
+
+        if not (isinstance(arg.elt, ast.Tuple) and len(arg.elt.elts) == 2):
+            return
+
+        self.add_issue(
+            self._create_issue(
+                node,
+                severity=Severity.LOW,
+                rule_id="R010",
+                message="Consider using dictionary comprehension instead of dict()",
+                suggestion="Use '{k: v for ...}' instead of 'dict([(k, v) for ...])' "
+                "for better readability and performance",
+            )
+        )
 
     def _get_name(self, node: ast.AST) -> str | None:
         """Extract the name from a node."""

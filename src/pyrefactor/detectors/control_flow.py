@@ -14,7 +14,7 @@ class ControlFlowDetector(BaseDetector):
         """Return the name of this detector."""
         return "control_flow"
 
-    def _create_issue(
+    def _create_issue(  # pylint: disable=too-many-arguments
         self,
         node: ast.AST,
         *,

@@ -117,7 +117,9 @@ class Config:
         duplication_dict: dict[str, int | float | bool] = {}
         if config.has_section("duplication"):
             if config.has_option("duplication", "enabled"):
-                duplication_dict["enabled"] = config.getboolean("duplication", "enabled")
+                duplication_dict["enabled"] = config.getboolean(
+                    "duplication", "enabled"
+                )
             if config.has_option("duplication", "min_duplicate_lines"):
                 duplication_dict["min_duplicate_lines"] = config.getint(
                     "duplication", "min_duplicate_lines"
@@ -157,11 +159,15 @@ class Config:
     def _parse_exclude_patterns(config: configparser.ConfigParser) -> list[str]:
         """Extract exclude patterns from config parser."""
         exclude_list: list[str] = []
-        if config.has_section("general") and config.has_option("general", "exclude_patterns"):
+        if config.has_section("general") and config.has_option(
+            "general", "exclude_patterns"
+        ):
             patterns_str = config.get("general", "exclude_patterns")
             # Parse comma-separated patterns
             exclude_list = [
-                pattern.strip() for pattern in patterns_str.split(",") if pattern.strip()
+                pattern.strip()
+                for pattern in patterns_str.split(",")
+                if pattern.strip()
             ]
         return exclude_list
 
@@ -179,14 +185,24 @@ class Config:
 
             return cls(
                 complexity=ComplexityConfig(**cls._parse_complexity_config(parser)),
-                performance=PerformanceConfig(**cls._parse_enabled_flag(parser, "performance")),
+                performance=PerformanceConfig(
+                    **cls._parse_enabled_flag(parser, "performance")
+                ),
                 duplication=DuplicationConfig(**cls._parse_duplication_config(parser)),  # type: ignore[arg-type]
                 boolean_logic=BooleanLogicConfig(**cls._parse_boolean_logic_config(parser)),  # type: ignore[arg-type]
                 loops=LoopsConfig(**cls._parse_enabled_flag(parser, "loops")),
-                context_manager=ContextManagerConfig(**cls._parse_enabled_flag(parser, "context_manager")),
-                control_flow=ControlFlowConfig(**cls._parse_enabled_flag(parser, "control_flow")),
-                dict_operations=DictOperationsConfig(**cls._parse_enabled_flag(parser, "dict_operations")),
-                comparisons=ComparisonsConfig(**cls._parse_enabled_flag(parser, "comparisons")),
+                context_manager=ContextManagerConfig(
+                    **cls._parse_enabled_flag(parser, "context_manager")
+                ),
+                control_flow=ControlFlowConfig(
+                    **cls._parse_enabled_flag(parser, "control_flow")
+                ),
+                dict_operations=DictOperationsConfig(
+                    **cls._parse_enabled_flag(parser, "dict_operations")
+                ),
+                comparisons=ComparisonsConfig(
+                    **cls._parse_enabled_flag(parser, "comparisons")
+                ),
                 exclude_patterns=cls._parse_exclude_patterns(parser),
             )
         except FileNotFoundError:

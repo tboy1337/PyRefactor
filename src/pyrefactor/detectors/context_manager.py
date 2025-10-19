@@ -55,7 +55,7 @@ class ContextManagerDetector(BaseDetector):
         """Return the name of this detector."""
         return "context_manager"
 
-    def _create_issue(
+    def _create_issue(  # pylint: disable=too-many-arguments
         self,
         node: ast.AST,
         *,
