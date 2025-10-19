@@ -234,3 +234,8 @@ def func(x):
     issues = detector.analyze(tree)
 
     assert len(issues) == 0
+
+
+def test_detector_name(detector: ControlFlowDetector) -> None:
+    """Test detector name."""
+    assert detector.get_detector_name() == "control_flow"

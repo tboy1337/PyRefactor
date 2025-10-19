@@ -131,6 +131,17 @@ class BooleanLogicDetector(BaseDetector):
             )
         )
 
+    def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        """Track function context for early return detection."""
+        old_function = self.current_function
+        self.current_function = node
+        self.generic_visit(node)
+        self.current_function = old_function
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        """Track async function context for early return detection."""
+        self.visit_FunctionDef(node)
+
     def visit_If(self, node: ast.If) -> None:
         """Check for opportunities to use early returns."""
         if self.is_suppressed(node):

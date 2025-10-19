@@ -90,9 +90,10 @@ def func(x, y, z, a):
         detector = BooleanLogicDetector(default_config, "test.py", source.split("\n"))
         issues = detector.analyze(tree)
 
-        # The detector may or may not flag this depending on implementation
-        # Just ensure no crash
-        assert isinstance(issues, list)
+        # Should detect deeply nested if statements with early return (4 levels)
+        assert len(issues) > 0
+        assert any(issue.rule_id == "B005" for issue in issues)
+        assert any("nested if" in issue.message.lower() for issue in issues)
 
     def test_de_morgans_law_and(self, default_config: Config) -> None:
         """Test detection of De Morgan's law opportunity (and)."""
@@ -263,8 +264,9 @@ def func(x, y, z, a):
         detector = BooleanLogicDetector(default_config, "test.py", source.split("\n"))
         issues = detector.analyze(tree)
 
-        # May or may not detect depending on implementation
-        assert isinstance(issues, list)
+        # Should detect deeply nested if statements with raise (4 levels)
+        assert len(issues) > 0
+        assert any(issue.rule_id == "B005" for issue in issues)
 
     def test_if_outside_function(self, default_config: Config) -> None:
         """Test that if statements outside functions don't check early returns."""
@@ -280,4 +282,44 @@ if x:
         issues = detector.analyze(tree)
 
         # Should not trigger B005 (not in a function)
+        assert not any(issue.rule_id == "B005" for issue in issues)
+
+    def test_early_return_exactly_three_levels(self, default_config: Config) -> None:
+        """Test early return with exactly 3 levels of nesting."""
+        source = """
+def func(x, y, z):
+    if x:
+        if y:
+            if z:
+                return True
+    return False
+"""
+        tree = ast.parse(source)
+
+        detector = BooleanLogicDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        # Should detect with exactly 3 levels (MIN_NESTING_FOR_EARLY_RETURN)
+        assert len(issues) > 0
+        assert any(issue.rule_id == "B005" for issue in issues)
+
+    def test_nested_if_with_multiple_statements_in_body(
+        self, default_config: Config
+    ) -> None:
+        """Test nested ifs with multiple statements in body (should not trigger)."""
+        source = """
+def func(x, y, z):
+    if x:
+        if y:
+            if z:
+                print("test")
+                return True
+    return False
+"""
+        tree = ast.parse(source)
+
+        detector = BooleanLogicDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        # Should not trigger B005 (body has multiple statements)
         assert not any(issue.rule_id == "B005" for issue in issues)

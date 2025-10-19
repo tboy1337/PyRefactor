@@ -269,3 +269,223 @@ if x == 1 or x > 2:
 
     # Mixed operators (== and >), should not flag for 'in'
     assert len(issues) == 0
+
+
+def test_detector_name(detector: ComparisonsDetector) -> None:
+    """Test detector name."""
+    assert detector.get_detector_name() == "comparisons"
+
+
+def test_or_boolop_with_non_compare_values(detector: ComparisonsDetector) -> None:
+    """Test OR boolop with non-compare values."""
+    code = """
+if x or y or z:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Non-compare values, should not flag
+    assert not any(issue.rule_id == "R011" for issue in issues)
+
+
+def test_or_boolop_with_multiple_ops_comparison(detector: ComparisonsDetector) -> None:
+    """Test OR boolop with comparisons having multiple ops."""
+    code = """
+if x == 1 < 2 or y == 3:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Multiple ops in comparison, should not flag for 'in'
+    assert not any(issue.rule_id == "R011" for issue in issues)
+
+
+def test_or_boolop_non_name_left_operand(detector: ComparisonsDetector) -> None:
+    """Test OR boolop with non-Name left operands (attributes)."""
+    code = """
+if obj.x == 1 or obj.x == 2:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Attributes are valid for 'in' suggestion too
+    assert len(issues) == 1
+    assert issues[0].rule_id == "R011"
+
+
+def test_or_boolop_non_singleton_comparators(detector: ComparisonsDetector) -> None:
+    """Test OR boolop with non-singleton comparators."""
+    code = """
+if x == [1, 2] or x == [3, 4]:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Lists are valid for 'in' suggestion (even if not ideal)
+    assert len(issues) == 1
+    assert issues[0].rule_id == "R011"
+
+
+def test_and_boolop_with_non_compare_values(detector: ComparisonsDetector) -> None:
+    """Test AND boolop with non-compare values."""
+    code = """
+if x and y and z:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Non-compare values, should not flag for chaining
+    assert not any(issue.rule_id == "R012" for issue in issues)
+
+
+def test_and_boolop_multiple_ops_in_comparison(detector: ComparisonsDetector) -> None:
+    """Test AND boolop with comparisons having multiple ops."""
+    code = """
+if (a < b < c) and x < y:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Multiple ops in comparison, should not flag for additional chaining
+    assert not any(issue.rule_id == "R012" for issue in issues)
+
+
+def test_and_boolop_no_chainable_operators(detector: ComparisonsDetector) -> None:
+    """Test AND boolop with non-chainable operators."""
+    code = """
+if a == b and c == d:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Non-chainable operators (==), should not flag
+    assert not any(issue.rule_id == "R012" for issue in issues)
+
+
+def test_and_boolop_non_name_comparators(detector: ComparisonsDetector) -> None:
+    """Test AND boolop with non-Name comparators (attributes)."""
+    code = """
+if a < b.x and b.x < c:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Attributes are valid for chaining suggestion too
+    assert len(issues) == 1
+    assert issues[0].rule_id == "R012"
+
+
+def test_compare_non_constant_comparator(detector: ComparisonsDetector) -> None:
+    """Test comparison with non-constant comparator."""
+    code = """
+if x == y:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Non-constant comparator, should not flag singleton comparison
+    assert not any(issue.rule_id == "R014" for issue in issues)
+
+
+def test_compare_constant_non_singleton(detector: ComparisonsDetector) -> None:
+    """Test comparison with constant non-singleton."""
+    code = """
+if x == 42:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Non-singleton constant (42), should not flag
+    assert not any(issue.rule_id == "R014" for issue in issues)
+
+
+def test_compare_with_is_non_singleton(detector: ComparisonsDetector) -> None:
+    """Test 'is' comparison with non-singleton."""
+    code = """
+if x is 42:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Using 'is' with non-singleton, should not flag (already correct usage)
+    assert not any(issue.rule_id == "R014" for issue in issues)
+
+
+def test_compare_not_eq_singleton(detector: ComparisonsDetector) -> None:
+    """Test != comparison with singleton."""
+    code = """
+if x != False:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Should flag != with singleton
+    assert len(issues) == 1
+    assert issues[0].rule_id == "R014"
+
+
+def test_compare_type_not_call(detector: ComparisonsDetector) -> None:
+    """Test comparison where left is not a call."""
+    code = """
+if x == int:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Left is not a call, should not flag type check
+    assert not any(issue.rule_id == "R015" for issue in issues)
+
+
+def test_compare_call_not_type(detector: ComparisonsDetector) -> None:
+    """Test comparison where call is not type()."""
+    code = """
+if len(x) == 5:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Call is not type(), should not flag
+    assert not any(issue.rule_id == "R015" for issue in issues)
+
+
+def test_compare_type_with_non_name(detector: ComparisonsDetector) -> None:
+    """Test type() comparison with non-Name comparator (attribute)."""
+    code = """
+if type(x) == obj.SomeType:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Attributes are valid for isinstance suggestion too
+    assert len(issues) == 1
+    assert issues[0].rule_id == "R015"
