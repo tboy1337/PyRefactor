@@ -20,6 +20,7 @@ class BooleanLogicDetector(BaseDetector):
     def _create_issue(
         self,
         node: ast.AST,
+        *,
         severity: Severity,
         rule_id: str,
         message: str,
@@ -50,10 +51,10 @@ class BooleanLogicDetector(BaseDetector):
             self.add_issue(
                 self._create_issue(
                     node,
-                    Severity.MEDIUM,
-                    "B001",
-                    f"Complex boolean expression with {operator_count} operators (max {max_operators})",
-                    "Extract boolean sub-expressions to named variables for clarity",
+                    severity=Severity.MEDIUM,
+                    rule_id="B001",
+                    message=f"Complex boolean expression with {operator_count} operators (max {max_operators})",
+                    suggestion="Extract boolean sub-expressions to named variables for clarity",
                 )
             )
 
@@ -109,7 +110,13 @@ class BooleanLogicDetector(BaseDetector):
             )
         )
         self.add_issue(
-            self._create_issue(node, Severity.INFO, rule_id, message, suggestion)
+            self._create_issue(
+                node,
+                severity=Severity.INFO,
+                rule_id=rule_id,
+                message=message,
+                suggestion=suggestion,
+            )
         )
 
     def _report_boolean_is(self, node: ast.Compare) -> None:
@@ -117,10 +124,10 @@ class BooleanLogicDetector(BaseDetector):
         self.add_issue(
             self._create_issue(
                 node,
-                Severity.MEDIUM,
-                "B004",
-                "Using 'is' for boolean comparison",
-                "Use '==' for value comparison or use the boolean directly",
+                severity=Severity.MEDIUM,
+                rule_id="B004",
+                message="Using 'is' for boolean comparison",
+                suggestion="Use '==' for value comparison or use the boolean directly",
             )
         )
 
@@ -158,10 +165,10 @@ class BooleanLogicDetector(BaseDetector):
                     self.add_issue(
                         self._create_issue(
                             node,
-                            Severity.MEDIUM,
-                            "B005",
-                            f"Deeply nested if statements ({nesting_count} levels) with early exit",
-                            "Use guard clauses with early returns to reduce nesting",
+                            severity=Severity.MEDIUM,
+                            rule_id="B005",
+                            message=f"Deeply nested if statements ({nesting_count} levels) with early exit",
+                            suggestion="Use guard clauses with early returns to reduce nesting",
                         )
                     )
             break
@@ -183,10 +190,10 @@ class BooleanLogicDetector(BaseDetector):
                 self.add_issue(
                     self._create_issue(
                         node,
-                        Severity.INFO,
-                        rule_id,
-                        "Complex negation can be simplified using De Morgan's law",
-                        suggestion,
+                        severity=Severity.INFO,
+                        rule_id=rule_id,
+                        message="Complex negation can be simplified using De Morgan's law",
+                        suggestion=suggestion,
                     )
                 )
 

@@ -66,6 +66,7 @@ class LoopsDetector(BaseDetector):
     def _create_issue(
         self,
         node: ast.AST,
+        *,
         severity: Severity,
         rule_id: str,
         message: str,
@@ -120,10 +121,10 @@ class LoopsDetector(BaseDetector):
         self.add_issue(
             self._create_issue(
                 node,
-                Severity.LOW,
-                "L001",
-                "Use enumerate() instead of range(len())",
-                "Replace 'for i in range(len(items)):' with 'for i, item in enumerate(items):'",
+                severity=Severity.LOW,
+                rule_id="L001",
+                message="Use enumerate() instead of range(len())",
+                suggestion="Replace 'for i in range(len(items)):' with 'for i, item in enumerate(items):'",
             )
         )
 
@@ -164,10 +165,10 @@ class LoopsDetector(BaseDetector):
             self.add_issue(
                 self._create_issue(
                     node,
-                    Severity.INFO,
-                    "L002",
-                    f"Manual index tracking detected: {', '.join(tracker.manual_indices)}",
-                    "Use enumerate() to track indices automatically",
+                    severity=Severity.INFO,
+                    rule_id="L002",
+                    message=f"Manual index tracking detected: {', '.join(tracker.manual_indices)}",
+                    suggestion="Use enumerate() to track indices automatically",
                 )
             )
 
@@ -182,10 +183,10 @@ class LoopsDetector(BaseDetector):
                 self.add_issue(
                     self._create_issue(
                         node,
-                        Severity.MEDIUM,
-                        "L003",
-                        "Nested loops with comparisons detected",
-                        "Consider using a dictionary or set for O(1) lookups instead of nested iteration",
+                        severity=Severity.MEDIUM,
+                        rule_id="L003",
+                        message="Nested loops with comparisons detected",
+                        suggestion="Consider using a dictionary or set for O(1) lookups instead of nested iteration",
                     )
                 )
 
@@ -227,10 +228,10 @@ class LoopsDetector(BaseDetector):
             self.add_issue(  # pyrefactor: ignore
                 self._create_issue(
                     node,
-                    Severity.MEDIUM,
-                    "L004",
-                    "Loop-invariant code detected inside loop",
-                    "Move computations that don't depend on loop variable outside the loop",
+                    severity=Severity.MEDIUM,
+                    rule_id="L004",
+                    message="Loop-invariant code detected inside loop",
+                    suggestion="Move computations that don't depend on loop variable outside the loop",
                 )
             )
 

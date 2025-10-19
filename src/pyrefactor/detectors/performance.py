@@ -31,6 +31,7 @@ class PerformanceDetector(BaseDetector):
     def _create_issue(
         self,
         node: ast.AST,
+        *,
         severity: Severity,
         rule_id: str,
         message: str,
@@ -78,10 +79,10 @@ class PerformanceDetector(BaseDetector):
             self.add_issue(
                 self._create_issue(
                     node,
-                    Severity.MEDIUM,
-                    "P001",
-                    "String concatenation in loop using += is inefficient",
-                    "Use str.join() with a list or io.StringIO for better performance",
+                    severity=Severity.MEDIUM,
+                    rule_id="P001",
+                    message="String concatenation in loop using += is inefficient",
+                    suggestion="Use str.join() with a list or io.StringIO for better performance",
                 )
             )
         # Check for list concatenation with +=
@@ -89,10 +90,10 @@ class PerformanceDetector(BaseDetector):
             self.add_issue(
                 self._create_issue(
                     node,
-                    Severity.LOW,
-                    "P002",
-                    "List concatenation in loop using += may be inefficient",
-                    "Use list.extend() or list comprehension for better performance",
+                    severity=Severity.LOW,
+                    rule_id="P002",
+                    message="List concatenation in loop using += may be inefficient",
+                    suggestion="Use list.extend() or list comprehension for better performance",
                 )
             )
         self.generic_visit(node)
@@ -130,10 +131,10 @@ class PerformanceDetector(BaseDetector):
         self.add_issue(  # pyrefactor: ignore
             self._create_issue(
                 node,
-                Severity.INFO,
-                "P003",
-                "Unnecessary dict.keys() call in membership test",
-                "Use 'key in dict' instead of 'key in dict.keys()'",
+                severity=Severity.INFO,
+                rule_id="P003",
+                message="Unnecessary dict.keys() call in membership test",
+                suggestion="Use 'key in dict' instead of 'key in dict.keys()'",
             )
         )
 
@@ -151,10 +152,10 @@ class PerformanceDetector(BaseDetector):
         self.add_issue(
             self._create_issue(
                 node,
-                Severity.INFO,
-                "P004",
-                "Redundant list() conversion of list comprehension",
-                "List comprehensions already return lists; remove list() wrapper",
+                severity=Severity.INFO,
+                rule_id="P004",
+                message="Redundant list() conversion of list comprehension",
+                suggestion="List comprehensions already return lists; remove list() wrapper",
             )
         )
 
@@ -223,7 +224,13 @@ class PerformanceDetector(BaseDetector):
     ) -> None:
         """Add an issue for len() usage patterns."""
         self.add_issue(
-            self._create_issue(len_call, Severity.INFO, rule_id, message, suggestion)
+            self._create_issue(
+                len_call,
+                severity=Severity.INFO,
+                rule_id=rule_id,
+                message=message,
+                suggestion=suggestion,
+            )
         )
 
     def _matches_type_hint(

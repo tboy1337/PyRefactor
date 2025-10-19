@@ -38,6 +38,9 @@ ignore-patterns=^\.#,.*\.pyc$,.*\.pyo$
 # line-too-long: Complex Issue() constructor calls and f-strings exceed 88 chars
 # too-many-branches: Detection algorithms have inherently complex branching logic
 # trailing-newlines: Some files have trailing newlines for editor compatibility
+# redefined-outer-name: Pytest fixtures use this pattern intentionally
+# protected-access: Tests need to access protected methods to test internal APIs
+# comparison-with-itself: Property-based tests verify reflexivity by design
 disable=
     too-few-public-methods,
     fixme,
@@ -49,7 +52,10 @@ disable=
     unused-argument,
     inconsistent-quotes,
     line-too-long,
-    trailing-newlines
+    trailing-newlines,
+    redefined-outer-name,
+    protected-access,
+    comparison-with-itself
 
 # Enable specific warnings that are disabled by default
 enable=
@@ -251,7 +257,7 @@ check-protected-access-in-special-methods=no
 
 [DESIGN]
 # Maximum number of arguments for function / method
-max-args=5
+max-args=6
 
 # Maximum number of attributes for a class
 max-attributes=10
