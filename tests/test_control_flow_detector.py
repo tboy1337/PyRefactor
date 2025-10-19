@@ -239,3 +239,42 @@ def func(x):
 def test_detector_name(detector: ControlFlowDetector) -> None:
     """Test detector name."""
     assert detector.get_detector_name() == "control_flow"
+
+
+def test_try_except_all_branches_return(detector: ControlFlowDetector) -> None:
+    """Test try/except where all branches return."""
+    code = """
+def func():
+    try:
+        return do_something()
+    except ValueError:
+        return None
+    except KeyError:
+        return None
+    else:
+        return result
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # No else after try, so no issues
+    assert len(issues) == 0
+
+
+def test_if_with_nested_if_without_else(detector: ControlFlowDetector) -> None:
+    """Test if with nested if that doesn't have else."""
+    code = """
+def func(x, y):
+    if x > 0:
+        if y > 0:
+            return 1
+    else:
+        return 0
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    # Should not flag because nested if doesn't have else
+    assert len(issues) == 0

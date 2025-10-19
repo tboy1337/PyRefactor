@@ -178,3 +178,47 @@ with open('file1.txt') as f1, open('file2.txt') as f2:
     issues = detector.analyze(tree)
 
     assert len(issues) == 0
+
+
+def test_detector_name(detector: ContextManagerDetector) -> None:
+    """Test detector name."""
+    assert detector.get_detector_name() == "context_manager"
+
+
+def test_open_in_with_context(detector: ContextManagerDetector) -> None:
+    """Test that open() already in with context is not flagged."""
+    code = """
+with open('file.txt') as f:
+    data = f.read()
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 0
+
+
+def test_non_context_manager_attribute_call(detector: ContextManagerDetector) -> None:
+    """Test that non-context-manager attribute calls are not flagged."""
+    code = """
+obj = MyClass()
+result = obj.process()
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 0
+
+
+def test_expr_with_suppression(detector: ContextManagerDetector) -> None:
+    """Test Expr statement with suppression."""
+    code = """
+# pyrefactor: ignore
+open('file.txt').read()
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 0

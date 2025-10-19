@@ -168,3 +168,78 @@ for item in result:
 
         # Should not trigger issues for good code
         assert len([i for i in issues if i.rule_id.startswith("L")]) == 0
+
+    def test_loop_invariant_expensive_method(self, default_config: Config) -> None:
+        """Test detection of expensive loop-invariant method calls."""
+        source = """
+import re
+for item in items:
+    result = re.compile(r'\\d+')
+    result.match(item)
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        # Should detect loop invariant code
+        assert any(issue.rule_id == "L004" for issue in issues)
+
+    def test_range_len_with_non_name_func(self, default_config: Config) -> None:
+        """Test range(len()) with non-Name function."""
+        source = """
+for i in obj.method(len(items)):
+    print(i)
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        # Should not trigger L001 since it's not range
+        assert not any(issue.rule_id == "L001" for issue in issues)
+
+    def test_range_len_without_access(self, default_config: Config) -> None:
+        """Test range(len()) without accessing the collection."""
+        source = """
+items = [1, 2, 3]
+for i in range(len(items)):
+    print(i)
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        # Should not trigger L001 since collection is not accessed by index
+        assert not any(issue.rule_id == "L001" for issue in issues)
+
+    def test_nested_loops_direct_comparison(self, default_config: Config) -> None:
+        """Test nested loops with direct comparison."""
+        source = """
+for item in list1:
+    for other in list2:
+        for third in list3:
+            x = 1 == 2
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        # Should detect nested loops with comparisons
+        assert any(issue.rule_id == "L003" for issue in issues)
+
+    def test_while_loop_no_issues(self, default_config: Config) -> None:
+        """Test while loop doesn't crash."""
+        source = """
+while condition:
+    do_something()
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        # Just ensure no crash
+        assert isinstance(issues, list)
