@@ -1,7 +1,7 @@
 """Comparison improvements detector for PyRefactor."""
 
 import ast
-from typing import cast
+from typing import Optional, Tuple, cast
 
 from ..ast_visitor import BaseDetector
 from ..models import Issue, Severity
@@ -117,7 +117,7 @@ class ComparisonsDetector(BaseDetector):
 
     def _try_extract_chainable_pair(
         self, val1: ast.expr, val2: ast.expr
-    ) -> tuple[str, str, str, str, str] | None:
+    ) -> Optional[Tuple[str, str, str, str, str]]:
         """Try to extract chainable comparison info from two values.
 
         Returns (left1_str, op1, mid_str, op2, right2_str) if chainable, else None.
@@ -163,7 +163,7 @@ class ComparisonsDetector(BaseDetector):
         return (left1_str, op1, mid_str, op2, right2_str)
 
     def _report_chainable_comparison(
-        self, node: ast.BoolOp, chain_info: tuple[str, str, str, str, str]
+        self, node: ast.BoolOp, chain_info: Tuple[str, str, str, str, str]
     ) -> None:
         """Report a chainable comparison issue."""
         left1_str, op1, mid_str, op2, right2_str = chain_info
@@ -340,7 +340,7 @@ class ComparisonsDetector(BaseDetector):
 
         self.generic_visit(node)
 
-    def _get_op_str(self, op: ast.cmpop) -> str | None:
+    def _get_op_str(self, op: ast.cmpop) -> Optional[str]:
         """Convert comparison operator to string."""
         op_map = {
             ast.Lt: "<",

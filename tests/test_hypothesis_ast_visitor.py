@@ -1,6 +1,7 @@
 """Property-based tests for AST visitor utilities using Hypothesis."""
 
 import ast
+from typing import Union
 
 from hypothesis import given
 from hypothesis import strategies as st
@@ -132,7 +133,7 @@ def function_with_nested_blocks(draw: st.DrawFn, depth: int = 1) -> str:
     return "\n".join(lines)
 
 
-def parse_function(code: str) -> ast.FunctionDef | ast.AsyncFunctionDef:
+def parse_function(code: str) -> Union[ast.FunctionDef, ast.AsyncFunctionDef]:
     """Parse code and extract the first function definition."""
     tree = ast.parse(code)
     for node in ast.walk(tree):

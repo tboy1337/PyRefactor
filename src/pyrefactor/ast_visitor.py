@@ -2,6 +2,7 @@
 
 import ast
 from abc import ABC, abstractmethod
+from typing import Union
 
 from .config import Config
 from .models import Issue
@@ -16,7 +17,7 @@ class BaseDetector(ast.NodeVisitor, ABC):
         self.file_path = file_path
         self.source_lines = source_lines
         self.issues: list[Issue] = []
-        self.current_function: ast.FunctionDef | ast.AsyncFunctionDef | None = None
+        self.current_function: Union[ast.FunctionDef, ast.AsyncFunctionDef, None] = None
         self.nesting_level = 0
 
     @abstractmethod
@@ -65,7 +66,7 @@ class BaseDetector(ast.NodeVisitor, ABC):
 
 
 def calculate_cyclomatic_complexity(
-    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    node: Union[ast.FunctionDef, ast.AsyncFunctionDef],
 ) -> int:
     """Calculate cyclomatic complexity of a function."""
 
@@ -156,7 +157,7 @@ def count_nesting_depth(node: ast.AST) -> int:
     return visitor.max_depth
 
 
-def count_branches(node: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
+def count_branches(node: Union[ast.FunctionDef, ast.AsyncFunctionDef]) -> int:
     """Count the number of branches in a function."""
 
     class BranchVisitor(ast.NodeVisitor):

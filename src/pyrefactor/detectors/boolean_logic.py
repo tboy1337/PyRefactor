@@ -1,7 +1,7 @@
 """Boolean logic detector for PyRefactor."""
 
 import ast
-from typing import cast
+from typing import Union, cast
 
 from ..ast_visitor import BaseDetector
 from ..models import Issue, Severity
@@ -131,7 +131,9 @@ class BooleanLogicDetector(BaseDetector):
             )
         )
 
-    def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def visit_FunctionDef(
+        self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]
+    ) -> None:
         """Track function context for early return detection."""
         old_function = self.current_function
         self.current_function = node

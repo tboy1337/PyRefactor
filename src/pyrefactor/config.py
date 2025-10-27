@@ -3,7 +3,7 @@
 import configparser
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 
 @dataclass
@@ -112,9 +112,9 @@ class Config:
     @staticmethod
     def _parse_duplication_config(
         config: configparser.ConfigParser,
-    ) -> dict[str, int | float | bool]:
+    ) -> dict[str, Union[int, float, bool]]:
         """Extract duplication configuration from config parser."""
-        duplication_dict: dict[str, int | float | bool] = {}
+        duplication_dict: dict[str, Union[int, float, bool]] = {}
         if config.has_section("duplication"):
             if config.has_option("duplication", "enabled"):
                 duplication_dict["enabled"] = config.getboolean(
@@ -133,9 +133,9 @@ class Config:
     @staticmethod
     def _parse_boolean_logic_config(
         config: configparser.ConfigParser,
-    ) -> dict[str, int | bool]:
+    ) -> dict[str, Union[int, bool]]:
         """Extract boolean logic configuration from config parser."""
-        boolean_dict: dict[str, int | bool] = {}
+        boolean_dict: dict[str, Union[int, bool]] = {}
         if config.has_section("boolean_logic"):
             if config.has_option("boolean_logic", "enabled"):
                 boolean_dict["enabled"] = config.getboolean("boolean_logic", "enabled")

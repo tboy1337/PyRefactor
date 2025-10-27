@@ -1,7 +1,7 @@
 """Context manager detector for PyRefactor."""
 
 import ast
-from typing import cast
+from typing import Optional, Union, cast
 
 from ..ast_visitor import BaseDetector
 from ..config import Config
@@ -35,7 +35,7 @@ class ContextManagerDetector(BaseDetector):
     def __init__(self, config: Config, file_path: str, source_lines: list[str]) -> None:
         """Initialize context manager detector."""
         super().__init__(config, file_path, source_lines)
-        self.resource_assignments: dict[str, ast.Assign | ast.AnnAssign] = {}
+        self.resource_assignments: dict[str, Union[ast.Assign, ast.AnnAssign]] = {}
         self.used_in_with: set[str] = set()
         self.parent_map: dict[ast.AST, ast.AST] = {}
 
@@ -164,7 +164,7 @@ class ContextManagerDetector(BaseDetector):
             )
         )
 
-    def _find_context_manager_call(self, node: ast.AST) -> ast.Call | None:
+    def _find_context_manager_call(self, node: ast.AST) -> Optional[ast.Call]:
         """Find a context manager call in an expression tree."""
         if isinstance(node, ast.Call) and self._is_context_manager_call(node):
             return node

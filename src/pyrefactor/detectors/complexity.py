@@ -2,6 +2,7 @@
 
 import ast
 from dataclasses import dataclass
+from typing import Optional, Union
 
 from ..ast_visitor import (
     BaseDetector,
@@ -20,7 +21,7 @@ class IssueParams:
     rule_id: str
     message: str
     suggestion: str
-    end_line: int | None = None
+    end_line: Optional[int] = None
 
 
 class LocalVarVisitor(ast.NodeVisitor):
@@ -52,7 +53,7 @@ class ComplexityDetector(BaseDetector):
 
     def _create_issue(
         self,
-        node: ast.FunctionDef | ast.AsyncFunctionDef,
+        node: Union[ast.FunctionDef, ast.AsyncFunctionDef],
         params: IssueParams,
     ) -> Issue:
         """Create an Issue object for function-related complexity issues."""
@@ -77,7 +78,9 @@ class ComplexityDetector(BaseDetector):
         self._check_function(node)
         self.generic_visit(node)
 
-    def _check_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def _check_function(
+        self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]
+    ) -> None:
         """Check various complexity metrics for a function.
 
         Runs all complexity checks efficiently by minimizing redundant AST traversals.
@@ -103,7 +106,7 @@ class ComplexityDetector(BaseDetector):
         self.current_function = old_function
 
     def _check_function_length(
-        self, node: ast.FunctionDef | ast.AsyncFunctionDef
+        self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]
     ) -> None:
         """Check if function is too long."""
         if not hasattr(node, "lineno") or not hasattr(node, "end_lineno"):
@@ -129,7 +132,9 @@ class ComplexityDetector(BaseDetector):
                 )
             )
 
-    def _check_arguments(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def _check_arguments(
+        self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]
+    ) -> None:
         """Check if function has too many arguments."""
         args = node.args
         total_args = (
@@ -160,7 +165,7 @@ class ComplexityDetector(BaseDetector):
             )
 
     def _check_local_variables(
-        self, node: ast.FunctionDef | ast.AsyncFunctionDef
+        self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]
     ) -> None:
         """Check if function has too many local variables."""
         visitor = LocalVarVisitor()
@@ -182,7 +187,9 @@ class ComplexityDetector(BaseDetector):
                 )
             )
 
-    def _check_branches(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def _check_branches(
+        self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]
+    ) -> None:
         """Check if function has too many branches."""
         branches = count_branches(node)
         max_branches = self.config.complexity.max_branches
@@ -201,7 +208,7 @@ class ComplexityDetector(BaseDetector):
             )
 
     def _check_nesting_depth(
-        self, node: ast.FunctionDef | ast.AsyncFunctionDef
+        self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]
     ) -> None:
         """Check if function has excessive nesting."""
         nesting = count_nesting_depth(node)
@@ -221,7 +228,7 @@ class ComplexityDetector(BaseDetector):
             )
 
     def _check_cyclomatic_complexity(
-        self, node: ast.FunctionDef | ast.AsyncFunctionDef
+        self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]
     ) -> None:
         """Check cyclomatic complexity."""
         complexity = calculate_cyclomatic_complexity(node)

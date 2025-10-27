@@ -1,7 +1,7 @@
 """Performance anti-pattern detector for PyRefactor."""
 
 import ast
-from typing import cast
+from typing import Optional, Union, cast
 
 from ..ast_visitor import BaseDetector
 from ..config import Config
@@ -48,7 +48,7 @@ class PerformanceDetector(BaseDetector):
             suggestion=suggestion,
         )
 
-    def _visit_loop(self, node: ast.For | ast.While) -> None:
+    def _visit_loop(self, node: Union[ast.For, ast.While]) -> None:
         """Consolidated method to track loop entry and exit."""
         self.loop_stack.append(node)
         self.in_loop = True
@@ -121,7 +121,7 @@ class PerformanceDetector(BaseDetector):
         if not self._matches_type_hint(node.func.value, "dict"):
             return
 
-        parent: ast.AST | None = getattr(node, "_parent", None)
+        parent: Optional[ast.AST] = getattr(node, "_parent", None)
         if not isinstance(parent, ast.Compare):
             return
 
@@ -187,7 +187,7 @@ class PerformanceDetector(BaseDetector):
         - len(x) > 0 (should use truthiness)
         - len(x) == 0 (should use 'not x')
         """
-        len_parent: ast.AST | None = getattr(len_call, "_parent", None)
+        len_parent: Optional[ast.AST] = getattr(len_call, "_parent", None)
         if not isinstance(len_parent, ast.Compare):
             return
 

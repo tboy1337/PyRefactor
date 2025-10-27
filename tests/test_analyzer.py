@@ -193,7 +193,7 @@ class TestBaseDetector:
         detector = ConcreteDetector(default_config, "test.py", source_lines)
 
         # Create a node without lineno attribute
-        node = ast.Module(body=[])
+        node = ast.Module(body=[], type_ignores=[])
 
         assert detector.is_suppressed(node) is False
 

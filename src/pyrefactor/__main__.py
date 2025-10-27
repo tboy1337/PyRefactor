@@ -5,6 +5,7 @@ import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from . import __version__
 from .analyzer import Analyzer
@@ -22,7 +23,7 @@ class Args:
     """Type-safe argument namespace."""
 
     paths: list[Path]
-    config: Path | None
+    config: Optional[Path]
     group_by: str
     min_severity: str
     jobs: int
@@ -111,7 +112,7 @@ def parse_arguments() -> Args:
     )
 
 
-def _handle_version(args: Args) -> int | None:
+def _handle_version(args: Args) -> Optional[int]:
     """Handle version flag. Returns exit code if version flag is set, None otherwise."""
     if args.version:
         print(f"PyRefactor version {__version__}")
@@ -126,7 +127,7 @@ def _configure_logging(args: Args) -> None:
         logger.setLevel(logging.INFO)
 
 
-def _load_config(args: Args) -> Config | None:
+def _load_config(args: Args) -> Optional[Config]:
     """Load configuration. Returns Config or None on error."""
     try:
         config = Config.load(args.config)
@@ -137,7 +138,7 @@ def _load_config(args: Args) -> Config | None:
         return None
 
 
-def _validate_paths(args: Args) -> list[Path] | None:
+def _validate_paths(args: Args) -> Optional[list[Path]]:
     """Validate paths from arguments. Returns list of paths or None on error."""
     paths: list[Path] = []
     for path in args.paths:
@@ -150,7 +151,7 @@ def _validate_paths(args: Args) -> list[Path] | None:
 
 def _analyze_files_safely(
     analyzer: Analyzer, paths: list[Path]
-) -> AnalysisResult | None:
+) -> Optional[AnalysisResult]:
     """Analyze files and handle errors. Returns result or None on error."""
     try:
         logger.info("Analyzing %d path(s)...", len(paths))

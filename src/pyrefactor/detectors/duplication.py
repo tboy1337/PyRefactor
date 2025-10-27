@@ -4,7 +4,7 @@ import ast
 import hashlib
 import tokenize
 from io import StringIO
-from typing import cast
+from typing import Optional, cast
 
 from ..ast_visitor import BaseDetector
 from ..config import Config
@@ -23,7 +23,7 @@ class _ExclusionVisitor(ast.NodeVisitor):
         if not hasattr(node, "lineno") or not hasattr(node, "end_lineno"):
             return
         lineno = cast(int, getattr(node, "lineno"))
-        end_lineno = cast(int | None, getattr(node, "end_lineno"))
+        end_lineno = cast(Optional[int], getattr(node, "end_lineno"))
         if end_lineno is None:
             return
         self.ranges.append((lineno, end_lineno))
@@ -310,7 +310,7 @@ class DuplicationDetector(BaseDetector):
 
     def _normalize_token(
         self, token: tokenize.TokenInfo
-    ) -> str | None:  # pyrefactor: ignore
+    ) -> Optional[str]:  # pyrefactor: ignore
         """Normalize a single token for comparison.
 
         Args:

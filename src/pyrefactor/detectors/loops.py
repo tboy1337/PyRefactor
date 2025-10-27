@@ -1,7 +1,7 @@
 """Loop optimization detector for PyRefactor."""
 
 import ast
-from typing import cast
+from typing import Optional, cast
 
 from ..ast_visitor import BaseDetector
 from ..models import Issue, Severity
@@ -138,7 +138,7 @@ class LoopsDetector(BaseDetector):
 
         return node.iter.func.id == "range" and bool(node.iter.args)
 
-    def _extract_collection_from_range_len(self, node: ast.For) -> ast.AST | None:
+    def _extract_collection_from_range_len(self, node: ast.For) -> Optional[ast.AST]:
         """Extract the collection from a range(len(...)) call."""
         if not isinstance(node.iter, ast.Call) or not node.iter.args:
             return None

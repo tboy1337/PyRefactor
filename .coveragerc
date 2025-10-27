@@ -41,6 +41,7 @@ sort = Name
 
 # Fail if coverage falls below these thresholds
 # >90% for line + branch coverage as per user rules
+# Focus on meaningful tests that drive better code design
 fail_under = 90.0
 
 # Exclude lines from coverage with these patterns
@@ -87,4 +88,3 @@ output = coverage.xml
 # Output file for JSON coverage report
 output = coverage.json
 pretty_print = True
-show_contexts = True

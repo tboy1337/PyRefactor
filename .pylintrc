@@ -1,6 +1,6 @@
 [MAIN]
 # Python version for syntax checking
-py-version=3.13
+py-version=3.9
 
 # Use multiple processes to speed up Pylint (0 = auto-detect cores)
 jobs=0
@@ -36,7 +36,6 @@ ignore-patterns=^\.#,.*\.pyc$,.*\.pyo$
 # too-many-nested-blocks: Detection algorithms have inherent complexity
 # inconsistent-quotes: Single quotes within f-strings are acceptable
 # line-too-long: Complex Issue() constructor calls and f-strings exceed 88 chars
-# too-many-branches: Detection algorithms have inherently complex branching logic
 # trailing-newlines: Some files have trailing newlines for editor compatibility
 # redefined-outer-name: Pytest fixtures use this pattern intentionally
 # protected-access: Tests need to access protected methods to test internal APIs

@@ -166,7 +166,7 @@ class TestAnalyzerFileAnalysisProperties:
     """Property-based tests for file analysis."""
 
     @given(valid_python_code_strategy())
-    @settings(max_examples=20)  # Limit examples for file I/O
+    @settings(max_examples=1000, deadline=None)
     def test_analyze_file_returns_file_analysis(self, code: str) -> None:
         """Property: Analyzing a file always returns a FileAnalysis object."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
@@ -185,7 +185,7 @@ class TestAnalyzerFileAnalysisProperties:
             temp_path.unlink()
 
     @given(st.integers(min_value=1, max_value=50))
-    @settings(max_examples=20, deadline=500)
+    @settings(max_examples=1000, deadline=None)
     def test_analyze_file_counts_lines_correctly(self, num_lines: int) -> None:
         """Property: Analyzer correctly counts lines of code."""
         code = "\n".join(f"x{i} = {i}" for i in range(num_lines))
@@ -244,7 +244,7 @@ class TestAnalyzerMultipleFilesProperties:
     """Property-based tests for analyzing multiple files."""
 
     @given(st.integers(min_value=1, max_value=5))
-    @settings(max_examples=10)
+    @settings(max_examples=1000, deadline=None)
     def test_analyze_files_processes_all_files(self, num_files: int) -> None:
         """Property: analyze_files processes all provided files."""
         temp_files = []
@@ -293,7 +293,7 @@ class TestAnalyzerResultAggregationProperties:
     """Property-based tests for result aggregation."""
 
     @given(st.integers(min_value=0, max_value=5))
-    @settings(max_examples=10)
+    @settings(max_examples=1000, deadline=None)
     def test_result_aggregates_issues_from_all_files(self, num_files: int) -> None:
         """Property: Result contains all issues from all analyzed files."""
         assume(num_files > 0)
@@ -347,7 +347,7 @@ class TestAnalyzerDetectorIntegrationProperties:
     """Property-based tests for detector integration."""
 
     @given(st.booleans())
-    @settings(max_examples=10)
+    @settings(max_examples=1000, deadline=None)
     def test_disabled_detectors_not_run(self, performance_enabled: bool) -> None:
         """Property: Disabled detectors don't produce issues."""
         code = """
@@ -378,7 +378,7 @@ def test_func():
             temp_path.unlink()
 
     @given(st.integers(min_value=1, max_value=20))
-    @settings(max_examples=10)
+    @settings(max_examples=1000, deadline=None)
     def test_complexity_threshold_affects_issues(self, max_branches: int) -> None:
         """Property: Higher complexity threshold produces fewer issues."""
         # Code with 15 branches
@@ -457,7 +457,7 @@ def test_func():
             temp_path.unlink()
 
     @given(st.lists(exclude_pattern_strategy(), max_size=5))
-    @settings(max_examples=10)
+    @settings(max_examples=1000, deadline=None)
     def test_analyzer_config_immutable_during_analysis(
         self, patterns: list[str]
     ) -> None:
