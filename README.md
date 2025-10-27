@@ -1,210 +1,113 @@
 # PyRefactor
 
-A powerful Python refactoring and optimization linter that analyzes your code for performance issues, complexity problems, and opportunities for improvement.
+A Python refactoring and optimization linter that uses AST analysis to identify performance issues, complexity problems, and code improvements.
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 
-## Overview
-
-PyRefactor uses Abstract Syntax Tree (AST) analysis to identify code patterns that can be refactored for better performance, readability, and maintainability. It provides actionable insights with severity levels and detailed explanations for each detected issue.
-
 ## Features
 
-- **Multi-threaded Analysis**: Analyze multiple files in parallel for faster results
-- **Configurable Detectors**: Enable or disable specific detectors based on your needs
-- **Severity Levels**: Issues categorized as INFO, LOW, MEDIUM, or HIGH severity
-- **Multiple Output Formats**: Group results by file or severity level
-- **Flexible Configuration**: Configure via `pyproject.toml`, custom config files, or command-line arguments
+- **Multi-threaded Analysis**: Fast parallel file processing
+- **Configurable Detectors**: Enable/disable specific detectors
+- **Severity Levels**: Issues categorized as INFO, LOW, MEDIUM, or HIGH
+- **Flexible Output**: Group by file or severity
 - **Cross-platform**: Works on Windows, macOS, and Linux
 
 ## Detectors
 
-PyRefactor includes the following specialized detectors:
-
-### Complexity Detector
-Identifies functions and methods with high cyclomatic complexity that should be refactored for better maintainability.
-
-### Performance Detector
-Finds performance anti-patterns including:
-- Inefficient string concatenation in loops
-- Multiple function calls that could be cached
-- Inefficient list operations
-- Unnecessary comprehensions
-
-### Boolean Logic Detector
-Detects overcomplicated boolean expressions and suggests simplifications:
-- Complex conditional chains
-- Redundant boolean operations
-- Opportunities for boolean algebra simplification
-
-### Loops Detector
-Identifies loop-related issues:
-- Nested loops that could be optimized
-- Loop invariant code that should be hoisted
-- Loops that could be replaced with comprehensions or built-in functions
-
-### Duplication Detector
-Finds duplicated code blocks that should be extracted into reusable functions.
-
-### Context Manager Detector
-Detects resource-allocating operations that should use `with` statements:
-- File operations (`open()`, etc.)
-- Lock acquisitions
-- Context managers not used properly
-- **Impact**: Prevents resource leaks and ensures proper cleanup
-
-### Control Flow Detector
-Identifies unnecessary control flow patterns:
-- Unnecessary `else` after `return` statement
-- Unnecessary `else` after `raise` statement
-- Unnecessary `else` after `break` statement
-- Unnecessary `else` after `continue` statement
-- **Impact**: Reduces nesting and improves code readability
-
-### Dictionary Operations Detector
-Finds inefficient or non-idiomatic dictionary operations:
-- Opportunities to use `dict.get(key, default)` instead of if/else
-- Unnecessary `.keys()` calls when iterating
-- Loops that should use `.items()` instead of indexing
-- Opportunities for dictionary comprehensions
-- **Impact**: More Pythonic and performant code
-
-### Comparisons Detector
-Detects non-idiomatic comparison patterns:
-- Multiple `==` comparisons that could use `in` operator
-- Comparisons that could be chained (e.g., `a < b < c`)
-- Singleton comparisons with `==` instead of `is` (for `None`, `True`, `False`)
-- Using `type()` instead of `isinstance()` for type checking
-- **Impact**: Cleaner, more idiomatic code
+- **Complexity**: High cyclomatic complexity functions
+- **Performance**: String concatenation in loops, uncached calls, inefficient operations
+- **Boolean Logic**: Overcomplicated boolean expressions
+- **Loops**: Nested loops, invariant code, comprehension opportunities
+- **Duplication**: Duplicate code blocks
+- **Context Manager**: Missing `with` statements for resource operations
+- **Control Flow**: Unnecessary `else` after `return`/`raise`/`break`/`continue`
+- **Dictionary Operations**: Non-idiomatic dict patterns, missing `.get()`, unnecessary `.keys()`
+- **Comparisons**: Chained comparisons, singleton checks, `type()` vs `isinstance()`
 
 ## Installation
 
-### From Source
+### Recommended: Via pip
 
-```powershell
-# Clone the repository
-git clone https://github.com/tboy1337/PyRefactor.git
-cd PyRefactor
-
-# Install dependencies
-py -m pip install -r requirements.txt
-
-# Install in development mode
-py -m pip install -e .
+```bash
+pip install pyrefactor
 ```
 
-### Requirements
+### Standalone Executable
 
-- Python 3.13 or higher
-- colorama (for colored console output)
+Download the latest release from the [Releases](https://github.com/tboy1337/PyRefactor/releases/latest) section. No Python installation required.
+
+### From Source
+
+```bash
+git clone https://github.com/tboy1337/PyRefactor.git
+cd PyRefactor
+pip install -e .
+```
+
+**Requirements**: Python 3.9+
 
 ## Usage
 
-### Basic Usage
-
-```powershell
-# Analyze a single file
+```bash
+# Analyze a file or directory
 pyrefactor myfile.py
-
-# Analyze a directory
 pyrefactor src/
 
-# Analyze multiple files
-pyrefactor file1.py file2.py src/module.py
+# Show only medium/high severity issues
+pyrefactor --min-severity medium src/
 
-# Analyze with custom configuration
+# Group by severity level
+pyrefactor --group-by severity src/
+
+# Use more workers for faster analysis
+pyrefactor --jobs 8 src/
+
+# Custom configuration file
 pyrefactor --config custom.toml src/
 ```
 
-### Command-line Options
+### Options
 
-```
-positional arguments:
-  paths                 Python files or directories to analyze
-
-options:
-  -h, --help            show this help message and exit
-  -c CONFIG, --config CONFIG
-                        Path to configuration file (default: pyproject.toml)
-  -g {file,severity}, --group-by {file,severity}
-                        Group output by file or severity (default: file)
-  --min-severity {info,low,medium,high}
-                        Minimum severity level to report (default: info)
-  -j JOBS, --jobs JOBS  Number of parallel jobs (default: 4)
-  -v, --verbose         Enable verbose logging
-  --version             Show version and exit
-```
-
-### Examples
-
-```powershell
-# Show only HIGH and MEDIUM severity issues
-pyrefactor --min-severity medium src/
-
-# Group results by severity level
-pyrefactor --group-by severity src/
-
-# Use 8 parallel workers for faster analysis
-pyrefactor --jobs 8 large_project/
-
-# Verbose output with detailed logging
-pyrefactor -v src/
-```
+- `-c, --config`: Configuration file path (default: `pyproject.toml`)
+- `-g, --group-by`: Group by `file` or `severity` (default: `file`)
+- `--min-severity`: Minimum severity to report: `info`, `low`, `medium`, `high` (default: `info`)
+- `-j, --jobs`: Number of parallel workers (default: 4)
+- `-v, --verbose`: Enable verbose logging
+- `--version`: Show version
 
 ### Exit Codes
 
-PyRefactor uses the following exit codes:
-
-- `0` - No issues found, or only INFO/LOW severity issues
-- `1` - MEDIUM or HIGH severity issues found
-- `2` - Error during analysis (syntax errors, invalid paths, etc.)
-
-This makes PyRefactor suitable for use in CI/CD pipelines where you can fail builds based on code quality issues.
+- `0` - No issues or only INFO/LOW severity
+- `1` - MEDIUM/HIGH severity issues found
+- `2` - Analysis error (syntax errors, invalid paths)
 
 ## Configuration
 
-PyRefactor can be configured using a TOML configuration file. By default, it looks for configuration in `pyproject.toml` or a file specified with `--config`.
-
-### Example Configuration
+Configure via TOML file (e.g., `pyproject.toml`):
 
 ```toml
 [tool.pyrefactor]
-# Patterns to exclude from analysis
-exclude_patterns = [
-    "__pycache__",
-    ".venv",
-    "venv",
-    ".git",
-    "build",
-    "dist",
-]
+exclude_patterns = ["__pycache__", ".venv", "build", "dist"]
 
 [tool.pyrefactor.complexity]
-# Maximum allowed cyclomatic complexity
 max_complexity = 10
 
 [tool.pyrefactor.performance]
 enabled = true
-# Minimum number of string concatenations to report
 min_concatenations = 3
-# Minimum number of duplicate calls to report
 min_duplicate_calls = 3
 
 [tool.pyrefactor.boolean_logic]
 enabled = true
-# Minimum depth of nested boolean expressions to report
 min_depth = 3
 
 [tool.pyrefactor.loops]
 enabled = true
-# Maximum allowed nesting depth for loops
 max_nesting = 3
 
 [tool.pyrefactor.duplication]
 enabled = true
-# Minimum number of lines for a code block to be considered for duplication detection
 min_lines = 5
-# Minimum similarity threshold (0.0 to 1.0)
 similarity_threshold = 0.8
 
 [tool.pyrefactor.context_manager]
@@ -220,20 +123,11 @@ enabled = true
 enabled = true
 ```
 
-### Configuration File Location
+Configuration is searched in: `--config` → `pyproject.toml` → `pyrefactor.ini` → defaults
 
-PyRefactor searches for configuration in the following order:
-
-1. Path specified with `--config` option
-2. `pyproject.toml` in the current directory
-3. `pyrefactor.ini` in the current directory
-4. Default configuration values
-
-## Integration
+## CI/CD Integration
 
 ### Pre-commit Hook
-
-Add PyRefactor to your `.pre-commit-config.yaml`:
 
 ```yaml
 repos:
@@ -247,64 +141,32 @@ repos:
         args: [--min-severity=medium]
 ```
 
-### CI/CD Integration
-
-#### GitHub Actions
+### GitHub Actions
 
 ```yaml
 name: Code Quality
-
 on: [push, pull_request]
 
 jobs:
   pyrefactor:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v4
         with:
-          python-version: '3.13'
-      - name: Install dependencies
-        run: |
-          py -m pip install --upgrade pip
-          py -m pip install pyrefactor
-      - name: Run PyRefactor
-        run: pyrefactor --min-severity medium src/
+          python-version: '3.9'
+      - run: pip install pyrefactor
+      - run: pyrefactor --min-severity medium src/
 ```
-
-## Troubleshooting
-
-### Common Issues
-
-**Issue**: `ModuleNotFoundError: No module named 'pyrefactor'`
-
-**Solution**: Make sure PyRefactor is installed: `py -m pip install -e .`
-
----
-
-**Issue**: Syntax errors when analyzing Python 3.12 or older code
-
-**Solution**: PyRefactor requires Python 3.13+. Ensure your environment is using Python 3.13 or newer.
-
----
-
-**Issue**: Analysis is slow on large codebases
-
-**Solution**: Increase the number of parallel workers: `pyrefactor --jobs 8 src/`
 
 ## Contributing
 
-Contributions are welcome! Please note that this project is under a Commercial Restricted License (CRL). For commercial use, please contact the copyright holder.
+Contributions are welcome! This project is under a Commercial Restricted License (CRL). For commercial use, contact the copyright holder.
 
-### Guidelines
-
-1. Follow the existing code style (Black, isort)
-2. Add tests for new features
-3. Ensure all tests pass and coverage remains >95%
-4. Update documentation as needed
-5. Run type checking and linting before submitting
+1. Follow existing code style (Black, isort)
+2. Add tests for new features (>95% coverage)
+3. Run type checking and linting
 
 ## License
 
-This project is licensed under the CRL license - see [LICENSE.md](LICENSE.md) for details.
+Licensed under the CRL license - see [LICENSE.md](LICENSE.md) for details.
