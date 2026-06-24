@@ -137,18 +137,26 @@ while condition:
         assert len(issues) > 0
         assert any(issue.rule_id == "P001" for issue in issues)
 
-    def test_dict_keys_in_membership_test(self, default_config: Config) -> None:
-        """Test that dict.keys() membership is not reported by performance detector."""
+    def test_dict_keys_membership_owned_by_dict_detector(
+        self, default_config: Config
+    ) -> None:
+        """dict.keys() membership is reported as R009 by the dict detector, not performance."""
         source = """
 if key in my_dict.keys():
     pass
 """
         tree = ast.parse(source)
+        source_lines = source.split("\n")
 
-        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
-        issues = detector.analyze(tree)
+        perf = PerformanceDetector(default_config, "test.py", source_lines)
+        perf_issues = perf.analyze(tree)
+        assert not perf_issues
 
-        assert not any(issue.rule_id == "P003" for issue in issues)
+        from pyrefactor.detectors.dict_operations import DictOperationsDetector
+
+        dict_detector = DictOperationsDetector(default_config, "test.py", source_lines)
+        dict_issues = dict_detector.analyze(tree)
+        assert any(issue.rule_id == "R009" for issue in dict_issues)
 
     def test_call_suppression(self, default_config: Config) -> None:
         """Test suppression of call warnings."""
@@ -192,8 +200,10 @@ for item in items:
         # Should not trigger P002 (not a list operation)
         assert not any(issue.rule_id == "P002" for issue in issues)
 
-    def test_non_dict_keys_call(self, default_config: Config) -> None:
-        """Test that dict.keys() membership is handled outside performance detector."""
+    def test_non_dict_keys_not_reported_by_performance(
+        self, default_config: Config
+    ) -> None:
+        """Performance detector does not flag arbitrary .keys() membership."""
         source = """
 if key in something.keys():
     pass
@@ -203,7 +213,7 @@ if key in something.keys():
         detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
         issues = detector.analyze(tree)
 
-        assert not any(issue.rule_id == "P003" for issue in issues)
+        assert len(issues) == 0
 
 
 class TestPerformanceLoopPatterns:
@@ -333,6 +343,39 @@ for item in items:
         expensive_compute(item)
         expensive_compute(item)
         expensive_compute(item)
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "P007" for issue in issues)
+
+    def test_string_concatenation_tracks_string_initializer(
+        self, default_config: Config
+    ) -> None:
+        """Test P001 detects += on variables initialized with string constants."""
+        source = """
+def build():
+    buffer = ""
+    for item in items:
+        buffer += item
+        buffer += item
+        buffer += item
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert any(issue.rule_id == "P001" for issue in issues)
+
+    def test_nested_lambda_calls_ignored(self, default_config: Config) -> None:
+        """Test P007 ignores repeated calls inside lambda expressions."""
+        source = """
+for item in items:
+    handler = lambda: expensive_compute(item) or expensive_compute(item) or expensive_compute(item)
+    handler()
 """
         tree = ast.parse(source)
 

@@ -107,6 +107,7 @@ class PerformanceDetector(BaseDetector):
         self.loop_stack: list[ast.AST] = []
         self.parent_map: dict[ast.AST, ast.AST] = {}
         self.suppressed_nodes: set[ast.AST] = set()
+        self._string_var_stack: list[set[str]] = []
 
     def get_detector_name(self) -> str:
         """Return the name of this detector."""
@@ -143,6 +144,30 @@ class PerformanceDetector(BaseDetector):
     def visit_While(self, node: ast.While) -> None:
         """Track when we're inside a while loop."""
         self._visit_loop(node)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        """Track string-initialized variables within a function scope."""
+        self._string_var_stack.append(set())
+        self.generic_visit(node)
+        self._string_var_stack.pop()
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        """Track string-initialized variables within an async function scope."""
+        self._string_var_stack.append(set())
+        self.generic_visit(node)
+        self._string_var_stack.pop()
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        """Record variables initialized with string constants."""
+        if self._string_var_stack and self._is_string_initializer(node.value):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    self._string_var_stack[-1].add(target.id)
+        self.generic_visit(node)
+
+    def _is_string_initializer(self, node: ast.expr) -> bool:
+        """Return True if an expression initializes a string value."""
+        return isinstance(node, ast.Constant) and isinstance(node.value, str)
 
     def _check_loop_performance(self, loop_node: ast.For | ast.While) -> None:
         """Check loop body for concatenation and duplicate call patterns."""
@@ -300,6 +325,13 @@ class PerformanceDetector(BaseDetector):
         """Check if a node likely matches a given type based on naming heuristics."""
         if not isinstance(node, ast.Name):
             return False
+
+        if (
+            type_name == "string"
+            and self._string_var_stack
+            and node.id in self._string_var_stack[-1]
+        ):
+            return True
 
         name_lower = node.id.lower()
         hints = self.TYPE_HINTS.get(type_name, [])

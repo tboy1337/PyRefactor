@@ -231,6 +231,7 @@ class DuplicationDetector(BaseDetector):
                 threshold = self.config.duplication.similarity_threshold
 
                 if similarity >= threshold:
+                    snippet = self.get_source_snippet(start, end).strip()
                     self.add_issue(
                         Issue(
                             file=self.file_path,
@@ -241,6 +242,7 @@ class DuplicationDetector(BaseDetector):
                             message=f"Duplicate code block (lines {start}-{end}) similar to lines {first_start}-{first_end}",
                             suggestion="Extract duplicated code to a reusable function or method",
                             end_line=end,
+                            code_snippet=snippet or None,
                         )
                     )
                     reported_ranges.append((start, end))
@@ -268,7 +270,7 @@ class DuplicationDetector(BaseDetector):
 
         return False
 
-    def _overlaps_with_reported(  # pyrefactor: ignore
+    def _overlaps_with_reported(
         self, start: int, end: int, reported: list[tuple[int, int]]
     ) -> bool:
         """Check if a range overlaps with any already reported range.
@@ -310,9 +312,7 @@ class DuplicationDetector(BaseDetector):
             # (e.g., incomplete blocks with inconsistent indentation)
             return ""
 
-    def _normalize_token(
-        self, token: tokenize.TokenInfo
-    ) -> Optional[str]:  # pyrefactor: ignore
+    def _normalize_token(self, token: tokenize.TokenInfo) -> Optional[str]:
         """Normalize a single token for comparison.
 
         Args:
@@ -331,7 +331,7 @@ class DuplicationDetector(BaseDetector):
             return "\n"
         return None
 
-    def _calculate_similarity_from_normalized(  # pyrefactor: ignore
+    def _calculate_similarity_from_normalized(
         self, normalized1: str, normalized2: str
     ) -> float:
         """Calculate similarity between two already-normalized code blocks.

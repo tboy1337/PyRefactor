@@ -60,6 +60,7 @@ class ComplexityDetector(BaseDetector):
         params: IssueParams,
     ) -> Issue:
         """Create an Issue object for function-related complexity issues."""
+        snippet = self.get_source_line(node.lineno).strip()
         return Issue(
             file=self.file_path,
             line=node.lineno,
@@ -69,6 +70,7 @@ class ComplexityDetector(BaseDetector):
             message=params.message,
             suggestion=params.suggestion,
             end_line=params.end_line,
+            code_snippet=snippet or None,
         )
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:

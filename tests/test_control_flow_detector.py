@@ -278,3 +278,24 @@ def func(x, y):
 
     # Should not flag because nested if doesn't have else
     assert len(issues) == 0
+
+
+def test_try_except_partial_termination_not_flagged(
+    detector: ControlFlowDetector,
+) -> None:
+    """Test try/except that does not terminate all paths avoids false positives."""
+    code = """
+def func(x):
+    if x > 0:
+        try:
+            return do_work()
+        except ValueError:
+            pass
+    else:
+        return 0
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 0

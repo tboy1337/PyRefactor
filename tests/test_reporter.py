@@ -1,5 +1,6 @@
 """Tests for reporter."""
 
+import sys
 from io import StringIO
 
 from pyrefactor.models import AnalysisResult, FileAnalysis, Issue, Severity
@@ -221,3 +222,15 @@ class TestConsoleReporter:
 
         reporter.report(result)
         assert "x = 1" in output.getvalue()
+
+    def test_stdout_utf8_fallback_uses_ascii_icons(self) -> None:
+        """Test reporter falls back to ASCII icons when UTF-8 setup fails."""
+        from unittest.mock import MagicMock, patch
+
+        mock_stdout = MagicMock()
+        mock_stdout.reconfigure.side_effect = OSError("unsupported")
+        del mock_stdout.buffer
+
+        with patch("pyrefactor.reporter.sys.stdout", mock_stdout):
+            reporter_stdout = ConsoleReporter(output=sys.stdout)
+            assert reporter_stdout.use_unicode is False

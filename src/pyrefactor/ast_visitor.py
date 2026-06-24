@@ -61,6 +61,7 @@ class BaseDetector(ast.NodeVisitor, ABC):
         line = node_lineno(node)
         if line is None:
             return
+        snippet = self.get_source_line(line).strip()
         self.add_issue(
             Issue(
                 file=self.file_path,
@@ -70,6 +71,7 @@ class BaseDetector(ast.NodeVisitor, ABC):
                 rule_id=rule_id,
                 message=message,
                 suggestion=suggestion,
+                code_snippet=snippet or None,
             )
         )
 

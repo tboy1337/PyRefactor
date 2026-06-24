@@ -199,7 +199,7 @@ class LoopsDetector(BaseDetector):
             checker.visit(stmt)
 
         if checker.invariant_calls:
-            self.report_issue(  # pyrefactor: ignore
+            self.report_issue(
                 node,
                 severity=Severity.MEDIUM,
                 rule_id="L004",

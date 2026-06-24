@@ -26,6 +26,7 @@ class ComparisonsDetector(BaseDetector):
         # Check for multiple equality comparisons
         if isinstance(node.op, ast.Or):
             self._check_consider_using_in(node)
+            self._check_consecutive_isinstance(node)
 
         # Check for chainable comparisons
         if isinstance(node.op, ast.And):
@@ -71,6 +72,42 @@ class ComparisonsDetector(BaseDetector):
                 suggestion=f"Use '{var_name} in ({values_str})' instead of multiple '==' comparisons. "
                 f"Use a set if values are hashable for O(1) lookup.",
             )
+
+    def _is_isinstance_call(self, node: ast.expr) -> bool:
+        """Return True if node is an isinstance(...) call."""
+        if not isinstance(node, ast.Call):
+            return False
+        if not isinstance(node.func, ast.Name):
+            return False
+        return node.func.id == "isinstance" and len(node.args) >= 2
+
+    def _check_consecutive_isinstance(self, node: ast.BoolOp) -> None:
+        """Check for isinstance(x, A) or isinstance(x, B) patterns."""
+        if len(node.values) < 2:
+            return
+
+        if not all(self._is_isinstance_call(val) for val in node.values):
+            return
+
+        isinstance_calls = [cast(ast.Call, val) for val in node.values]
+        first_obj = ast.dump(isinstance_calls[0].args[0])
+        if not all(ast.dump(call.args[0]) == first_obj for call in isinstance_calls):
+            return
+
+        var_name = ast.unparse(isinstance_calls[0].args[0])
+        type_names = [ast.unparse(call.args[1]) for call in isinstance_calls]
+        types_tuple = ", ".join(type_names)
+
+        self.report_issue(
+            node,
+            severity=Severity.LOW,
+            rule_id="R013",
+            message="Multiple isinstance checks can be combined",
+            suggestion=(
+                f"Use 'isinstance({var_name}, ({types_tuple}))' instead of "
+                "multiple isinstance comparisons"
+            ),
+        )
 
     def _check_chained_comparison(self, node: ast.BoolOp) -> None:
         """Check for pattern: a < b and b < c that can be chained."""
@@ -288,13 +325,10 @@ class ComparisonsDetector(BaseDetector):
         )
 
     def visit_Call(self, node: ast.Call) -> None:
-        """Check for consecutive isinstance calls."""
+        """Visit call nodes for comparison checks."""
         if self.is_suppressed(node):
             self.generic_visit(node)
             return
-
-        # This would need to check the parent context for multiple isinstance calls
-        # For now, we'll check in visit_BoolOp for the pattern
 
         self.generic_visit(node)
 

@@ -24,6 +24,8 @@ A Python refactoring and optimization linter that uses AST analysis to identify 
 - **Dictionary Operations**: Non-idiomatic dict patterns, missing `.get()`, unnecessary `.keys()`
 - **Comparisons**: Chained comparisons, singleton checks, `type()` vs `isinstance()`
 
+See [docs/RULES.md](docs/RULES.md) for the full rule catalog (C001–C006, P001–P007, B001/B004–B007, L001–L004, D001, R001–R016).
+
 ## Installation
 
 ### Recommended: Via pip
@@ -188,8 +190,10 @@ pip install -r requirements-dev.txt
 Run the local verification script (formatting, type checks, lint, security scan, tests):
 
 ```bash
-py scripts/verify.py
+python scripts/verify.py
 ```
+
+On Windows you can also use `py scripts/verify.py`. The script uses `sys.executable` and absolute paths so it behaves the same on Windows, macOS, and Linux.
 
 Run tests directly:
 

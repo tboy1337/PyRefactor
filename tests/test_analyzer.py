@@ -331,6 +331,24 @@ class TestBaseDetector:
         assert len(detector.issues) == 1
         assert detector.issues[0] == issue
 
+    def test_report_issue_populates_code_snippet(self, default_config: Config) -> None:
+        """Test report_issue auto-populates code_snippet from source."""
+        source_lines = ["if x == True:", "    pass"]
+        detector = ConcreteDetector(default_config, "test.py", source_lines)
+        tree = ast.parse("\n".join(source_lines))
+        node = tree.body[0]
+
+        detector.report_issue(
+            node,
+            severity=Severity.INFO,
+            rule_id="T001",
+            message="Test",
+            suggestion="Fix",
+        )
+
+        assert len(detector.issues) == 1
+        assert detector.issues[0].code_snippet == "if x == True:"
+
     def test_analyze(self, default_config: Config) -> None:
         """Test analyze method."""
         source = "x = 1"

@@ -27,9 +27,20 @@ def _pyproject_version() -> str:
 class TestVersion:
     """Tests for package version helpers."""
 
-    def test_get_version_matches_pyproject(self) -> None:
-        """Runtime version matches the single source of truth in pyproject.toml."""
-        assert get_version() == _pyproject_version()
+    def test_fallback_version_matches_repository_pyproject(self) -> None:
+        """Fallback version matches pyproject.toml without requiring a fresh install."""
+        _fallback_version.cache_clear()
+        with patch(
+            "pyrefactor._version.version",
+            side_effect=PackageNotFoundError("pyrefactor"),
+        ):
+            assert get_version() == _pyproject_version()
+
+    def test_get_version_uses_package_metadata(self) -> None:
+        """Installed version comes from package metadata when available."""
+        expected = "2.3.4"
+        with patch("pyrefactor._version.version", return_value=expected):
+            assert get_version() == expected
 
     def test_get_version_returns_string(self) -> None:
         """Installed or fallback version is a non-empty string."""

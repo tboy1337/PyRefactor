@@ -224,7 +224,9 @@ def main() -> int:
     max_workers = max(1, args.jobs)
     analyzer = Analyzer(config)
     result = _analyze_files_safely(analyzer, paths, max_workers, verbose=args.verbose)
-    if result is None:
+    if result is None or result.files_analyzed() == 0:
+        if result is not None:
+            logger.error("No Python files found to analyze")
         return 2
 
     # Filter by minimum severity

@@ -236,6 +236,26 @@ class TestCLIMain:
             # Syntax errors are handled gracefully without crashing
             assert exit_code == 0
 
+    def test_main_with_non_python_file(self, tmp_path: Path) -> None:
+        """Test main exits with error when given a non-Python file."""
+        text_file = tmp_path / "readme.txt"
+        text_file.write_text("not python")
+
+        with patch.object(sys, "argv", ["pyrefactor", str(text_file)]):
+            exit_code = main()
+
+            assert exit_code == 2
+
+    def test_main_with_empty_directory(self, tmp_path: Path) -> None:
+        """Test main exits with error when directory has no Python files."""
+        empty_dir = tmp_path / "empty"
+        empty_dir.mkdir()
+
+        with patch.object(sys, "argv", ["pyrefactor", str(empty_dir)]):
+            exit_code = main()
+
+            assert exit_code == 2
+
     def test_main_no_paths(self) -> None:
         """Test main exits with error when no paths are provided."""
         with patch.object(sys, "argv", ["pyrefactor"]):

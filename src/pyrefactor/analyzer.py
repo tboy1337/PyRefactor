@@ -150,7 +150,9 @@ class Analyzer:
 
         for file_path in file_paths:
             if file_path.is_file():
-                if file_path.suffix == ".py" and not self._is_excluded(file_path):
+                if file_path.suffix != ".py":
+                    logger.warning("Skipping non-Python file: %s", file_path)
+                elif not self._is_excluded(file_path):
                     paths_to_analyze.append(file_path)
             elif file_path.is_dir():
                 python_files = [

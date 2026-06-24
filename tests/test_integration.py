@@ -220,3 +220,24 @@ for i in range(len(items)):
         # Should trigger (30 lines > 20)
         long_func_issues2 = [i for i in analysis2.issues if i.rule_id == "C001"]
         assert len(long_func_issues2) > 0
+
+    def test_issues_include_code_snippets(self, tmp_path: Path) -> None:
+        """Test analyzed issues include source code snippets."""
+        from io import StringIO
+
+        from pyrefactor.reporter import ConsoleReporter
+
+        file_path = tmp_path / "snippet.py"
+        file_path.write_text("if x == True:\n    pass\n")
+
+        analyzer = Analyzer(Config())
+        analysis = analyzer.analyze_file(file_path)
+
+        assert any(issue.code_snippet for issue in analysis.issues)
+
+        output = StringIO()
+        reporter = ConsoleReporter(output=output)
+        result = analyzer.analyze_files([file_path])
+        reporter.report(result)
+
+        assert "if x == True:" in output.getvalue()

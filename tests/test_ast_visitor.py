@@ -80,3 +80,46 @@ async def func():
         func_def = tree.body[0]
         assert isinstance(func_def, ast.AsyncFunctionDef)
         assert count_branches(func_def) >= 1
+
+    def test_assert_increases_cyclomatic_complexity(self) -> None:
+        """Test assert statements increase cyclomatic complexity."""
+        source = """
+def func(value):
+    assert value > 0
+    return value
+"""
+        tree = ast.parse(source)
+        func_def = tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
+        assert calculate_cyclomatic_complexity(func_def) >= 2
+
+    def test_try_star_increases_branch_count(self) -> None:
+        """Test except* handlers are counted as branches."""
+        source = """
+def func():
+    try:
+        raise ExceptionGroup("errors", [])
+    except* ValueError:
+        return 1
+    except* KeyError:
+        return 2
+"""
+        tree = ast.parse(source)
+        func_def = tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
+        assert count_branches(func_def) >= 2
+
+    def test_match_cases_counted_as_branches(self) -> None:
+        """Test match/case statements are counted as branches."""
+        source = """
+def func(value):
+    match value:
+        case 1:
+            return "one"
+        case 2:
+            return "two"
+"""
+        tree = ast.parse(source)
+        func_def = tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
+        assert count_branches(func_def) >= 2

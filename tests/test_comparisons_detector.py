@@ -489,3 +489,32 @@ if type(x) == obj.SomeType:
     # Attributes are valid for isinstance suggestion too
     assert len(issues) == 1
     assert issues[0].rule_id == "R016"
+
+
+def test_consecutive_isinstance_checks(detector: ComparisonsDetector) -> None:
+    """Test detection of consecutive isinstance checks that can be combined."""
+    code = """
+if isinstance(value, int) or isinstance(value, float):
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert any(issue.rule_id == "R013" for issue in issues)
+    assert any("isinstance" in issue.suggestion for issue in issues)
+
+
+def test_consecutive_isinstance_different_objects_not_flagged(
+    detector: ComparisonsDetector,
+) -> None:
+    """Test isinstance checks on different objects are not combined."""
+    code = """
+if isinstance(a, int) or isinstance(b, int):
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R013" for issue in issues)

@@ -149,6 +149,24 @@ def complex(x, y):
         assert len(issues) > 0
         assert any(issue.rule_id.startswith("C") for issue in issues)
 
+    def test_cyclomatic_complexity_rule_c006(self) -> None:
+        """Test explicit C006 detection for high cyclomatic complexity."""
+        config = Config()
+        config.complexity.max_cyclomatic_complexity = 1
+        source = """
+def branchy(value):
+    if value > 0:
+        return "positive"
+    return "non-positive"
+"""
+        tree = ast.parse(source)
+
+        detector = ComplexityDetector(config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert any(issue.rule_id == "C006" for issue in issues)
+        assert any("cyclomatic complexity" in issue.message.lower() for issue in issues)
+
     def test_suppression_comment(self, default_config: Config) -> None:
         """Test that suppression comments work."""
         source = """
