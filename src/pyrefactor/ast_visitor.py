@@ -39,7 +39,6 @@ class BaseDetector(ast.NodeVisitor, ABC):
         self.source_lines = source_lines
         self.issues: list[Issue] = []
         self.current_function: Union[ast.FunctionDef, ast.AsyncFunctionDef, None] = None
-        self.nesting_level = 0
 
     @abstractmethod
     def get_detector_name(self) -> str:

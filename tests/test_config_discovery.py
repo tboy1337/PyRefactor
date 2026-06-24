@@ -53,6 +53,22 @@ max_branches = 7
         config = Config.load()
         assert config.complexity.max_branches == 7
 
+    def test_load_ini_fallback_when_pyproject_has_no_pyrefactor_section(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test Config.load uses pyrefactor.ini when pyproject lacks [tool.pyrefactor]."""
+        monkeypatch.chdir(tmp_path)
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text('[project]\nname = "example"\nversion = "0.0.0"\n')
+        ini_file = tmp_path / "pyrefactor.ini"
+        ini_file.write_text("""
+[complexity]
+max_branches = 9
+""")
+
+        config = Config.load()
+        assert config.complexity.max_branches == 9
+
     def test_invalid_toml_raises(self, tmp_path: Path) -> None:
         """Test invalid TOML raises ValueError."""
         config_file = tmp_path / "bad.toml"

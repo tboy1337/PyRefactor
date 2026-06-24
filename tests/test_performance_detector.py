@@ -138,7 +138,7 @@ while condition:
         assert any(issue.rule_id == "P001" for issue in issues)
 
     def test_dict_keys_in_membership_test(self, default_config: Config) -> None:
-        """Test detection of dict.keys() in membership test."""
+        """Test that dict.keys() membership is not reported by performance detector."""
         source = """
 if key in my_dict.keys():
     pass
@@ -148,9 +148,7 @@ if key in my_dict.keys():
         detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
         issues = detector.analyze(tree)
 
-        assert len(issues) > 0
-        assert any(issue.rule_id == "P003" for issue in issues)
-        assert any("dict.keys()" in issue.message for issue in issues)
+        assert not any(issue.rule_id == "P003" for issue in issues)
 
     def test_call_suppression(self, default_config: Config) -> None:
         """Test suppression of call warnings."""
@@ -195,7 +193,7 @@ for item in items:
         assert not any(issue.rule_id == "P002" for issue in issues)
 
     def test_non_dict_keys_call(self, default_config: Config) -> None:
-        """Test that non-dict.keys() calls don't trigger warning."""
+        """Test that dict.keys() membership is handled outside performance detector."""
         source = """
 if key in something.keys():
     pass
@@ -205,7 +203,6 @@ if key in something.keys():
         detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
         issues = detector.analyze(tree)
 
-        # Should not trigger P003 (not a dict type based on name)
         assert not any(issue.rule_id == "P003" for issue in issues)
 
 

@@ -43,7 +43,7 @@ def func2():
         assert any("duplicate" in issue.message.lower() for issue in issues)
 
     def test_similar_code(self, default_config: Config) -> None:
-        """Test detection of similar code blocks."""
+        """Test detection of structurally identical code blocks in different functions."""
         source = """
 def process_a(data):
     validated = validate(data)
@@ -52,8 +52,8 @@ def process_a(data):
     log(result)
     return result
 
-def process_b(info):
-    validated = validate(info)
+def process_b(data):
+    validated = validate(data)
     transformed = transform(validated)
     result = save(transformed)
     log(result)
@@ -65,8 +65,8 @@ def process_b(info):
         detector = DuplicationDetector(default_config, "test.py", lines)
         issues = detector.analyze(tree)
 
-        # May or may not detect depending on similarity threshold
-        assert isinstance(issues, list)
+        assert len(issues) >= 1
+        assert any(issue.rule_id == "D001" for issue in issues)
 
     def test_no_duplication(self, default_config: Config) -> None:
         """Test that unique code doesn't trigger issues."""
@@ -89,9 +89,8 @@ class DataStore:
         detector = DuplicationDetector(default_config, "test.py", lines)
         issues = detector.analyze(tree)
 
-        # Different classes with different methods shouldn't trigger duplication
-        # (May detect some similarity, so we'll just check it doesn't crash)
-        assert isinstance(issues, list)
+        # Different classes with different methods should not trigger duplication
+        assert len(issues) == 0
 
     def test_whitespace_normalized(self, default_config: Config) -> None:
         """Test that whitespace differences are normalized."""

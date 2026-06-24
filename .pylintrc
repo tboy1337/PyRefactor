@@ -254,7 +254,7 @@ check-protected-access-in-special-methods=no
 
 [DESIGN]
 # Maximum number of arguments for function / method
-max-args=6
+max-args=5
 
 # Maximum number of attributes for a class
 max-attributes=10

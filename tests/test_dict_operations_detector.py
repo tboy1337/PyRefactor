@@ -133,6 +133,21 @@ result = {k: v for k, v in items}
     assert len(issues) == 0
 
 
+def test_dict_keys_membership_test(detector: DictOperationsDetector) -> None:
+    """Test detection of dict.keys() in membership test."""
+    code = """
+if key in my_dict.keys():
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 1
+    assert issues[0].rule_id == "R009"
+    assert "membership" in issues[0].message.lower()
+
+
 def test_dict_call_without_list_comp(detector: DictOperationsDetector) -> None:
     """Test that dict() call without list comp is not flagged."""
     code = """

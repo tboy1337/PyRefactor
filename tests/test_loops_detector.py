@@ -78,9 +78,7 @@ for item in items:
         detector = LoopsDetector(default_config, "test.py", source.split("\n"))
         issues = detector.analyze(tree)
 
-        # May or may not detect depending on heuristics
-        # Just ensure no crash
-        assert isinstance(issues, list)
+        assert not any(issue.rule_id == "L004" for issue in issues)
 
     def test_good_enumerate_usage(self, default_config: Config) -> None:
         """Test that proper enumerate usage doesn't trigger issues."""
@@ -241,5 +239,4 @@ while condition:
         detector = LoopsDetector(default_config, "test.py", source.split("\n"))
         issues = detector.analyze(tree)
 
-        # Just ensure no crash
-        assert isinstance(issues, list)
+        assert len(issues) == 0

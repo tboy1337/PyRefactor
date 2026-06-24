@@ -1,46 +1,24 @@
 """Control flow simplification detector for PyRefactor."""
 
 import ast
-from typing import cast
 
 from ..ast_visitor import BaseDetector
-from ..models import Issue, Severity
+from ..models import Severity
 
 
 class ControlFlowDetector(BaseDetector):
     """Detects unnecessary else/elif clauses after return/raise/break/continue."""
 
-    def get_detector_name(self) -> str:
-        """Return the name of this detector."""
-        return "control_flow"
-
-    def _create_issue(
-        self,
-        node: ast.AST,
-        *,
-        severity: Severity,
-        rule_id: str,
-        message: str,
-        suggestion: str,
-    ) -> Issue:
-        """Create an Issue object for control flow issues."""
-        return Issue(
-            file=self.file_path,
-            line=cast(int, getattr(node, "lineno", 0)),
-            column=cast(int, getattr(node, "col_offset", 0)),
-            severity=severity,
-            rule_id=rule_id,
-            message=message,
-            suggestion=suggestion,
-        )
-
-    # Map terminator types to rule IDs
     _TERMINATOR_RULES = {
         "return": "R002",
         "raise": "R003",
         "break": "R004",
         "continue": "R005",
     }
+
+    def get_detector_name(self) -> str:
+        """Return the name of this detector."""
+        return "control_flow"
 
     def visit_If(self, node: ast.If) -> None:
         """Check for unnecessary else clauses."""
@@ -144,13 +122,11 @@ class ControlFlowDetector(BaseDetector):
         else:
             clause_type = "else"
 
-        self.add_issue(
-            self._create_issue(
-                node,
-                severity=Severity.MEDIUM,
-                rule_id=rule_id,
-                message=f"Unnecessary '{clause_type}' after '{terminator}' statement",
-                suggestion=f"Remove '{clause_type}' and unindent its body since the "
-                f"preceding code always executes '{terminator}'",
-            )
+        self.report_issue(
+            node,
+            severity=Severity.MEDIUM,
+            rule_id=rule_id,
+            message=f"Unnecessary '{clause_type}' after '{terminator}' statement",
+            suggestion=f"Remove '{clause_type}' and unindent its body since the "
+            f"preceding code always executes '{terminator}'",
         )

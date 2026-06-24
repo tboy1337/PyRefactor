@@ -85,3 +85,20 @@ class TestVersion:
             side_effect=PackageNotFoundError("pyrefactor"),
         ):
             assert get_version() == _pyproject_version()
+
+    def test_pyproject_path_uses_bundled_meipass(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Frozen executables read version from bundled pyproject.toml."""
+        from pyrefactor._version import _pyproject_path
+
+        bundled = tmp_path / "pyproject.toml"
+        bundled.write_text('version = "8.8.8"\n', encoding="utf-8")
+        monkeypatch.setattr("pyrefactor._version.sys.frozen", True, raising=False)
+        monkeypatch.setattr(
+            "pyrefactor._version.sys._MEIPASS", str(tmp_path), raising=False
+        )
+
+        assert _pyproject_path() == bundled
+        _fallback_version.cache_clear()
+        assert _fallback_version() == "8.8.8"

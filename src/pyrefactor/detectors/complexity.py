@@ -91,11 +91,6 @@ class ComplexityDetector(BaseDetector):
         if self.is_suppressed(node):
             return
 
-        # Save current function context
-        old_function = self.current_function
-        self.current_function = node
-
-        # Group checks that don't require AST traversal
         self._check_function_length(node)
         self._check_arguments(node)
 
@@ -104,9 +99,6 @@ class ComplexityDetector(BaseDetector):
         self._check_branches(node)
         self._check_nesting_depth(node)
         self._check_cyclomatic_complexity(node)
-
-        # Restore function context
-        self.current_function = old_function
 
     def _check_function_length(
         self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]

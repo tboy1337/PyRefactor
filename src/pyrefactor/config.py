@@ -355,6 +355,15 @@ class Config:
             exclude_patterns=exclude_patterns,
         )
 
+    @staticmethod
+    def _has_pyrefactor_config(data: dict[str, Any]) -> bool:
+        """Return True when parsed TOML contains a non-empty [tool.pyrefactor] table."""
+        tool_section = data.get("tool")
+        if not isinstance(tool_section, dict):
+            return False
+        pyrefactor = tool_section.get("pyrefactor")
+        return isinstance(pyrefactor, dict) and bool(pyrefactor)
+
     @classmethod
     def from_toml_file(cls, config_path: Path) -> "Config":
         """Load configuration from a TOML file."""
@@ -413,8 +422,11 @@ class Config:
             return cls.from_file(config_path)
 
         pyproject = Path("pyproject.toml")
-        if pyproject.exists():
-            return cls.from_toml_file(pyproject)
+        if pyproject.is_file():
+            with pyproject.open("rb") as config_file:
+                data = tomllib.load(config_file)
+            if cls._has_pyrefactor_config(data):
+                return cls.from_toml_data(data)
 
         ini_file = Path("pyrefactor.ini")
         if ini_file.exists():

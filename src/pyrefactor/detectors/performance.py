@@ -219,37 +219,10 @@ class PerformanceDetector(BaseDetector):
             self.generic_visit(node)
             return
 
-        self._check_dict_keys_usage(node)
         self._check_redundant_list_conversion(node)
         self._check_len_usage(node)
 
         self.generic_visit(node)
-
-    def _check_dict_keys_usage(self, node: ast.Call) -> None:
-        """Check for unnecessary dict.keys() in membership tests."""
-        if not isinstance(node.func, ast.Attribute):
-            return
-
-        if node.func.attr != "keys":
-            return
-
-        if not self._matches_type_hint(node.func.value, "dict"):
-            return
-
-        parent: Optional[ast.AST] = self.parent_map.get(node)
-        if not isinstance(parent, ast.Compare):
-            return
-
-        if not parent.ops or not isinstance(parent.ops[0], ast.In):
-            return
-
-        self.report_issue(
-            node,
-            severity=Severity.INFO,
-            rule_id="P003",
-            message="Unnecessary dict.keys() call in membership test",
-            suggestion="Use 'key in dict' instead of 'key in dict.keys()'",
-        )
 
     def _check_redundant_list_conversion(self, node: ast.Call) -> None:
         """Check for redundant list() conversions of list comprehensions."""

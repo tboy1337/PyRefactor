@@ -4,7 +4,7 @@ import ast
 from typing import Optional, Tuple, cast
 
 from ..ast_visitor import BaseDetector
-from ..models import Issue, Severity
+from ..models import Severity
 
 # Singleton values that should be compared with 'is' instead of '=='
 SINGLETON_VALUES = frozenset({True, False, None})
@@ -16,26 +16,6 @@ class ComparisonsDetector(BaseDetector):
     def get_detector_name(self) -> str:
         """Return the name of this detector."""
         return "comparisons"
-
-    def _create_issue(
-        self,
-        node: ast.AST,
-        *,
-        severity: Severity,
-        rule_id: str,
-        message: str,
-        suggestion: str,
-    ) -> Issue:
-        """Create an Issue object for comparison issues."""
-        return Issue(
-            file=self.file_path,
-            line=cast(int, getattr(node, "lineno", 0)),
-            column=cast(int, getattr(node, "col_offset", 0)),
-            severity=severity,
-            rule_id=rule_id,
-            message=message,
-            suggestion=suggestion,
-        )
 
     def visit_BoolOp(self, node: ast.BoolOp) -> None:
         """Check for patterns that could use 'in' operator or chained comparisons."""
@@ -75,30 +55,21 @@ class ComparisonsDetector(BaseDetector):
 
         # We have x == a or x == b pattern
         if len(comparisons) >= 2:
-            var_name = (
-                ast.unparse(comparisons[0].left) if hasattr(ast, "unparse") else "x"
-            )
+            var_name = ast.unparse(comparisons[0].left)
             values = []
             for comp in comparisons:
                 if comp.comparators:
-                    val = (
-                        ast.unparse(comp.comparators[0])
-                        if hasattr(ast, "unparse")
-                        else "value"
-                    )
-                    values.append(val)
+                    values.append(ast.unparse(comp.comparators[0]))
 
             values_str = ", ".join(values)
 
-            self.add_issue(
-                self._create_issue(
-                    node,
-                    severity=Severity.LOW,
-                    rule_id="R011",
-                    message="Multiple equality comparisons can be simplified using 'in' operator",
-                    suggestion=f"Use '{var_name} in ({values_str})' instead of multiple '==' comparisons. "
-                    f"Use a set if values are hashable for O(1) lookup.",
-                )
+            self.report_issue(
+                node,
+                severity=Severity.LOW,
+                rule_id="R011",
+                message="Multiple equality comparisons can be simplified using 'in' operator",
+                suggestion=f"Use '{var_name} in ({values_str})' instead of multiple '==' comparisons. "
+                f"Use a set if values are hashable for O(1) lookup.",
             )
 
     def _check_chained_comparison(self, node: ast.BoolOp) -> None:
@@ -152,13 +123,9 @@ class ComparisonsDetector(BaseDetector):
             return None
 
         # Extract string representations
-        left1_str = ast.unparse(comp1.left) if hasattr(ast, "unparse") else "a"
-        mid_str = ast.unparse(right1) if hasattr(ast, "unparse") else "b"
-        right2_str = (
-            ast.unparse(comp2.comparators[0])
-            if hasattr(ast, "unparse") and comp2.comparators
-            else "c"
-        )
+        left1_str = ast.unparse(comp1.left)
+        mid_str = ast.unparse(right1)
+        right2_str = ast.unparse(comp2.comparators[0]) if comp2.comparators else "c"
 
         return (left1_str, op1, mid_str, op2, right2_str)
 
@@ -167,15 +134,13 @@ class ComparisonsDetector(BaseDetector):
     ) -> None:
         """Report a chainable comparison issue."""
         left1_str, op1, mid_str, op2, right2_str = chain_info
-        self.add_issue(
-            self._create_issue(
-                node,
-                severity=Severity.LOW,
-                rule_id="R012",
-                message="Comparison can be chained for better readability",
-                suggestion=f"Use '{left1_str} {op1} {mid_str} {op2} {right2_str}' "
-                f"instead of separate comparisons",
-            )
+        self.report_issue(
+            node,
+            severity=Severity.LOW,
+            rule_id="R012",
+            message="Comparison can be chained for better readability",
+            suggestion=f"Use '{left1_str} {op1} {mid_str} {op2} {right2_str}' "
+            f"instead of separate comparisons",
         )
 
     def visit_Compare(self, node: ast.Compare) -> None:
@@ -206,33 +171,29 @@ class ComparisonsDetector(BaseDetector):
         """Report inappropriate None comparison."""
         correct_op = "is not" if checking_for_absence else "is"
         wrong_op = "!=" if checking_for_absence else "=="
-        self.add_issue(
-            self._create_issue(
-                node,
-                severity=Severity.MEDIUM,
-                rule_id="R014",
-                message="Comparison with None should use 'is' or 'is not'",
-                suggestion=f"Use '{correct_op}' instead of '{wrong_op}' when comparing with None",
-            )
+        self.report_issue(
+            node,
+            severity=Severity.MEDIUM,
+            rule_id="R014",
+            message="Comparison with None should use 'is' or 'is not'",
+            suggestion=f"Use '{correct_op}' instead of '{wrong_op}' when comparing with None",
         )
 
     def _report_bool_comparison(
         self, node: ast.Compare, op: ast.cmpop, singleton_val: bool, other: ast.AST
     ) -> None:
         """Report redundant True/False comparison."""
-        other_str = ast.unparse(other) if hasattr(ast, "unparse") else "expr"
+        other_str = ast.unparse(other)
 
         # Determine the suggested replacement
         suggestion = self._get_bool_comparison_suggestion(singleton_val, op, other_str)
 
-        self.add_issue(
-            self._create_issue(
-                node,
-                severity=Severity.INFO,
-                rule_id="R015",
-                message=f"Redundant comparison with {singleton_val}",
-                suggestion=suggestion,
-            )
+        self.report_issue(
+            node,
+            severity=Severity.INFO,
+            rule_id="R015",
+            message=f"Redundant comparison with {singleton_val}",
+            suggestion=suggestion,
         )
 
     def _get_bool_comparison_suggestion(
@@ -312,24 +273,18 @@ class ComparisonsDetector(BaseDetector):
             return
 
         # At this point, node.left is a Call with args
-        obj = ast.unparse(node.left.args[0]) if hasattr(ast, "unparse") else "obj"
-        type_name = (
-            ast.unparse(node.comparators[0])
-            if hasattr(ast, "unparse") and node.comparators
-            else "Type"
-        )
+        obj = ast.unparse(node.left.args[0])
+        type_name = ast.unparse(node.comparators[0]) if node.comparators else "Type"
 
-        self.add_issue(
-            self._create_issue(
-                node,
-                severity=Severity.MEDIUM,
-                rule_id="R016",
-                message="Use isinstance() for type checking instead of type() comparison",
-                suggestion=(
-                    f"Use 'isinstance({obj}, {type_name})' instead of "
-                    f"'type({obj}) == {type_name}'"
-                ),
-            )
+        self.report_issue(
+            node,
+            severity=Severity.MEDIUM,
+            rule_id="R016",
+            message="Use isinstance() for type checking instead of type() comparison",
+            suggestion=(
+                f"Use 'isinstance({obj}, {type_name})' instead of "
+                f"'type({obj}) == {type_name}'"
+            ),
         )
 
     def visit_Call(self, node: ast.Call) -> None:

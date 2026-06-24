@@ -2,11 +2,14 @@
 
 import ast
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from pyrefactor.analyzer import Analyzer
 from pyrefactor.ast_visitor import BaseDetector
 from pyrefactor.config import Config
-from pyrefactor.models import Issue
+from pyrefactor.models import Issue, Severity
 
 
 class TestAnalyzer:
@@ -311,8 +314,6 @@ class TestBaseDetector:
 
     def test_add_issue(self, default_config: Config) -> None:
         """Test adding issues to detector."""
-        from pyrefactor.models import Severity
-
         detector = ConcreteDetector(default_config, "test.py", [])
 
         issue = Issue(
@@ -338,4 +339,81 @@ class TestBaseDetector:
 
         issues = detector.analyze(tree)
 
-        assert isinstance(issues, list)
+        assert issues == []
+
+
+class TestAnalyzerEdgeCases:
+    """Additional analyzer edge-case coverage."""
+
+    def test_file_exceeds_max_size(
+        self, default_config: Config, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test analysis rejects files larger than the configured limit."""
+        from pyrefactor import analyzer as analyzer_module
+
+        large_file = tmp_path / "large.py"
+        large_file.write_bytes(b"x = 1\n")
+        monkeypatch.setattr(analyzer_module, "MAX_FILE_BYTES", 1)
+
+        analysis = Analyzer(default_config).analyze_file(large_file)
+
+        assert analysis.parse_error is not None
+        assert "maximum size" in analysis.parse_error
+
+    def test_exclusion_by_basename_pattern(self, tmp_path: Path) -> None:
+        """Test exclusion patterns match file basenames."""
+        config = Config()
+        config.exclude_patterns = ["skip_*.py"]
+        target = tmp_path / "skip_me.py"
+        target.write_text("x = 1\n", encoding="utf-8")
+
+        result = Analyzer(config).analyze_files([target])
+
+        assert result.file_analyses == []
+
+    def test_detector_failure_isolated(
+        self, default_config: Config, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test detector exceptions do not abort analysis."""
+        from pyrefactor.detectors import complexity as complexity_module
+
+        target = tmp_path / "sample.py"
+        target.write_text("x = 1\n", encoding="utf-8")
+
+        def _boom(_self: object, _tree: object) -> list[object]:
+            raise RuntimeError("detector failed")
+
+        monkeypatch.setattr(
+            complexity_module.ComplexityDetector,
+            "analyze",
+            _boom,
+        )
+
+        analysis = Analyzer(default_config).analyze_file(target)
+
+        assert analysis.parse_error is None
+        assert analysis.issues == []
+
+    def test_parallel_future_failure(
+        self, default_config: Config, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test thread pool failures are recorded as parse errors."""
+        first = tmp_path / "first.py"
+        second = tmp_path / "second.py"
+        first.write_text("x = 1\n", encoding="utf-8")
+        second.write_text("y = 2\n", encoding="utf-8")
+
+        with patch.object(
+            Analyzer,
+            "analyze_file",
+            side_effect=RuntimeError("worker failed"),
+        ):
+            result = Analyzer(default_config).analyze_files(
+                [first, second], max_workers=2
+            )
+
+        assert len(result.file_analyses) == 2
+        assert all(
+            analysis.parse_error == "Analysis failed: worker failed"
+            for analysis in result.file_analyses
+        )

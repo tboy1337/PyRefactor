@@ -4,7 +4,7 @@ import ast
 from typing import Optional, Tuple, cast
 
 from ..ast_visitor import BaseDetector
-from ..models import Issue, Severity
+from ..models import Severity
 
 
 class DictOperationsDetector(BaseDetector):
@@ -13,26 +13,6 @@ class DictOperationsDetector(BaseDetector):
     def get_detector_name(self) -> str:
         """Return the name of this detector."""
         return "dict_operations"
-
-    def _create_issue(
-        self,
-        node: ast.AST,
-        *,
-        severity: Severity,
-        rule_id: str,
-        message: str,
-        suggestion: str,
-    ) -> Issue:
-        """Create an Issue object for dictionary operation issues."""
-        return Issue(
-            file=self.file_path,
-            line=cast(int, getattr(node, "lineno", 0)),
-            column=cast(int, getattr(node, "col_offset", 0)),
-            severity=severity,
-            rule_id=rule_id,
-            message=message,
-            suggestion=suggestion,
-        )
 
     def visit_If(self, node: ast.If) -> None:
         """Check for dict.get() opportunities."""
@@ -58,15 +38,13 @@ class DictOperationsDetector(BaseDetector):
 
         var_name, key_name, dict_name, default_val = components
 
-        self.add_issue(
-            self._create_issue(
-                node,
-                severity=Severity.LOW,
-                rule_id="R006",
-                message="Consider using dict.get() instead of if/else for key lookup",
-                suggestion=f"Use '{var_name} = {dict_name}.get({key_name}, {default_val})' "
-                f"instead of if/else block",
-            )
+        self.report_issue(
+            node,
+            severity=Severity.LOW,
+            rule_id="R006",
+            message="Consider using dict.get() instead of if/else for key lookup",
+            suggestion=f"Use '{var_name} = {dict_name}.get({key_name}, {default_val})' "
+            f"instead of if/else block",
         )
 
     def _is_valid_dict_get_structure(self, node: ast.If) -> bool:
@@ -114,9 +92,7 @@ class DictOperationsDetector(BaseDetector):
             return None
 
         var_name = cast(ast.Name, if_assign.targets[0]).id
-        default_val = (
-            ast.unparse(else_assign.value) if hasattr(ast, "unparse") else "..."
-        )
+        default_val = ast.unparse(else_assign.value)
 
         return (var_name, key_name.id, dict_name.id, default_val)
 
@@ -185,6 +161,42 @@ class DictOperationsDetector(BaseDetector):
 
         return True
 
+    def visit_Compare(self, node: ast.Compare) -> None:
+        """Check for unnecessary .keys() in membership tests."""
+        if self.is_suppressed(node):
+            self.generic_visit(node)
+            return
+
+        self._check_unnecessary_keys_membership(node)
+        self.generic_visit(node)
+
+    def _check_unnecessary_keys_membership(self, node: ast.Compare) -> None:
+        """Check for pattern: key in dict.keys()."""
+        if len(node.ops) != 1 or not isinstance(node.ops[0], ast.In):
+            return
+        if not node.comparators:
+            return
+
+        comparator = node.comparators[0]
+        if not isinstance(comparator, ast.Call):
+            return
+        if not isinstance(comparator.func, ast.Attribute):
+            return
+        if comparator.func.attr != "keys":
+            return
+
+        dict_name = self._get_name(comparator.func.value)
+        if not dict_name:
+            return
+
+        self.report_issue(
+            node,
+            severity=Severity.INFO,
+            rule_id="R009",
+            message="Unnecessary .keys() call in membership test",
+            suggestion=f"Use 'key in {dict_name}' instead of 'key in {dict_name}.keys()'",
+        )
+
     def visit_For(self, node: ast.For) -> None:
         """Check for dictionary iteration improvements."""
         if self.is_suppressed(node):
@@ -216,15 +228,13 @@ class DictOperationsDetector(BaseDetector):
             return
 
         target_name = self._get_target_name(node.target)
-        self.add_issue(
-            self._create_issue(
-                node,
-                severity=Severity.INFO,
-                rule_id="R009",
-                message="Unnecessary .keys() call when iterating dictionary",
-                suggestion=f"Use 'for {target_name} in {dict_name}:' "
-                f"instead of 'for {target_name} in {dict_name}.keys():'",
-            )
+        self.report_issue(
+            node,
+            severity=Severity.INFO,
+            rule_id="R009",
+            message="Unnecessary .keys() call when iterating dictionary",
+            suggestion=f"Use 'for {target_name} in {dict_name}:' "
+            f"instead of 'for {target_name} in {dict_name}.keys():'",
         )
 
     def _check_dict_items_opportunity(self, node: ast.For) -> None:
@@ -242,15 +252,13 @@ class DictOperationsDetector(BaseDetector):
 
         # Check if body contains dict[key] accesses
         if self._has_dict_key_access(node.body, iter_name, key_name):
-            self.add_issue(
-                self._create_issue(
-                    node,
-                    severity=Severity.MEDIUM,
-                    rule_id="R007",
-                    message="Consider using .items() to access both keys and values",
-                    suggestion=f"Use 'for {key_name}, value in {iter_name}.items():' "
-                    f"to avoid repeated dict lookups",
-                )
+            self.report_issue(
+                node,
+                severity=Severity.MEDIUM,
+                rule_id="R007",
+                message="Consider using .items() to access both keys and values",
+                suggestion=f"Use 'for {key_name}, value in {iter_name}.items():' "
+                f"to avoid repeated dict lookups",
             )
 
     def _has_dict_key_access(
@@ -320,15 +328,13 @@ class DictOperationsDetector(BaseDetector):
         if len(arg.elt.elts) != 2:
             return
 
-        self.add_issue(
-            self._create_issue(
-                node,
-                severity=Severity.LOW,
-                rule_id="R010",
-                message="Consider using dictionary comprehension instead of dict()",
-                suggestion="Use '{k: v for ...}' instead of 'dict([(k, v) for ...])' "
-                "for better readability and performance",
-            )
+        self.report_issue(
+            node,
+            severity=Severity.LOW,
+            rule_id="R010",
+            message="Consider using dictionary comprehension instead of dict()",
+            suggestion="Use '{k: v for ...}' instead of 'dict([(k, v) for ...])' "
+            "for better readability and performance",
         )
 
     def _get_name(self, node: ast.AST) -> Optional[str]:

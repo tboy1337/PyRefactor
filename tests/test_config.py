@@ -282,6 +282,18 @@ class TestControlFlowConfig:
 
         assert config.enabled is True
 
+    def test_load_from_toml(self, tmp_path: Path) -> None:
+        """Test loading control flow settings from TOML."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("""
+[tool.pyrefactor.control_flow]
+enabled = false
+""")
+
+        config = Config.from_toml_file(config_file)
+
+        assert config.control_flow.enabled is False
+
 
 class TestDictOperationsConfig:
     """Tests for DictOperationsConfig."""
@@ -292,6 +304,30 @@ class TestDictOperationsConfig:
 
         assert config.enabled is True
 
+    def test_load_from_toml(self, tmp_path: Path) -> None:
+        """Test loading dict operations settings from TOML."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("""
+[tool.pyrefactor.dict_operations]
+enabled = false
+""")
+
+        config = Config.from_toml_file(config_file)
+
+        assert config.dict_operations.enabled is False
+
+    def test_load_from_ini(self, tmp_path: Path) -> None:
+        """Test loading dict operations settings from INI."""
+        config_file = tmp_path / "pyrefactor.ini"
+        config_file.write_text("""
+[dict_operations]
+enabled = false
+""")
+
+        config = Config.from_ini_file(config_file)
+
+        assert config.dict_operations.enabled is False
+
 
 class TestComparisonsConfig:
     """Tests for ComparisonsConfig."""
@@ -301,3 +337,27 @@ class TestComparisonsConfig:
         config = ComparisonsConfig()
 
         assert config.enabled is True
+
+    def test_load_from_toml(self, tmp_path: Path) -> None:
+        """Test loading comparisons settings from TOML."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("""
+[tool.pyrefactor.comparisons]
+enabled = false
+""")
+
+        config = Config.from_toml_file(config_file)
+
+        assert config.comparisons.enabled is False
+
+    def test_exclude_patterns_from_comma_separated_string(self, tmp_path: Path) -> None:
+        """Test exclude_patterns can be loaded from a comma-separated TOML string."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("""
+[tool.pyrefactor]
+exclude_patterns = "build, dist, vendor"
+""")
+
+        config = Config.from_toml_file(config_file)
+
+        assert config.exclude_patterns == ["build", "dist", "vendor"]

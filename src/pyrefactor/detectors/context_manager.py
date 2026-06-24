@@ -3,7 +3,7 @@
 import ast
 from typing import Optional
 
-from ..ast_visitor import BaseDetector, node_col_offset, node_lineno
+from ..ast_visitor import BaseDetector, build_parent_map
 from ..config import Config
 from ..models import Issue, Severity
 
@@ -38,51 +38,19 @@ class ContextManagerDetector(BaseDetector):
 
     def analyze(self, tree: ast.AST) -> list[Issue]:
         """Run the detector on an AST and return issues found."""
-        # Build parent map once for the entire tree
-        self._build_parent_map(tree)
+        self.parent_map = build_parent_map(tree)
         self.visit(tree)
         return self.issues
-
-    def _build_parent_map(self, tree: ast.AST) -> None:
-        """Build a map of child -> parent for the entire tree."""
-        for parent in ast.walk(tree):
-            for child in ast.iter_child_nodes(parent):
-                self.parent_map[child] = parent
 
     def get_detector_name(self) -> str:
         """Return the name of this detector."""
         return "context_manager"
 
-    def _create_issue(
-        self,
-        node: ast.AST,
-        *,
-        severity: Severity,
-        rule_id: str,
-        message: str,
-        suggestion: str,
-    ) -> Issue | None:
-        """Create an Issue object for context manager issues."""
-        line = node_lineno(node)
-        if line is None:
-            return None
-        return Issue(
-            file=self.file_path,
-            line=line,
-            column=node_col_offset(node),
-            severity=severity,
-            rule_id=rule_id,
-            message=message,
-            suggestion=suggestion,
-        )
-
     def _is_context_manager_call(self, node: ast.Call) -> bool:
         """Check if a call returns a context manager."""
-        # Check for direct function calls (e.g., open(), file())
         if isinstance(node.func, ast.Name):
             return node.func.id in CONTEXT_MANAGER_FUNCS
 
-        # Check for method calls (e.g., lock.acquire(), Path.open())
         if isinstance(node.func, ast.Attribute):
             return node.func.attr in CONTEXT_MANAGER_METHODS
 
@@ -154,7 +122,7 @@ class ContextManagerDetector(BaseDetector):
         # Get the function name for a better error message
         func_name = self._get_func_name(cm_call)
 
-        issue = self._create_issue(
+        self.report_issue(
             node,
             severity=Severity.HIGH,
             rule_id="R001",
@@ -165,8 +133,6 @@ class ContextManagerDetector(BaseDetector):
                 f"Use 'with {func_name}(...) as resource:' to ensure proper resource cleanup"
             ),
         )
-        if issue is not None:
-            self.add_issue(issue)
 
     def _find_context_manager_call(self, node: ast.AST) -> Optional[ast.Call]:
         """Find a context manager call in an expression tree."""

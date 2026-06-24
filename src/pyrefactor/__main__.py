@@ -3,6 +3,7 @@
 import argparse
 import logging
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -137,7 +138,7 @@ def _load_config(args: Args) -> Optional[Config]:
         config = Config.load(args.config)
         logger.info("Loaded configuration: %s", config)
         return config
-    except Exception as e:
+    except (ValueError, OSError, tomllib.TOMLDecodeError) as e:
         if args.verbose:
             logger.error("Error loading configuration: %s", e, exc_info=True)
         else:
@@ -163,7 +164,7 @@ def _analyze_files_safely(
     try:
         logger.info("Analyzing %d path(s)...", len(paths))
         return analyzer.analyze_files(paths, max_workers=max_workers)
-    except Exception as e:
+    except (OSError, RuntimeError) as e:
         if verbose:
             logger.error("Error during analysis: %s", e, exc_info=True)
         else:

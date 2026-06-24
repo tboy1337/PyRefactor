@@ -1,10 +1,10 @@
 """Loop optimization detector for PyRefactor."""
 
 import ast
-from typing import Optional, cast
+from typing import Optional
 
 from ..ast_visitor import BaseDetector
-from ..models import Issue, Severity
+from ..models import Severity
 
 
 class IndexTracker(ast.NodeVisitor):
@@ -63,26 +63,6 @@ class LoopsDetector(BaseDetector):
         """Return the name of this detector."""
         return "loops"
 
-    def _create_issue(
-        self,
-        node: ast.AST,
-        *,
-        severity: Severity,
-        rule_id: str,
-        message: str,
-        suggestion: str,
-    ) -> Issue:
-        """Create an Issue object for loop-related issues."""
-        return Issue(
-            file=self.file_path,
-            line=cast(int, getattr(node, "lineno", 0)),
-            column=cast(int, getattr(node, "col_offset", 0)),
-            severity=severity,
-            rule_id=rule_id,
-            message=message,
-            suggestion=suggestion,
-        )
-
     def visit_For(self, node: ast.For) -> None:
         """Check for loop optimization opportunities."""
         if self.is_suppressed(node):
@@ -118,14 +98,12 @@ class LoopsDetector(BaseDetector):
         if not self._loop_body_accesses_collection(node, collection):
             return
 
-        self.add_issue(
-            self._create_issue(
-                node,
-                severity=Severity.LOW,
-                rule_id="L001",
-                message="Use enumerate() instead of range(len())",
-                suggestion="Replace 'for i in range(len(items)):' with 'for i, item in enumerate(items):'",
-            )
+        self.report_issue(
+            node,
+            severity=Severity.LOW,
+            rule_id="L001",
+            message="Use enumerate() instead of range(len())",
+            suggestion="Replace 'for i in range(len(items)):' with 'for i, item in enumerate(items):'",
         )
 
     def _is_range_len_call(self, node: ast.For) -> bool:
@@ -162,14 +140,12 @@ class LoopsDetector(BaseDetector):
             tracker.visit(stmt)
 
         if tracker.manual_indices:
-            self.add_issue(
-                self._create_issue(
-                    node,
-                    severity=Severity.INFO,
-                    rule_id="L002",
-                    message=f"Manual index tracking detected: {', '.join(tracker.manual_indices)}",
-                    suggestion="Use enumerate() to track indices automatically",
-                )
+            self.report_issue(
+                node,
+                severity=Severity.INFO,
+                rule_id="L002",
+                message=f"Manual index tracking detected: {', '.join(tracker.manual_indices)}",
+                suggestion="Use enumerate() to track indices automatically",
             )
 
     def _check_nested_loop_optimization(self, node: ast.For) -> None:
@@ -180,14 +156,12 @@ class LoopsDetector(BaseDetector):
         if nested_loop_count > self.MIN_NESTED_LOOPS_FOR_WARNING:
             # Check if inner loop is doing lookups
             if self._has_comparison_in_loops(node):
-                self.add_issue(
-                    self._create_issue(
-                        node,
-                        severity=Severity.MEDIUM,
-                        rule_id="L003",
-                        message="Nested loops with comparisons detected",
-                        suggestion="Consider using a dictionary or set for O(1) lookups instead of nested iteration",
-                    )
+                self.report_issue(
+                    node,
+                    severity=Severity.MEDIUM,
+                    rule_id="L003",
+                    message="Nested loops with comparisons detected",
+                    suggestion="Consider using a dictionary or set for O(1) lookups instead of nested iteration",
                 )
 
     def _count_nested_loops(self, node: ast.For) -> int:
@@ -225,14 +199,12 @@ class LoopsDetector(BaseDetector):
             checker.visit(stmt)
 
         if checker.invariant_calls:
-            self.add_issue(  # pyrefactor: ignore
-                self._create_issue(
-                    node,
-                    severity=Severity.MEDIUM,
-                    rule_id="L004",
-                    message="Loop-invariant code detected inside loop",
-                    suggestion="Move computations that don't depend on loop variable outside the loop",
-                )
+            self.report_issue(  # pyrefactor: ignore
+                node,
+                severity=Severity.MEDIUM,
+                rule_id="L004",
+                message="Loop-invariant code detected inside loop",
+                suggestion="Move computations that don't depend on loop variable outside the loop",
             )
 
     def _loop_body_accesses_collection(
