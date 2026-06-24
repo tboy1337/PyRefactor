@@ -3,9 +3,11 @@
 import ast
 
 from pyrefactor.ast_visitor import (
+    build_parent_map,
     calculate_cyclomatic_complexity,
     count_branches,
     count_nesting_depth,
+    node_col_offset,
     node_lineno,
 )
 
@@ -23,6 +25,35 @@ class TestNodeLineno:
         """Test nodes without valid line numbers."""
         node = ast.Module(body=[], type_ignores=[])
         assert node_lineno(node) is None
+
+
+class TestNodeColOffset:
+    """Tests for node_col_offset helper."""
+
+    def test_valid_col_offset(self) -> None:
+        """Test extracting a valid column offset."""
+        tree = ast.parse("x = 1")
+        node = tree.body[0]
+        assert node_col_offset(node) == 0
+
+    def test_missing_col_offset_defaults_to_zero(self) -> None:
+        """Test nodes without col_offset default to 0."""
+        node = ast.Module(body=[], type_ignores=[])
+        assert node_col_offset(node) == 0
+
+
+class TestBuildParentMap:
+    """Tests for build_parent_map helper."""
+
+    def test_parent_map_links_children(self) -> None:
+        """Test parent map links AST nodes to their parents."""
+        tree = ast.parse("if x:\n    y = 1")
+        parent_map = build_parent_map(tree)
+
+        if_node = tree.body[0]
+        assign_node = if_node.body[0]
+        assert parent_map[if_node] is tree
+        assert parent_map[assign_node] is if_node
 
 
 class TestASTMetrics:

@@ -58,6 +58,8 @@ class BaseDetector(ast.NodeVisitor, ABC):
         suggestion: str,
     ) -> None:
         """Create and add an issue when the node has a valid line number."""
+        if self.is_suppressed(node, rule_id):
+            return
         line = node_lineno(node)
         if line is None:
             return
@@ -87,27 +89,51 @@ class BaseDetector(ast.NodeVisitor, ABC):
             return ""
         return "\n".join(self.source_lines[start_line - 1 : end_line])
 
-    def is_suppressed(self, node: ast.AST) -> bool:
+    def is_suppressed(self, node: ast.AST, rule_id: str | None = None) -> bool:
         """Check if a node has a suppression comment."""
         lineno = node_lineno(node)
         if lineno is None:
             return False
 
         line = self.get_source_line(lineno)
-        # Check for suppression comments
-        if "# pyrefactor: ignore" in line or "# noqa" in line:
+        if self._line_suppresses(line, rule_id):
             return True
 
-        # Check previous line for suppression
         if lineno > 1:
             prev_line = self.get_source_line(lineno - 1)
-            if "# pyrefactor: ignore" in prev_line or "# noqa" in prev_line:
+            if self._line_suppresses(prev_line, rule_id):
                 return True
 
         return False
 
+    @staticmethod
+    def _line_suppresses(line: str, rule_id: str | None) -> bool:
+        """Return True when a source line suppresses the given rule."""
+        if "# noqa" in line:
+            return True
+
+        marker = "# pyrefactor: ignore"
+        if marker not in line:
+            return False
+
+        suffix = line.split(marker, 1)[1].strip()
+        if not suffix:
+            return True
+
+        specified_rules = {
+            token.strip().upper()
+            for token in suffix.replace(",", " ").split()
+            if token.strip()
+        }
+        if not specified_rules:
+            return True
+        if rule_id is None:
+            return False
+        return rule_id.upper() in specified_rules
+
     def analyze(self, tree: ast.AST) -> list[Issue]:
         """Run the detector on an AST and return issues found."""
+        self.issues = []
         self.visit(tree)
         return self.issues
 

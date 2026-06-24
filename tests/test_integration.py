@@ -17,6 +17,8 @@ class TestIntegration:
         # Create a Python file with various issues
         file_path = tmp_path / "sample.py"
         file_path.write_text("""
+data = {"key": "value"}
+
 def problematic_function(a, b, c, d, e, f, g, h):
     '''Function with multiple issues.'''
     result_str = ""
@@ -56,7 +58,32 @@ def problematic_function(a, b, c, d, e, f, g, h):
     for i in range(len(data)):
         print(data[i])
 
+    if "key" in data:
+        value = data["key"]
+
+    f = open("output.txt")
+    f.write(result_str)
+
+    if check():
+        return result_str
+    else:
+        return None
+
     return result_str
+
+def duplicate_a():
+    x = 1
+    y = 2
+    z = x + y
+    w = z * 2
+    return w
+
+def duplicate_b():
+    x = 1
+    y = 2
+    z = x + y
+    w = z * 2
+    return w
 """)
 
         # Analyze the file
@@ -81,6 +108,12 @@ def problematic_function(a, b, c, d, e, f, g, h):
 
         # Should have loop issues
         assert any(rule_id.startswith("L") for rule_id in rule_ids)
+
+        # Should have duplication issues
+        assert any(rule_id.startswith("D") for rule_id in rule_ids)
+
+        # Should have refactoring issues (context manager, control flow, dict, comparisons)
+        assert any(rule_id.startswith("R") for rule_id in rule_ids)
 
     def test_multi_file_analysis(self, tmp_path: Path) -> None:
         """Test analyzing multiple files."""

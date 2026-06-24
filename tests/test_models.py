@@ -21,6 +21,10 @@ class TestSeverity:
         assert Severity.MEDIUM.value == "medium"
         assert Severity.HIGH.value == "high"
 
+    def test_severity_invalid_comparison(self) -> None:
+        """Test comparing Severity to non-Severity returns NotImplemented."""
+        assert Severity.HIGH.__lt__("high") is NotImplemented
+
 
 class TestIssue:
     """Tests for Issue model."""
@@ -193,6 +197,22 @@ class TestFileAnalysis:
                 severity=Severity.HIGH,
                 rule_id="T002",
                 message="High",
+            )
+        )
+
+        assert analysis.has_errors()
+
+    def test_has_errors_medium_severity(self) -> None:
+        """Test that medium severity issues count as errors."""
+        analysis = FileAnalysis(file_path="test.py")
+        analysis.add_issue(
+            Issue(
+                file="test.py",
+                line=1,
+                column=0,
+                severity=Severity.MEDIUM,
+                rule_id="T002",
+                message="Medium",
             )
         )
 

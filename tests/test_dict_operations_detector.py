@@ -453,3 +453,31 @@ for key in obj.my_dict:
 
     # Should work fine
     assert isinstance(issues, list)
+
+
+def test_dict_get_already_used_not_flagged(detector: DictOperationsDetector) -> None:
+    """Test that existing .get() usage is not flagged for R006."""
+    code = """
+if "key" in data:
+    value = data.get("key", "default")
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R006" for issue in issues)
+
+
+def test_dict_membership_without_subscript_not_flagged(
+    detector: DictOperationsDetector,
+) -> None:
+    """Test membership check without subscript access is not flagged."""
+    code = """
+for key in data:
+    print(key)
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R006" for issue in issues)

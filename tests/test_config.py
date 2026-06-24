@@ -361,3 +361,54 @@ exclude_patterns = "build, dist, vendor"
         config = Config.from_toml_file(config_file)
 
         assert config.exclude_patterns == ["build", "dist", "vendor"]
+
+    def test_load_nonexistent_toml_file(self, tmp_path: Path) -> None:
+        """Test loading from nonexistent TOML file returns defaults."""
+        config_file = tmp_path / "nonexistent.toml"
+
+        config = Config.from_file(config_file)
+
+        assert config.complexity.max_branches == 10
+
+    def test_validate_rejects_negative_max_branches(self) -> None:
+        """Test validation rejects negative complexity thresholds."""
+        config = Config()
+        config.complexity.max_branches = -1
+
+        with pytest.raises(ValueError, match="complexity.max_branches"):
+            config.validate()
+
+    def test_validate_rejects_invalid_similarity_threshold(self) -> None:
+        """Test validation rejects similarity threshold outside 0.0-1.0."""
+        config = Config()
+        config.duplication.similarity_threshold = 1.5
+
+        with pytest.raises(ValueError, match="similarity_threshold"):
+            config.validate()
+
+    def test_validate_rejects_min_duplicate_lines_below_two(self) -> None:
+        """Test validation rejects min_duplicate_lines below 2."""
+        config = Config()
+        config.duplication.min_duplicate_lines = 1
+
+        with pytest.raises(ValueError, match="min_duplicate_lines"):
+            config.validate()
+
+    def test_validate_rejects_zero_max_boolean_operators(self) -> None:
+        """Test validation rejects max_boolean_operators below 1."""
+        config = Config()
+        config.boolean_logic.max_boolean_operators = 0
+
+        with pytest.raises(ValueError, match="max_boolean_operators"):
+            config.validate()
+
+    def test_toml_load_rejects_invalid_threshold(self, tmp_path: Path) -> None:
+        """Test loading invalid threshold from TOML raises ValueError."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("""
+[tool.pyrefactor.duplication]
+similarity_threshold = 2.0
+""")
+
+        with pytest.raises(ValueError, match="similarity_threshold"):
+            Config.from_toml_file(config_file)

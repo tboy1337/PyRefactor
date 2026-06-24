@@ -312,6 +312,50 @@ class TestBaseDetector:
 
         assert detector.is_suppressed(node) is True
 
+    def test_is_suppressed_rule_specific(self, default_config: Config) -> None:
+        """Test rule-specific suppression ignores only matching rules."""
+        source_lines = ["if x == True:  # pyrefactor: ignore B004", "    pass"]
+        detector = ConcreteDetector(default_config, "test.py", source_lines)
+
+        tree = ast.parse("\n".join(source_lines))
+        node = tree.body[0]
+
+        assert detector.is_suppressed(node, "B004") is True
+        assert detector.is_suppressed(node, "B001") is False
+
+    def test_is_suppressed_blanket_ignore(self, default_config: Config) -> None:
+        """Test blanket pyrefactor ignore suppresses all rules."""
+        source_lines = ["if x == True:  # pyrefactor: ignore", "    pass"]
+        detector = ConcreteDetector(default_config, "test.py", source_lines)
+
+        tree = ast.parse("\n".join(source_lines))
+        node = tree.body[0]
+
+        assert detector.is_suppressed(node, "B001") is True
+        assert detector.is_suppressed(node, "C001") is True
+
+    def test_analyze_clears_issues_on_rerun(self, default_config: Config) -> None:
+        """Test analyze resets issues when run multiple times."""
+        source = "x = 1"
+        tree = ast.parse(source)
+        detector = ConcreteDetector(default_config, "test.py", source.split("\n"))
+
+        detector.issues.append(
+            Issue(
+                file="test.py",
+                line=1,
+                column=0,
+                severity=Severity.INFO,
+                rule_id="T001",
+                message="Stale issue",
+            )
+        )
+
+        issues = detector.analyze(tree)
+
+        assert issues == []
+        assert detector.issues == []
+
     def test_add_issue(self, default_config: Config) -> None:
         """Test adding issues to detector."""
         detector = ConcreteDetector(default_config, "test.py", [])
@@ -399,7 +443,7 @@ class TestAnalyzerEdgeCases:
         target.write_text("x = 1\n", encoding="utf-8")
 
         def _boom(_self: object, _tree: object) -> list[object]:
-            raise RuntimeError("detector failed")
+            raise AttributeError("detector failed")
 
         monkeypatch.setattr(
             complexity_module.ComplexityDetector,

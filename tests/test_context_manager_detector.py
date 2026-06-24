@@ -235,3 +235,33 @@ open('file.txt').read()
     issues = detector.analyze(tree)
 
     assert len(issues) == 0
+
+
+def test_open_in_return_not_flagged(detector: ContextManagerDetector) -> None:
+    """Test open() used in return context is not flagged."""
+    code = """
+def read_file():
+    return open('file.txt')
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 0
+
+
+def test_path_open_method_call(detector: ContextManagerDetector) -> None:
+    """Test Path.open() without with is flagged."""
+    code = """
+from pathlib import Path
+
+def read_data():
+    f = Path('file.txt').open()
+    return f.read()
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 1
+    assert issues[0].rule_id == "R001"

@@ -518,3 +518,33 @@ if isinstance(a, int) or isinstance(b, int):
     issues = detector.analyze(tree)
 
     assert not any(issue.rule_id == "R013" for issue in issues)
+
+
+def test_chained_comparison_not_flagged_as_singleton(
+    detector: ComparisonsDetector,
+) -> None:
+    """Test chained comparisons are not flagged as singleton issues."""
+    code = """
+if 0 < x < 10:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R014" for issue in issues)
+
+
+def test_isinstance_tuple_form_not_flagged_for_combination(
+    detector: ComparisonsDetector,
+) -> None:
+    """Test isinstance with tuple type is not flagged for R013 combination."""
+    code = """
+if isinstance(value, (int, float)):
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R013" for issue in issues)

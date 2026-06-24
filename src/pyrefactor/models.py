@@ -15,8 +15,10 @@ class Severity(Enum):
     MEDIUM = "medium"
     HIGH = "high"
 
-    def __lt__(self, other: "Severity") -> bool:
+    def __lt__(self, other: object) -> bool:
         """Compare severity levels."""
+        if not isinstance(other, Severity):
+            return NotImplemented
         order = [Severity.INFO, Severity.LOW, Severity.MEDIUM, Severity.HIGH]
         return order.index(self) < order.index(other)
 

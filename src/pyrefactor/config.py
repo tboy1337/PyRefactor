@@ -96,6 +96,51 @@ class Config:
     comparisons: ComparisonsConfig = field(default_factory=ComparisonsConfig)
     exclude_patterns: list[str] = field(default_factory=list)
 
+    def validate(self) -> None:
+        """Validate configuration values and raise ValueError on invalid settings."""
+        complexity_fields = {
+            "complexity.max_branches": self.complexity.max_branches,
+            "complexity.max_nesting_depth": self.complexity.max_nesting_depth,
+            "complexity.max_function_lines": self.complexity.max_function_lines,
+            "complexity.max_arguments": self.complexity.max_arguments,
+            "complexity.max_local_variables": self.complexity.max_local_variables,
+            "complexity.max_cyclomatic_complexity": (
+                self.complexity.max_cyclomatic_complexity
+            ),
+        }
+        for name, value in complexity_fields.items():
+            if value < 0:
+                raise ValueError(f"{name} must be >= 0, got {value}")
+
+        if self.performance.min_concatenations < 0:
+            raise ValueError(
+                "performance.min_concatenations must be >= 0, "
+                f"got {self.performance.min_concatenations}"
+            )
+        if self.performance.min_duplicate_calls < 0:
+            raise ValueError(
+                "performance.min_duplicate_calls must be >= 0, "
+                f"got {self.performance.min_duplicate_calls}"
+            )
+
+        if self.duplication.min_duplicate_lines < 2:
+            raise ValueError(
+                "duplication.min_duplicate_lines must be >= 2, "
+                f"got {self.duplication.min_duplicate_lines}"
+            )
+        threshold = self.duplication.similarity_threshold
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError(
+                "duplication.similarity_threshold must be between 0.0 and 1.0, "
+                f"got {threshold}"
+            )
+
+        if self.boolean_logic.max_boolean_operators < 1:
+            raise ValueError(
+                "boolean_logic.max_boolean_operators must be >= 1, "
+                f"got {self.boolean_logic.max_boolean_operators}"
+            )
+
     @staticmethod
     def _parse_complexity_config(
         config: configparser.ConfigParser,
@@ -269,7 +314,7 @@ class Config:
                 pattern.strip() for pattern in raw_exclude.split(",") if pattern.strip()
             ]
 
-        return cls(
+        config = cls(
             complexity=ComplexityConfig(
                 **cls._coerce_section(
                     complexity_section if isinstance(complexity_section, dict) else {},
@@ -354,6 +399,8 @@ class Config:
             ),
             exclude_patterns=exclude_patterns,
         )
+        config.validate()
+        return config
 
     @staticmethod
     def _has_pyrefactor_config(data: dict[str, Any]) -> bool:
@@ -367,24 +414,36 @@ class Config:
     @classmethod
     def from_toml_file(cls, config_path: Path) -> "Config":
         """Load configuration from a TOML file."""
+        if not config_path.is_file():
+            config = cls()
+            config.validate()
+            return config
+
         try:
             with config_path.open("rb") as config_file:
                 data = tomllib.load(config_file)
             return cls.from_toml_data(data)
-        except Exception as e:
+        except (
+            OSError,
+            tomllib.TOMLDecodeError,
+            ValueError,
+            TypeError,
+        ) as e:
             raise ValueError(f"Error loading configuration: {e}") from e
 
     @classmethod
     def from_ini_file(cls, config_path: Path) -> "Config":
         """Load configuration from an INI file."""
         if not config_path.is_file():
-            return cls()
+            config = cls()
+            config.validate()
+            return config
 
         try:
             parser = configparser.ConfigParser()
             parser.read(config_path, encoding="utf-8")
 
-            return cls(
+            config = cls(
                 complexity=ComplexityConfig(**cls._parse_complexity_config(parser)),  # type: ignore[arg-type]
                 performance=PerformanceConfig(**cls._parse_performance_config(parser)),  # type: ignore[arg-type]
                 duplication=DuplicationConfig(**cls._parse_duplication_config(parser)),  # type: ignore[arg-type]
@@ -404,7 +463,14 @@ class Config:
                 ),
                 exclude_patterns=cls._parse_exclude_patterns(parser),
             )
-        except Exception as e:
+            config.validate()
+            return config
+        except (
+            OSError,
+            configparser.Error,
+            ValueError,
+            TypeError,
+        ) as e:
             raise ValueError(f"Error loading configuration: {e}") from e
 
     @classmethod
@@ -432,4 +498,6 @@ class Config:
         if ini_file.exists():
             return cls.from_ini_file(ini_file)
 
-        return cls()
+        config = cls()
+        config.validate()
+        return config

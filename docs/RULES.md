@@ -100,11 +100,13 @@ Suppress a finding on the same line or the line above:
 
 ```python
 x = 1  # pyrefactor: ignore
+x = 1  # pyrefactor: ignore R001
+x = 1  # pyrefactor: ignore R001, R002
 # pyrefactor: ignore
 y = 2
 ```
 
-`# noqa` is also accepted.
+`# noqa` is also accepted (suppresses all rules on that line).
 
 ## Exit Codes
 

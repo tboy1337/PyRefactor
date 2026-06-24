@@ -118,7 +118,13 @@ class Analyzer:
                 issues = detector.analyze(tree)
                 for issue in issues:
                     analysis.add_issue(issue)
-            except Exception as e:
+            except (
+                RecursionError,
+                MemoryError,
+                ValueError,
+                TypeError,
+                AttributeError,
+            ) as e:
                 logger.error(
                     "Error running %s on %s: %s",
                     detector.get_detector_name(),
