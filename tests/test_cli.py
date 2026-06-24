@@ -1,10 +1,12 @@
 """Tests for CLI."""
 
+import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import patch
 
 from pyrefactor.__main__ import main, parse_arguments
+from pyrefactor.analyzer import Analyzer
 
 
 class TestCLI:
@@ -66,6 +68,30 @@ class TestCLI:
             args = parse_arguments()
 
             assert args.verbose is True
+
+    def test_parse_arguments_jobs(self) -> None:
+        """Test parsing jobs argument."""
+        with patch.object(sys, "argv", ["pyrefactor", "-j", "8", "test.py"]):
+            args = parse_arguments()
+
+            assert args.jobs == 8
+
+    def test_module_entry_point_version(self) -> None:
+        """Test pyrefactor module entry point via subprocess."""
+        result = subprocess.run(
+            [sys.executable, "-m", "pyrefactor", "--version"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+
+        assert result.returncode == 0
+        assert "PyRefactor version" in result.stdout
+
+
+class TestCLIMain:
+    """Tests for CLI main() execution."""
 
     def test_main_with_nonexistent_file(self) -> None:
         """Test main with nonexistent file."""
@@ -145,6 +171,59 @@ class TestCLI:
 
             assert exit_code == 2
 
+    def test_main_with_invalid_config_verbose(self, tmp_path: Path) -> None:
+        """Test main logs verbose traceback for invalid config."""
+        file_path = tmp_path / "test.py"
+        file_path.write_text("def func(): pass")
+
+        config_file = tmp_path / "invalid.toml"
+        config_file.write_text("[[[[invalid toml")
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "pyrefactor",
+                "--verbose",
+                "--config",
+                str(config_file),
+                str(file_path),
+            ],
+        ):
+            exit_code = main()
+
+            assert exit_code == 2
+
+    def test_main_analysis_exception_verbose(self, tmp_path: Path) -> None:
+        """Test main logs verbose traceback when analysis raises."""
+        file_path = tmp_path / "test.py"
+        file_path.write_text("def func(): pass")
+
+        with patch.object(sys, "argv", ["pyrefactor", "--verbose", str(file_path)]):
+            with patch.object(
+                Analyzer,
+                "analyze_files",
+                side_effect=RuntimeError("analysis failed"),
+            ):
+                exit_code = main()
+
+            assert exit_code == 2
+
+    def test_main_analysis_exception_non_verbose(self, tmp_path: Path) -> None:
+        """Test main handles analysis errors without verbose logging."""
+        file_path = tmp_path / "test.py"
+        file_path.write_text("def func(): pass")
+
+        with patch.object(sys, "argv", ["pyrefactor", str(file_path)]):
+            with patch.object(
+                Analyzer,
+                "analyze_files",
+                side_effect=RuntimeError("analysis failed"),
+            ):
+                exit_code = main()
+
+            assert exit_code == 2
+
     def test_main_with_analysis_error(self, tmp_path: Path) -> None:
         """Test main with analysis error."""
         file_path = tmp_path / "test.py"
@@ -156,13 +235,6 @@ class TestCLI:
 
             # Syntax errors are handled gracefully without crashing
             assert exit_code == 0
-
-    def test_parse_arguments_jobs(self) -> None:
-        """Test parsing jobs argument."""
-        with patch.object(sys, "argv", ["pyrefactor", "-j", "8", "test.py"]):
-            args = parse_arguments()
-
-            assert args.jobs == 8
 
     def test_main_no_paths(self) -> None:
         """Test main exits with error when no paths are provided."""

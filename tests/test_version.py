@@ -5,6 +5,8 @@ from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from pyrefactor._version import _fallback_version, get_version
 
 
@@ -35,10 +37,45 @@ class TestVersion:
         assert isinstance(version, str)
         assert version != ""
 
-    def test_fallback_version_reads_pyproject(self) -> None:
+    def test_fallback_version_reads_pyproject(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """Fallback parser reads version from pyproject.toml."""
         _fallback_version.cache_clear()
-        assert _fallback_version() == _pyproject_version()
+        fake_pkg = tmp_path / "src" / "pyrefactor"
+        fake_pkg.mkdir(parents=True)
+        monkeypatch.setattr(
+            "pyrefactor._version.__file__", str(fake_pkg / "_version.py")
+        )
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text('version = "9.9.9"\n', encoding="utf-8")
+        assert _fallback_version() == "9.9.9"
+
+    def test_fallback_version_unknown_without_pyproject(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Fallback returns unknown when pyproject.toml is missing."""
+        _fallback_version.cache_clear()
+        fake_pkg = tmp_path / "src" / "pyrefactor"
+        fake_pkg.mkdir(parents=True)
+        monkeypatch.setattr(
+            "pyrefactor._version.__file__", str(fake_pkg / "_version.py")
+        )
+        assert _fallback_version() == "unknown"
+
+    def test_fallback_version_unknown_when_pyproject_has_no_version(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Fallback returns unknown when pyproject.toml has no version line."""
+        _fallback_version.cache_clear()
+        fake_pkg = tmp_path / "src" / "pyrefactor"
+        fake_pkg.mkdir(parents=True)
+        monkeypatch.setattr(
+            "pyrefactor._version.__file__", str(fake_pkg / "_version.py")
+        )
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text("[project]\nname = 'x'\n", encoding="utf-8")
+        assert _fallback_version() == "unknown"
 
     def test_get_version_uses_fallback_when_not_installed(self) -> None:
         """Fallback is used when the distribution is not installed."""

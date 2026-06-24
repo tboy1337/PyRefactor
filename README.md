@@ -15,7 +15,7 @@ A Python refactoring and optimization linter that uses AST analysis to identify 
 ## Detectors
 
 - **Complexity**: High cyclomatic complexity functions
-- **Performance**: String concatenation in loops, uncached calls, inefficient operations
+- **Performance**: String concatenation in loops (thresholded), repeated uncached calls in loops, inefficient operations
 - **Boolean Logic**: Overcomplicated boolean expressions
 - **Loops**: Nested loops, invariant code, comprehension opportunities
 - **Duplication**: Duplicate code blocks
@@ -90,7 +90,13 @@ Configure via TOML file (e.g., `pyproject.toml`):
 exclude_patterns = ["__pycache__", ".venv", "build", "dist"]
 
 [tool.pyrefactor.complexity]
-max_complexity = 10
+enabled = true
+max_cyclomatic_complexity = 10
+max_branches = 10
+max_nesting_depth = 3
+max_function_lines = 50
+max_arguments = 5
+max_local_variables = 15
 
 [tool.pyrefactor.performance]
 enabled = true
@@ -99,16 +105,15 @@ min_duplicate_calls = 3
 
 [tool.pyrefactor.boolean_logic]
 enabled = true
-min_depth = 3
+max_boolean_operators = 3
 
 [tool.pyrefactor.loops]
 enabled = true
-max_nesting = 3
 
 [tool.pyrefactor.duplication]
 enabled = true
-min_lines = 5
-similarity_threshold = 0.8
+min_duplicate_lines = 5
+similarity_threshold = 0.85
 
 [tool.pyrefactor.context_manager]
 enabled = true
@@ -124,6 +129,8 @@ enabled = true
 ```
 
 Configuration is searched in: `--config` → `pyproject.toml` → `pyrefactor.ini` → defaults
+
+**Note:** The PyPI package version (`pyproject.toml`) may differ from GitHub release build numbers used for standalone executables.
 
 ## CI/CD Integration
 

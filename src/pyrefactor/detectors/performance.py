@@ -1,11 +1,94 @@
 """Performance anti-pattern detector for PyRefactor."""
 
 import ast
+from collections import Counter
+from collections.abc import Callable
 from typing import Optional
 
 from ..ast_visitor import BaseDetector, build_parent_map
 from ..config import Config
 from ..models import Issue, Severity
+
+
+class _LoopBodyCallCounter(ast.NodeVisitor):
+    """Count identical call expressions in a loop body."""
+
+    def __init__(self, suppressed: set[ast.AST]) -> None:
+        self.suppressed = suppressed
+        self.call_counts: Counter[str] = Counter()
+        self.call_nodes: dict[str, ast.Call] = {}
+        self._nested_function_depth = 0
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        """Skip counting calls inside nested function definitions."""
+        self._nested_function_depth += 1
+        self.generic_visit(node)
+        self._nested_function_depth -= 1
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        """Skip counting calls inside nested async function definitions."""
+        self._nested_function_depth += 1
+        self.generic_visit(node)
+        self._nested_function_depth -= 1
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        """Skip counting calls inside lambda expressions."""
+        self._nested_function_depth += 1
+        self.generic_visit(node)
+        self._nested_function_depth -= 1
+
+    def visit_Call(self, node: ast.Call) -> None:
+        """Record call expressions at the loop body scope."""
+        if self._nested_function_depth == 0 and node not in self.suppressed:
+            signature = ast.dump(node, annotate_fields=False)
+            self.call_counts[signature] += 1
+            self.call_nodes.setdefault(signature, node)
+        self.generic_visit(node)
+
+
+class _LoopBodyConcatCounter(ast.NodeVisitor):
+    """Count string += operations in a loop body."""
+
+    def __init__(
+        self,
+        suppressed: set[ast.AST],
+        matches_string: Callable[[ast.AST, str], bool],
+    ) -> None:
+        self.suppressed = suppressed
+        self.matches_string = matches_string
+        self.count = 0
+        self.last_node: Optional[ast.AugAssign] = None
+        self._nested_function_depth = 0
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        """Skip counting concatenations inside nested function definitions."""
+        self._nested_function_depth += 1
+        self.generic_visit(node)
+        self._nested_function_depth -= 1
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        """Skip counting concatenations inside nested async functions."""
+        self._nested_function_depth += 1
+        self.generic_visit(node)
+        self._nested_function_depth -= 1
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        """Skip counting concatenations inside lambda expressions."""
+        self._nested_function_depth += 1
+        self.generic_visit(node)
+        self._nested_function_depth -= 1
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> None:
+        """Count string += operations at the loop body scope."""
+        if (
+            self._nested_function_depth == 0
+            and node not in self.suppressed
+            and isinstance(node.op, ast.Add)
+            and self.matches_string(node.target, "string")
+        ):
+            self.count += 1
+            self.last_node = node
+        self.generic_visit(node)
 
 
 class PerformanceDetector(BaseDetector):
@@ -23,6 +106,7 @@ class PerformanceDetector(BaseDetector):
         self.in_loop = False
         self.loop_stack: list[ast.AST] = []
         self.parent_map: dict[ast.AST, ast.AST] = {}
+        self.suppressed_nodes: set[ast.AST] = set()
 
     def get_detector_name(self) -> str:
         """Return the name of this detector."""
@@ -31,14 +115,24 @@ class PerformanceDetector(BaseDetector):
     def analyze(self, tree: ast.AST) -> list[Issue]:
         """Run the detector on an AST and return issues found."""
         self.parent_map = build_parent_map(tree)
+        self.suppressed_nodes = self._collect_suppressed_nodes(tree)
         self.visit(tree)
         return self.issues
 
+    def _collect_suppressed_nodes(self, tree: ast.AST) -> set[ast.AST]:
+        """Collect AST nodes that have suppression comments."""
+        suppressed: set[ast.AST] = set()
+        for node in ast.walk(tree):
+            if self.is_suppressed(node):
+                suppressed.add(node)
+        return suppressed
+
     def _visit_loop(self, node: ast.For | ast.While) -> None:
-        """Consolidated method to track loop entry and exit."""
+        """Track loop entry, analyze body, then exit."""
         self.loop_stack.append(node)
         self.in_loop = True
         self.generic_visit(node)
+        self._check_loop_performance(node)
         self.loop_stack.pop()
         self.in_loop = bool(self.loop_stack)
 
@@ -50,6 +144,55 @@ class PerformanceDetector(BaseDetector):
         """Track when we're inside a while loop."""
         self._visit_loop(node)
 
+    def _check_loop_performance(self, loop_node: ast.For | ast.While) -> None:
+        """Check loop body for concatenation and duplicate call patterns."""
+        self._check_string_concatenations(loop_node)
+        self._check_duplicate_calls(loop_node)
+
+    def _check_string_concatenations(self, loop_node: ast.For | ast.While) -> None:
+        """Report P001 when string += count meets threshold."""
+        counter = _LoopBodyConcatCounter(
+            self.suppressed_nodes,
+            self._matches_type_hint,
+        )
+        counter.visit(loop_node)
+        min_concat = self.config.performance.min_concatenations
+        if counter.count >= min_concat and counter.last_node is not None:
+            self.report_issue(
+                counter.last_node,
+                severity=Severity.MEDIUM,
+                rule_id="P001",
+                message=(
+                    f"String concatenation in loop using += "
+                    f"({counter.count} times) is inefficient"
+                ),
+                suggestion=(
+                    "Use str.join() with a list or io.StringIO for better performance"
+                ),
+            )
+
+    def _check_duplicate_calls(self, loop_node: ast.For | ast.While) -> None:
+        """Report P007 when identical calls repeat within a loop body."""
+        counter = _LoopBodyCallCounter(self.suppressed_nodes)
+        counter.visit(loop_node)
+        min_calls = self.config.performance.min_duplicate_calls
+        for signature, count in counter.call_counts.items():
+            if count >= min_calls:
+                call_node = counter.call_nodes[signature]
+                self.report_issue(
+                    call_node,
+                    severity=Severity.MEDIUM,
+                    rule_id="P007",
+                    message=(
+                        f"Repeated identical call in loop ({count} times); "
+                        "consider caching the result"
+                    ),
+                    suggestion=(
+                        "Assign the call result to a variable before the loop "
+                        "or cache it on first use inside the loop"
+                    ),
+                )
+
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         """Check for inefficient augmented assignments in loops."""
         if not self.in_loop or self.is_suppressed(node):
@@ -60,15 +203,7 @@ class PerformanceDetector(BaseDetector):
             self.generic_visit(node)
             return
 
-        if self._matches_type_hint(node.target, "string"):
-            self.report_issue(
-                node,
-                severity=Severity.MEDIUM,
-                rule_id="P001",
-                message="String concatenation in loop using += is inefficient",
-                suggestion="Use str.join() with a list or io.StringIO for better performance",
-            )
-        elif self._matches_type_hint(node.target, "list"):
+        if self._matches_type_hint(node.target, "list"):
             self.report_issue(
                 node,
                 severity=Severity.LOW,

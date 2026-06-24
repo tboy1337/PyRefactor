@@ -45,24 +45,29 @@ class BooleanLogicDetector(BaseDetector):
             self.generic_visit(node)
             return
 
-        for comparator in node.comparators:
-            if isinstance(comparator, ast.Constant) and isinstance(
-                comparator.value, bool
-            ):
-                for op in node.ops:
-                    if isinstance(op, ast.Is):
-                        self.report_issue(
-                            node,
-                            severity=Severity.MEDIUM,
-                            rule_id="B004",
-                            message="Using 'is' for boolean comparison",
-                            suggestion=(
-                                "Use '==' for value comparison or use the boolean directly"
-                            ),
-                        )
-                        break
-
+        self._check_boolean_singleton_comparison(node)
         self.generic_visit(node)
+
+    def _check_boolean_singleton_comparison(self, node: ast.Compare) -> None:
+        """Report use of ``is`` when comparing to boolean constants."""
+        for comparator in node.comparators:
+            if not (
+                isinstance(comparator, ast.Constant)
+                and isinstance(comparator.value, bool)
+            ):
+                continue
+            if not any(isinstance(op, ast.Is) for op in node.ops):
+                continue
+            self.report_issue(
+                node,
+                severity=Severity.MEDIUM,
+                rule_id="B004",
+                message="Using 'is' for boolean comparison",
+                suggestion=(
+                    "Use '==' for value comparison or use the boolean directly"
+                ),
+            )
+            return
 
     def visit_FunctionDef(
         self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]

@@ -6,8 +6,12 @@ import pytest
 
 from pyrefactor.config import (
     BooleanLogicConfig,
+    ComparisonsConfig,
     ComplexityConfig,
     Config,
+    ContextManagerConfig,
+    ControlFlowConfig,
+    DictOperationsConfig,
     DuplicationConfig,
     LoopsConfig,
     PerformanceConfig,
@@ -39,16 +43,14 @@ class TestConfig:
     def test_load_from_file(self, tmp_path: Path) -> None:
         """Test loading from an INI file."""
         config_file = tmp_path / "pyrefactor.ini"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 [complexity]
 max_branches = 15
 max_nesting_depth = 4
 
 [performance]
 enabled = false
-"""
-        )
+""")
 
         config = Config.from_file(config_file)
 
@@ -59,8 +61,7 @@ enabled = false
     def test_load_from_toml_file(self, tmp_path: Path) -> None:
         """Test loading from a TOML configuration file."""
         config_file = tmp_path / "pyproject.toml"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 [tool.pyrefactor]
 exclude_patterns = ["build", "dist"]
 
@@ -69,8 +70,7 @@ max_branches = 12
 
 [tool.pyrefactor.performance]
 enabled = false
-"""
-        )
+""")
 
         config = Config.from_toml_file(config_file)
 
@@ -91,12 +91,10 @@ enabled = false
     def test_load_partial_toml_file(self, tmp_path: Path) -> None:
         """Test loading partial TOML configuration."""
         config_file = tmp_path / "partial.toml"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 [tool.pyrefactor.complexity]
 max_arguments = 0
-"""
-        )
+""")
 
         config = Config.from_toml_file(config_file)
 
@@ -127,8 +125,7 @@ max_arguments = 0
     def test_load_ini_duplication_and_boolean_sections(self, tmp_path: Path) -> None:
         """Test loading duplication and boolean_logic INI sections."""
         config_file = tmp_path / "pyrefactor.ini"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 [duplication]
 enabled = false
 min_duplicate_lines = 8
@@ -140,8 +137,7 @@ max_boolean_operators = 5
 
 [general]
 exclude_patterns = tests/*, build/*
-"""
-        )
+""")
 
         config = Config.from_ini_file(config_file)
 
@@ -159,12 +155,10 @@ exclude_patterns = tests/*, build/*
     def test_toml_exclude_patterns_as_string(self, tmp_path: Path) -> None:
         """Test comma-separated exclude_patterns string in TOML."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            """
+        config_file.write_text("""
 [tool.pyrefactor]
 exclude_patterns = "build, dist, vendor"
-"""
-        )
+""")
 
         config = Config.from_toml_file(config_file)
         assert config.exclude_patterns == ["build", "dist", "vendor"]
@@ -185,6 +179,7 @@ class TestComplexityConfig:
         """Test default complexity config values."""
         config = ComplexityConfig()
 
+        assert config.enabled is True
         assert config.max_branches == 10
         assert config.max_nesting_depth == 3
         assert config.max_function_lines == 50
@@ -201,6 +196,38 @@ class TestPerformanceConfig:
         config = PerformanceConfig()
 
         assert config.enabled is True
+        assert config.min_concatenations == 3
+        assert config.min_duplicate_calls == 3
+
+    def test_load_performance_from_toml(self, tmp_path: Path) -> None:
+        """Test loading performance thresholds from TOML."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("""
+[tool.pyrefactor.performance]
+enabled = true
+min_concatenations = 5
+min_duplicate_calls = 4
+""")
+
+        config = Config.from_toml_file(config_file)
+
+        assert config.performance.min_concatenations == 5
+        assert config.performance.min_duplicate_calls == 4
+
+    def test_load_performance_from_ini(self, tmp_path: Path) -> None:
+        """Test loading performance thresholds from INI."""
+        config_file = tmp_path / "pyrefactor.ini"
+        config_file.write_text("""
+[performance]
+enabled = true
+min_concatenations = 2
+min_duplicate_calls = 2
+""")
+
+        config = Config.from_ini_file(config_file)
+
+        assert config.performance.min_concatenations == 2
+        assert config.performance.min_duplicate_calls == 2
 
 
 class TestDuplicationConfig:
@@ -232,5 +259,45 @@ class TestLoopsConfig:
     def test_default_values(self) -> None:
         """Test default loops config values."""
         config = LoopsConfig()
+
+        assert config.enabled is True
+
+
+class TestContextManagerConfig:
+    """Tests for ContextManagerConfig."""
+
+    def test_default_values(self) -> None:
+        """Test default context manager config values."""
+        config = ContextManagerConfig()
+
+        assert config.enabled is True
+
+
+class TestControlFlowConfig:
+    """Tests for ControlFlowConfig."""
+
+    def test_default_values(self) -> None:
+        """Test default control flow config values."""
+        config = ControlFlowConfig()
+
+        assert config.enabled is True
+
+
+class TestDictOperationsConfig:
+    """Tests for DictOperationsConfig."""
+
+    def test_default_values(self) -> None:
+        """Test default dict operations config values."""
+        config = DictOperationsConfig()
+
+        assert config.enabled is True
+
+
+class TestComparisonsConfig:
+    """Tests for ComparisonsConfig."""
+
+    def test_default_values(self) -> None:
+        """Test default comparisons config values."""
+        config = ComparisonsConfig()
 
         assert config.enabled is True

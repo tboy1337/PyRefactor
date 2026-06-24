@@ -46,7 +46,7 @@ class ConsoleReporter:
             try:
                 # Reconfigure stdout to use UTF-8 encoding
                 if hasattr(sys.stdout, "reconfigure"):
-                    # Python 3.7+ TextIOWrapper.reconfigure method
+                    # TextIOWrapper.reconfigure (Python 3.7+; PyRefactor requires 3.12+)
                     sys.stdout.reconfigure(encoding="utf-8")
                     self.output = sys.stdout
                     self.use_unicode = True

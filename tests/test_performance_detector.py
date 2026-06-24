@@ -21,6 +21,8 @@ class TestPerformanceDetector:
 result_str = ""
 for item in items:
     result_str += item
+    result_str += item
+    result_str += item
 """
         tree = ast.parse(source)
 
@@ -124,6 +126,8 @@ for item in items:
 result_str = ""
 while condition:
     result_str += "text"
+    result_str += "more"
+    result_str += "data"
 """
         tree = ast.parse(source)
 
@@ -204,6 +208,10 @@ if key in something.keys():
         # Should not trigger P003 (not a dict type based on name)
         assert not any(issue.rule_id == "P003" for issue in issues)
 
+
+class TestPerformanceLoopPatterns:
+    """Tests for loop-scoped performance patterns (P001 threshold, P007)."""
+
     def test_nested_loops(self, default_config: Config) -> None:
         """Test that nested loops are tracked correctly."""
         source = """
@@ -211,6 +219,8 @@ result_str = ""
 for i in range(10):
     for j in range(10):
         result_str += str(i)
+        result_str += str(j)
+        result_str += "x"
 """
         tree = ast.parse(source)
 
@@ -220,3 +230,116 @@ for i in range(10):
         # Should detect string concatenation in nested loop
         assert len(issues) > 0
         assert any(issue.rule_id == "P001" for issue in issues)
+
+    def test_string_concatenation_below_threshold(self, default_config: Config) -> None:
+        """Test P001 not reported when concatenations are below threshold."""
+        source = """
+result_str = ""
+for item in items:
+    result_str += item
+    result_str += item
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "P001" for issue in issues)
+
+    def test_string_concatenation_custom_threshold(self) -> None:
+        """Test P001 with custom min_concatenations."""
+        config = Config()
+        config.performance.min_concatenations = 2
+        source = """
+result_str = ""
+for item in items:
+    result_str += item
+    result_str += item
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert any(issue.rule_id == "P001" for issue in issues)
+
+    def test_duplicate_calls_in_loop(self, default_config: Config) -> None:
+        """Test P007 detection of repeated identical calls in loop."""
+        source = """
+for item in items:
+    value = expensive_compute(item)
+    other = expensive_compute(item)
+    total = expensive_compute(item)
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert any(issue.rule_id == "P007" for issue in issues)
+        assert any("cache" in issue.suggestion.lower() for issue in issues)
+
+    def test_duplicate_calls_below_threshold(self, default_config: Config) -> None:
+        """Test P007 not reported when duplicate calls are below threshold."""
+        source = """
+for item in items:
+    value = expensive_compute(item)
+    other = expensive_compute(item)
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "P007" for issue in issues)
+
+    def test_duplicate_calls_custom_threshold(self) -> None:
+        """Test P007 with custom min_duplicate_calls."""
+        config = Config()
+        config.performance.min_duplicate_calls = 2
+        source = """
+for item in items:
+    value = expensive_compute(item)
+    other = expensive_compute(item)
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert any(issue.rule_id == "P007" for issue in issues)
+
+    def test_duplicate_calls_not_in_nested_function(
+        self, default_config: Config
+    ) -> None:
+        """Test P007 ignores repeated calls inside nested functions."""
+        source = """
+for item in items:
+    def helper():
+        expensive_compute(item)
+        expensive_compute(item)
+        expensive_compute(item)
+    helper()
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "P007" for issue in issues)
+
+    def test_nested_async_function_calls_ignored(self, default_config: Config) -> None:
+        """Test P007 ignores repeated calls inside nested async functions."""
+        source = """
+for item in items:
+    async def helper():
+        expensive_compute(item)
+        expensive_compute(item)
+        expensive_compute(item)
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "P007" for issue in issues)

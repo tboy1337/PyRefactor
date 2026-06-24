@@ -138,7 +138,10 @@ def _load_config(args: Args) -> Optional[Config]:
         logger.info("Loaded configuration: %s", config)
         return config
     except Exception as e:
-        logger.error("Error loading configuration: %s", e)
+        if args.verbose:
+            logger.error("Error loading configuration: %s", e, exc_info=True)
+        else:
+            logger.error("Error loading configuration: %s", e)
         return None
 
 
@@ -154,14 +157,17 @@ def _validate_paths(args: Args) -> Optional[list[Path]]:
 
 
 def _analyze_files_safely(
-    analyzer: Analyzer, paths: list[Path], max_workers: int
+    analyzer: Analyzer, paths: list[Path], max_workers: int, *, verbose: bool = False
 ) -> Optional[AnalysisResult]:
     """Analyze files and handle errors. Returns result or None on error."""
     try:
         logger.info("Analyzing %d path(s)...", len(paths))
         return analyzer.analyze_files(paths, max_workers=max_workers)
     except Exception as e:
-        logger.error("Error during analysis: %s", e)
+        if verbose:
+            logger.error("Error during analysis: %s", e, exc_info=True)
+        else:
+            logger.error("Error during analysis: %s", e)
         return None
 
 
@@ -216,7 +222,7 @@ def main() -> int:
     # Create analyzer and analyze files
     max_workers = max(1, args.jobs)
     analyzer = Analyzer(config)
-    result = _analyze_files_safely(analyzer, paths, max_workers)
+    result = _analyze_files_safely(analyzer, paths, max_workers, verbose=args.verbose)
     if result is None:
         return 2
 

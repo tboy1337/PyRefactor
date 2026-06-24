@@ -40,7 +40,8 @@ class Analyzer:
         """Create all enabled detectors for a file."""
         detectors: list[BaseDetector] = []
 
-        detectors.append(ComplexityDetector(self.config, file_path, source_lines))
+        if self.config.complexity.enabled:
+            detectors.append(ComplexityDetector(self.config, file_path, source_lines))
 
         detector_configs = [
             (self.config.performance.enabled, PerformanceDetector),

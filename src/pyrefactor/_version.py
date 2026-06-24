@@ -1,5 +1,6 @@
 """Package version resolution."""
 
+import sys
 from functools import lru_cache
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -8,7 +9,13 @@ _PACKAGE_NAME = "pyrefactor"
 
 
 def _pyproject_path() -> Path:
-    """Return the repository pyproject.toml path."""
+    """Return the pyproject.toml path for version fallback."""
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            bundled = Path(meipass) / "pyproject.toml"
+            if bundled.is_file():
+                return bundled
     return Path(__file__).resolve().parent.parent.parent / "pyproject.toml"
 
 

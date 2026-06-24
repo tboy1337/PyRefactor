@@ -39,7 +39,6 @@ ignore-patterns=^\.#,.*\.pyc$,.*\.pyo$
 # trailing-newlines: Some files have trailing newlines for editor compatibility
 # redefined-outer-name: Pytest fixtures use this pattern intentionally
 # protected-access: Tests need to access protected methods to test internal APIs
-# comparison-with-itself: Property-based tests verify reflexivity by design
 disable=
     too-few-public-methods,
     fixme,
@@ -53,8 +52,7 @@ disable=
     line-too-long,
     trailing-newlines,
     redefined-outer-name,
-    protected-access,
-    comparison-with-itself
+    protected-access
 
 # Enable specific warnings that are disabled by default
 enable=

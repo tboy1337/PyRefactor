@@ -185,7 +185,9 @@ class DuplicationDetector(BaseDetector):
                     continue
 
                 # Hash the normalized code
-                code_hash = hashlib.md5(normalized.encode()).hexdigest()
+                code_hash = hashlib.md5(
+                    normalized.encode(), usedforsecurity=False
+                ).hexdigest()
 
                 if code_hash not in self.code_blocks:
                     self.code_blocks[code_hash] = []

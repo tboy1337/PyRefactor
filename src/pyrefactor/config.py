@@ -11,6 +11,7 @@ from typing import Any, Mapping, Optional, Union
 class ComplexityConfig:
     """Configuration for complexity detector."""
 
+    enabled: bool = True
     max_branches: int = 10
     max_nesting_depth: int = 3
     max_function_lines: int = 50
@@ -24,6 +25,8 @@ class PerformanceConfig:
     """Configuration for performance detector."""
 
     enabled: bool = True
+    min_concatenations: int = 3
+    min_duplicate_calls: int = 3
 
 
 @dataclass
@@ -94,10 +97,14 @@ class Config:
     exclude_patterns: list[str] = field(default_factory=list)
 
     @staticmethod
-    def _parse_complexity_config(config: configparser.ConfigParser) -> dict[str, int]:
+    def _parse_complexity_config(
+        config: configparser.ConfigParser,
+    ) -> dict[str, Union[int, bool]]:
         """Extract complexity configuration from config parser."""
-        complexity_dict: dict[str, int] = {}
+        complexity_dict: dict[str, Union[int, bool]] = {}
         if config.has_section("complexity"):
+            if config.has_option("complexity", "enabled"):
+                complexity_dict["enabled"] = config.getboolean("complexity", "enabled")
             for key in [
                 "max_branches",
                 "max_nesting_depth",
@@ -109,6 +116,27 @@ class Config:
                 if config.has_option("complexity", key):
                     complexity_dict[key] = config.getint("complexity", key)
         return complexity_dict
+
+    @staticmethod
+    def _parse_performance_config(
+        config: configparser.ConfigParser,
+    ) -> dict[str, Union[int, bool]]:
+        """Extract performance configuration from config parser."""
+        performance_dict: dict[str, Union[int, bool]] = {}
+        if config.has_section("performance"):
+            if config.has_option("performance", "enabled"):
+                performance_dict["enabled"] = config.getboolean(
+                    "performance", "enabled"
+                )
+            if config.has_option("performance", "min_concatenations"):
+                performance_dict["min_concatenations"] = config.getint(
+                    "performance", "min_concatenations"
+                )
+            if config.has_option("performance", "min_duplicate_calls"):
+                performance_dict["min_duplicate_calls"] = config.getint(
+                    "performance", "min_duplicate_calls"
+                )
+        return performance_dict
 
     @staticmethod
     def _parse_duplication_config(
@@ -207,12 +235,18 @@ class Config:
             raise ValueError("Invalid [tool.pyrefactor] section in configuration")
 
         complexity_fields = {
+            "enabled": bool,
             "max_branches": int,
             "max_nesting_depth": int,
             "max_function_lines": int,
             "max_arguments": int,
             "max_local_variables": int,
             "max_cyclomatic_complexity": int,
+        }
+        performance_fields = {
+            "enabled": bool,
+            "min_concatenations": int,
+            "min_duplicate_calls": int,
         }
         duplication_fields = {
             "enabled": bool,
@@ -232,9 +266,7 @@ class Config:
             exclude_patterns = [str(pattern) for pattern in raw_exclude]
         elif isinstance(raw_exclude, str):
             exclude_patterns = [
-                pattern.strip()
-                for pattern in raw_exclude.split(",")
-                if pattern.strip()
+                pattern.strip() for pattern in raw_exclude.split(",") if pattern.strip()
             ]
 
         return cls(
@@ -246,15 +278,21 @@ class Config:
             ),
             performance=PerformanceConfig(
                 **cls._coerce_section(
-                    pyrefactor.get("performance", {})
-                    if isinstance(pyrefactor.get("performance"), dict)
-                    else {},
-                    enabled_only,
+                    (
+                        pyrefactor.get("performance", {})
+                        if isinstance(pyrefactor.get("performance"), dict)
+                        else {}
+                    ),
+                    performance_fields,
                 )
             ),
             duplication=DuplicationConfig(
                 **cls._coerce_section(
-                    duplication_section if isinstance(duplication_section, dict) else {},
+                    (
+                        duplication_section
+                        if isinstance(duplication_section, dict)
+                        else {}
+                    ),
                     duplication_fields,
                 )
             ),
@@ -266,41 +304,51 @@ class Config:
             ),
             loops=LoopsConfig(
                 **cls._coerce_section(
-                    pyrefactor.get("loops", {})
-                    if isinstance(pyrefactor.get("loops"), dict)
-                    else {},
+                    (
+                        pyrefactor.get("loops", {})
+                        if isinstance(pyrefactor.get("loops"), dict)
+                        else {}
+                    ),
                     enabled_only,
                 )
             ),
             context_manager=ContextManagerConfig(
                 **cls._coerce_section(
-                    pyrefactor.get("context_manager", {})
-                    if isinstance(pyrefactor.get("context_manager"), dict)
-                    else {},
+                    (
+                        pyrefactor.get("context_manager", {})
+                        if isinstance(pyrefactor.get("context_manager"), dict)
+                        else {}
+                    ),
                     enabled_only,
                 )
             ),
             control_flow=ControlFlowConfig(
                 **cls._coerce_section(
-                    pyrefactor.get("control_flow", {})
-                    if isinstance(pyrefactor.get("control_flow"), dict)
-                    else {},
+                    (
+                        pyrefactor.get("control_flow", {})
+                        if isinstance(pyrefactor.get("control_flow"), dict)
+                        else {}
+                    ),
                     enabled_only,
                 )
             ),
             dict_operations=DictOperationsConfig(
                 **cls._coerce_section(
-                    pyrefactor.get("dict_operations", {})
-                    if isinstance(pyrefactor.get("dict_operations"), dict)
-                    else {},
+                    (
+                        pyrefactor.get("dict_operations", {})
+                        if isinstance(pyrefactor.get("dict_operations"), dict)
+                        else {}
+                    ),
                     enabled_only,
                 )
             ),
             comparisons=ComparisonsConfig(
                 **cls._coerce_section(
-                    pyrefactor.get("comparisons", {})
-                    if isinstance(pyrefactor.get("comparisons"), dict)
-                    else {},
+                    (
+                        pyrefactor.get("comparisons", {})
+                        if isinstance(pyrefactor.get("comparisons"), dict)
+                        else {}
+                    ),
                     enabled_only,
                 )
             ),
@@ -328,10 +376,8 @@ class Config:
             parser.read(config_path, encoding="utf-8")
 
             return cls(
-                complexity=ComplexityConfig(**cls._parse_complexity_config(parser)),
-                performance=PerformanceConfig(
-                    **cls._parse_enabled_flag(parser, "performance")
-                ),
+                complexity=ComplexityConfig(**cls._parse_complexity_config(parser)),  # type: ignore[arg-type]
+                performance=PerformanceConfig(**cls._parse_performance_config(parser)),  # type: ignore[arg-type]
                 duplication=DuplicationConfig(**cls._parse_duplication_config(parser)),  # type: ignore[arg-type]
                 boolean_logic=BooleanLogicConfig(**cls._parse_boolean_logic_config(parser)),  # type: ignore[arg-type]
                 loops=LoopsConfig(**cls._parse_enabled_flag(parser, "loops")),

@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyrefactor"
-version = "1.0.7"
+version = "1.0.8"
 description = "A Python refactoring and optimization linter that analyzes code for performance issues, complexity problems, and opportunities for improvement"
 authors = [{name = "tboy1337"}]
 maintainers = [{name = "tboy1337"}]
 readme = "README.md"
-license = {text = "Commercial Restricted License (CRL)"}
+license = { text = "Commercial Restricted License (CRL)" }
 requires-python = ">=3.12"
 keywords = [
     "refactoring",

@@ -1,12 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 """PyInstaller spec file for PyRefactor."""
 
-import sys
 from pathlib import Path
 
 # Get the project root
 project_root = Path(SPECPATH)
 src_path = project_root / "src"
+pyproject_path = project_root / "pyproject.toml"
 
 # Analysis configuration
 a = Analysis(
@@ -15,6 +15,7 @@ a = Analysis(
     binaries=[],
     datas=[
         (str(src_path / "pyrefactor" / "py.typed"), "pyrefactor"),
+        (str(pyproject_path), "."),
     ],
     hiddenimports=[
         "pyrefactor",

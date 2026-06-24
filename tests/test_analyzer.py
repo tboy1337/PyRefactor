@@ -179,7 +179,9 @@ class TestAnalyzer:
         assert analysis.parse_error is not None
         assert "utf-8" in analysis.parse_error.lower()
 
-    def test_analyze_files_parallel(self, default_config: Config, tmp_path: Path) -> None:
+    def test_analyze_files_parallel(
+        self, default_config: Config, tmp_path: Path
+    ) -> None:
         """Test parallel analysis of multiple files."""
         files = []
         for index in range(4):
@@ -210,19 +212,31 @@ class TestAnalyzer:
         config.performance.enabled = False
 
         file_path = tmp_path / "perf.py"
-        file_path.write_text(
-            """
+        file_path.write_text("""
 result_str = ""
 for item in items:
     result_str += item
-"""
-        )
+""")
 
         analyzer = Analyzer(config)
         analysis = analyzer.analyze_file(file_path)
 
         # Should not have performance issues
         assert not any(issue.rule_id.startswith("P") for issue in analysis.issues)
+
+    def test_disabled_complexity_detector(self, tmp_path: Path) -> None:
+        """Test that disabled complexity detector does not run."""
+        config = Config()
+        config.complexity.enabled = False
+
+        file_path = tmp_path / "complex.py"
+        code = "\n".join([f"    x = {i}" for i in range(60)])
+        file_path.write_text(f"def long_func():\n{code}\n    return x")
+
+        analyzer = Analyzer(config)
+        analysis = analyzer.analyze_file(file_path)
+
+        assert not any(issue.rule_id.startswith("C") for issue in analysis.issues)
 
 
 class ConcreteDetector(BaseDetector):
