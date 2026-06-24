@@ -1,9 +1,9 @@
 """Context manager detector for PyRefactor."""
 
 import ast
-from typing import Optional, Union, cast
+from typing import Optional
 
-from ..ast_visitor import BaseDetector
+from ..ast_visitor import BaseDetector, node_col_offset, node_lineno
 from ..config import Config
 from ..models import Issue, Severity
 
@@ -11,7 +11,6 @@ from ..models import Issue, Severity
 CONTEXT_MANAGER_FUNCS = frozenset(
     {
         "open",
-        "file",
         "urlopen",
         "NamedTemporaryFile",
         "SpooledTemporaryFile",
@@ -26,7 +25,7 @@ CONTEXT_MANAGER_FUNCS = frozenset(
 )
 
 # Methods that return context managers
-CONTEXT_MANAGER_METHODS = frozenset({"open", "acquire", "start"})
+CONTEXT_MANAGER_METHODS = frozenset({"open"})
 
 
 class ContextManagerDetector(BaseDetector):
@@ -35,8 +34,6 @@ class ContextManagerDetector(BaseDetector):
     def __init__(self, config: Config, file_path: str, source_lines: list[str]) -> None:
         """Initialize context manager detector."""
         super().__init__(config, file_path, source_lines)
-        self.resource_assignments: dict[str, Union[ast.Assign, ast.AnnAssign]] = {}
-        self.used_in_with: set[str] = set()
         self.parent_map: dict[ast.AST, ast.AST] = {}
 
     def analyze(self, tree: ast.AST) -> list[Issue]:
@@ -64,12 +61,15 @@ class ContextManagerDetector(BaseDetector):
         rule_id: str,
         message: str,
         suggestion: str,
-    ) -> Issue:
+    ) -> Issue | None:
         """Create an Issue object for context manager issues."""
+        line = node_lineno(node)
+        if line is None:
+            return None
         return Issue(
             file=self.file_path,
-            line=cast(int, getattr(node, "lineno", 0)),
-            column=cast(int, getattr(node, "col_offset", 0)),
+            line=line,
+            column=node_col_offset(node),
             severity=severity,
             rule_id=rule_id,
             message=message,
@@ -154,15 +154,19 @@ class ContextManagerDetector(BaseDetector):
         # Get the function name for a better error message
         func_name = self._get_func_name(cm_call)
 
-        self.add_issue(
-            self._create_issue(
-                node,
-                severity=Severity.HIGH,
-                rule_id="R001",
-                message=f"Resource-allocating operation '{func_name}' should use 'with' statement",
-                suggestion=f"Use 'with {func_name}(...) as resource:' to ensure proper resource cleanup",
-            )
+        issue = self._create_issue(
+            node,
+            severity=Severity.HIGH,
+            rule_id="R001",
+            message=(
+                f"Resource-allocating operation '{func_name}' should use 'with' statement"
+            ),
+            suggestion=(
+                f"Use 'with {func_name}(...) as resource:' to ensure proper resource cleanup"
+            ),
         )
+        if issue is not None:
+            self.add_issue(issue)
 
     def _find_context_manager_call(self, node: ast.AST) -> Optional[ast.Call]:
         """Find a context manager call in an expression tree."""

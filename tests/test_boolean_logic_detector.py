@@ -31,7 +31,7 @@ if a and b and c and d and e:
         assert any("complex boolean" in issue.message.lower() for issue in issues)
 
     def test_comparison_with_true(self, default_config: Config) -> None:
-        """Test detection of == True."""
+        """Boolean logic detector does not flag == True (comparisons owns that)."""
         source = """
 if x == True:
     pass
@@ -41,12 +41,10 @@ if x == True:
         detector = BooleanLogicDetector(default_config, "test.py", source.split("\n"))
         issues = detector.analyze(tree)
 
-        assert len(issues) > 0
-        assert any(issue.rule_id == "B002" for issue in issues)
-        assert any("true" in issue.message.lower() for issue in issues)
+        assert not any(issue.rule_id in ("B002", "B003") for issue in issues)
 
     def test_comparison_with_false(self, default_config: Config) -> None:
-        """Test detection of == False."""
+        """Boolean logic detector does not flag == False (comparisons owns that)."""
         source = """
 if x == False:
     pass
@@ -56,9 +54,7 @@ if x == False:
         detector = BooleanLogicDetector(default_config, "test.py", source.split("\n"))
         issues = detector.analyze(tree)
 
-        assert len(issues) > 0
-        assert any(issue.rule_id == "B003" for issue in issues)
-        assert any("false" in issue.message.lower() for issue in issues)
+        assert not any(issue.rule_id in ("B002", "B003") for issue in issues)
 
     def test_is_comparison_with_boolean(self, default_config: Config) -> None:
         """Test detection of 'is' with boolean."""

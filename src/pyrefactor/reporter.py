@@ -53,7 +53,7 @@ class ConsoleReporter:
                 else:
                     # Wrap stdout with UTF-8 text wrapper
                     self.output = io.TextIOWrapper(
-                        sys.stdout.buffer,  # type: ignore[misc]
+                        sys.stdout.buffer,
                         encoding="utf-8",
                         errors="replace",
                     )

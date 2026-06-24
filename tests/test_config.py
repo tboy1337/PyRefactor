@@ -56,6 +56,57 @@ enabled = false
         assert config.complexity.max_nesting_depth == 4
         assert config.performance.enabled is False
 
+    def test_load_from_toml_file(self, tmp_path: Path) -> None:
+        """Test loading from a TOML configuration file."""
+        config_file = tmp_path / "pyproject.toml"
+        config_file.write_text(
+            """
+[tool.pyrefactor]
+exclude_patterns = ["build", "dist"]
+
+[tool.pyrefactor.complexity]
+max_branches = 12
+
+[tool.pyrefactor.performance]
+enabled = false
+"""
+        )
+
+        config = Config.from_toml_file(config_file)
+
+        assert config.complexity.max_branches == 12
+        assert config.performance.enabled is False
+        assert config.exclude_patterns == ["build", "dist"]
+
+    def test_load_empty_toml_file(self, tmp_path: Path) -> None:
+        """Test loading from an empty TOML file uses defaults."""
+        config_file = tmp_path / "empty.toml"
+        config_file.write_text("")
+
+        config = Config.from_toml_file(config_file)
+
+        assert config.complexity.max_branches == 10
+        assert config.performance.enabled is True
+
+    def test_load_partial_toml_file(self, tmp_path: Path) -> None:
+        """Test loading partial TOML configuration."""
+        config_file = tmp_path / "partial.toml"
+        config_file.write_text(
+            """
+[tool.pyrefactor.complexity]
+max_arguments = 0
+"""
+        )
+
+        config = Config.from_toml_file(config_file)
+
+        assert config.complexity.max_arguments == 0
+
+    def test_load_explicit_none(self) -> None:
+        """Test Config.load(None) returns defaults from discovery."""
+        config = Config.load(None)
+        assert isinstance(config, Config)
+
     def test_load_invalid_file(self, tmp_path: Path) -> None:
         """Test loading from invalid config file."""
         config_file = tmp_path / "invalid.ini"
@@ -72,6 +123,59 @@ enabled = false
 
         # Should return default config
         assert config.complexity.max_branches == 10
+
+    def test_load_ini_duplication_and_boolean_sections(self, tmp_path: Path) -> None:
+        """Test loading duplication and boolean_logic INI sections."""
+        config_file = tmp_path / "pyrefactor.ini"
+        config_file.write_text(
+            """
+[duplication]
+enabled = false
+min_duplicate_lines = 8
+similarity_threshold = 0.75
+
+[boolean_logic]
+enabled = true
+max_boolean_operators = 5
+
+[general]
+exclude_patterns = tests/*, build/*
+"""
+        )
+
+        config = Config.from_ini_file(config_file)
+
+        assert config.duplication.enabled is False
+        assert config.duplication.min_duplicate_lines == 8
+        assert config.duplication.similarity_threshold == 0.75
+        assert config.boolean_logic.max_boolean_operators == 5
+        assert config.exclude_patterns == ["tests/*", "build/*"]
+
+    def test_from_toml_invalid_section_raises(self) -> None:
+        """Test invalid tool.pyrefactor section raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid \\[tool.pyrefactor\\]"):
+            Config.from_toml_data({"tool": {"pyrefactor": "invalid"}})
+
+    def test_toml_exclude_patterns_as_string(self, tmp_path: Path) -> None:
+        """Test comma-separated exclude_patterns string in TOML."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[tool.pyrefactor]
+exclude_patterns = "build, dist, vendor"
+"""
+        )
+
+        config = Config.from_toml_file(config_file)
+        assert config.exclude_patterns == ["build", "dist", "vendor"]
+
+    def test_load_defaults_in_empty_directory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test Config.load returns defaults when no config files exist."""
+        monkeypatch.chdir(tmp_path)
+        config = Config.load()
+        assert config.complexity.max_cyclomatic_complexity == 10
 
 
 class TestComplexityConfig:

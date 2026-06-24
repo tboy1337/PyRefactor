@@ -106,7 +106,7 @@ class TestAnalyzer:
     def test_excluded_patterns(self, tmp_path: Path) -> None:
         """Test that excluded patterns are filtered."""
         config = Config()
-        config.exclude_patterns = ["**/test_*", "**/__pycache__/**"]
+        config.exclude_patterns = ["test_*.py"]
 
         (tmp_path / "main.py").write_text("def main(): pass")
         (tmp_path / "test_file.py").write_text("def test(): pass")
@@ -114,9 +114,95 @@ class TestAnalyzer:
         analyzer = Analyzer(config)
         result = analyzer.analyze_directory(tmp_path)
 
-        # Should analyze files (exact behavior may vary based on glob implementation)
-        assert result.files_analyzed() >= 1
-        assert any("main.py" in a.file_path for a in result.file_analyses)
+        assert result.files_analyzed() == 1
+        assert all("main.py" in a.file_path for a in result.file_analyses)
+        assert not any("test_file.py" in a.file_path for a in result.file_analyses)
+
+    def test_filter_excluded_files(self, tmp_path: Path) -> None:
+        """Test _filter_excluded_files helper."""
+        config = Config()
+        config.exclude_patterns = ["**/tests/**"]
+        analyzer = Analyzer(config)
+
+        files = [
+            tmp_path / "src" / "main.py",
+            tmp_path / "tests" / "test_main.py",
+        ]
+        filtered = analyzer._filter_excluded_files(files)
+
+        assert filtered == [files[0]]
+
+    def test_analyze_empty_file(self, default_config: Config, tmp_path: Path) -> None:
+        """Test analyzing an empty file."""
+        file_path = tmp_path / "empty.py"
+        file_path.write_text("")
+
+        analyzer = Analyzer(default_config)
+        analysis = analyzer.analyze_file(file_path)
+
+        assert analysis.lines_of_code == 0
+        assert analysis.parse_error is None
+
+    def test_analyze_deterministic(
+        self, default_config: Config, tmp_path: Path
+    ) -> None:
+        """Test that analyzing the same file twice yields the same results."""
+        file_path = tmp_path / "sample.py"
+        file_path.write_text("def func():\n    return 1\n")
+
+        analyzer = Analyzer(default_config)
+        first = analyzer.analyze_file(file_path)
+        second = analyzer.analyze_file(file_path)
+
+        assert len(first.issues) == len(second.issues)
+        assert first.lines_of_code == second.lines_of_code
+
+    def test_file_too_large(self, default_config: Config, tmp_path: Path) -> None:
+        """Test that oversized files are rejected."""
+        file_path = tmp_path / "large.py"
+        file_path.write_bytes(b"x" * (10 * 1024 * 1024 + 1))
+
+        analyzer = Analyzer(default_config)
+        analysis = analyzer.analyze_file(file_path)
+
+        assert analysis.parse_error is not None
+        assert "maximum size" in analysis.parse_error.lower()
+
+    def test_non_utf8_file(self, default_config: Config, tmp_path: Path) -> None:
+        """Test handling of non-UTF-8 files."""
+        file_path = tmp_path / "binary.py"
+        file_path.write_bytes(b"\xff\xfe def func(): pass")
+
+        analyzer = Analyzer(default_config)
+        analysis = analyzer.analyze_file(file_path)
+
+        assert analysis.parse_error is not None
+        assert "utf-8" in analysis.parse_error.lower()
+
+    def test_analyze_files_parallel(self, default_config: Config, tmp_path: Path) -> None:
+        """Test parallel analysis of multiple files."""
+        files = []
+        for index in range(4):
+            file_path = tmp_path / f"module_{index}.py"
+            file_path.write_text(f"def func_{index}():\n    return {index}\n")
+            files.append(file_path)
+
+        analyzer = Analyzer(default_config)
+        result = analyzer.analyze_files(files, max_workers=4)
+
+        assert result.files_analyzed() == 4
+
+    def test_analyze_directory_with_workers(
+        self, default_config: Config, tmp_path: Path
+    ) -> None:
+        """Test directory analysis respects max_workers."""
+        for index in range(3):
+            (tmp_path / f"file_{index}.py").write_text("def f(): pass")
+
+        analyzer = Analyzer(default_config)
+        result = analyzer.analyze_directory(tmp_path, max_workers=2)
+
+        assert result.files_analyzed() == 3
 
     def test_disabled_detectors(self, tmp_path: Path) -> None:
         """Test that disabled detectors don't run."""

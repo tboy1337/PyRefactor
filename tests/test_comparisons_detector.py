@@ -114,7 +114,7 @@ if x == True:
     issues = detector.analyze(tree)
 
     assert len(issues) == 1
-    assert issues[0].rule_id == "R014"
+    assert issues[0].rule_id == "R015"
     assert issues[0].severity == Severity.INFO
     assert "True" in issues[0].message
 
@@ -130,7 +130,7 @@ if x == False:
     issues = detector.analyze(tree)
 
     assert len(issues) == 1
-    assert issues[0].rule_id == "R014"
+    assert issues[0].rule_id == "R015"
     assert "not" in issues[0].suggestion.lower()
 
 
@@ -145,7 +145,7 @@ if type(x) == int:
     issues = detector.analyze(tree)
 
     assert len(issues) == 1
-    assert issues[0].rule_id == "R015"
+    assert issues[0].rule_id == "R016"
     assert issues[0].severity == Severity.MEDIUM
     assert "isinstance" in issues[0].suggestion.lower()
 
@@ -174,7 +174,7 @@ if type(x) is int:
     issues = detector.analyze(tree)
 
     assert len(issues) == 1
-    assert issues[0].rule_id == "R015"
+    assert issues[0].rule_id == "R016"
     assert "isinstance" in issues[0].suggestion.lower()
 
 
@@ -445,7 +445,7 @@ if x != False:
 
     # Should flag != with singleton
     assert len(issues) == 1
-    assert issues[0].rule_id == "R014"
+    assert issues[0].rule_id == "R015"
 
 
 def test_compare_type_not_call(detector: ComparisonsDetector) -> None:
@@ -488,4 +488,4 @@ if type(x) == obj.SomeType:
 
     # Attributes are valid for isinstance suggestion too
     assert len(issues) == 1
-    assert issues[0].rule_id == "R015"
+    assert issues[0].rule_id == "R016"

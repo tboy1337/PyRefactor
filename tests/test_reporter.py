@@ -165,3 +165,59 @@ class TestConsoleReporter:
         assert "HIGH: 1" in output_text
         assert "MEDIUM: 1" in output_text
         assert "LOW: 1" in output_text
+
+    def test_severity_color_and_icon(self) -> None:
+        """Test private severity styling helpers."""
+        output = StringIO()
+        reporter = ConsoleReporter(output=output)
+
+        assert reporter._get_severity_color(Severity.HIGH)
+        assert reporter._get_severity_icon(Severity.HIGH)
+
+    def test_invalid_group_by_defaults_to_file(self) -> None:
+        """Test unknown group_by falls back to file grouping."""
+        output = StringIO()
+        reporter = ConsoleReporter(output=output)
+
+        analysis = FileAnalysis(file_path="test.py")
+        analysis.add_issue(
+            Issue(
+                file="test.py",
+                line=1,
+                column=0,
+                severity=Severity.LOW,
+                rule_id="C001",
+                message="Issue",
+            )
+        )
+
+        result = AnalysisResult()
+        result.add_file_analysis(analysis)
+
+        reporter.report(result, group_by="invalid")
+        output_text = output.getvalue()
+        assert "test.py" in output_text
+
+    def test_report_issue_with_code_snippet(self) -> None:
+        """Test reporting issues that include code snippets."""
+        output = StringIO()
+        reporter = ConsoleReporter(output=output)
+
+        analysis = FileAnalysis(file_path="test.py")
+        analysis.add_issue(
+            Issue(
+                file="test.py",
+                line=1,
+                column=0,
+                severity=Severity.LOW,
+                rule_id="C001",
+                message="Issue with snippet",
+                code_snippet="x = 1",
+            )
+        )
+
+        result = AnalysisResult()
+        result.add_file_analysis(analysis)
+
+        reporter.report(result)
+        assert "x = 1" in output.getvalue()

@@ -2,7 +2,7 @@
 
 A Python refactoring and optimization linter that uses AST analysis to identify performance issues, complexity problems, and code improvements.
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 
 ## Features
 
@@ -44,7 +44,7 @@ cd PyRefactor
 pip install -e .
 ```
 
-**Requirements**: Python 3.9+
+**Requirements**: Python 3.12+
 
 ## Usage
 
@@ -154,7 +154,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.12'
       - run: pip install pyrefactor
       - run: pyrefactor --min-severity medium src/
 ```
@@ -163,8 +163,35 @@ jobs:
 
 Contributions are welcome! This project is under a Commercial Restricted License (CRL). For commercial use, contact the copyright holder.
 
+### Development
+
+Install the package with development dependencies:
+
+```bash
+pip install -e ".[dev]"
+```
+
+Alternatively:
+
+```bash
+pip install -e .
+pip install -r requirements-dev.txt
+```
+
+Run the local verification script (formatting, type checks, lint, security scan, tests):
+
+```bash
+py scripts/verify.py
+```
+
+Run tests directly:
+
+```bash
+pytest
+```
+
 1. Follow existing code style (Black, isort)
-2. Add tests for new features (>95% coverage)
+2. Add tests for new features (>90% coverage)
 3. Run type checking and linting
 
 ## License

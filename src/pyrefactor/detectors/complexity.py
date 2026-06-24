@@ -27,7 +27,8 @@ class IssueParams:
 class LocalVarVisitor(ast.NodeVisitor):
     """Visitor to count local variables in a function."""
 
-    def __init__(self) -> None:
+    def __init__(self, root: ast.AST) -> None:
+        self.root = root
         self.vars: set[str] = set()
 
     def visit_Name(self, name_node: ast.Name) -> None:
@@ -36,12 +37,14 @@ class LocalVarVisitor(ast.NodeVisitor):
             self.vars.add(name_node.id)
 
     def visit_FunctionDef(self, func_node: ast.FunctionDef) -> None:
-        """Don't descend into nested functions."""
-        ...
+        """Traverse the root function only; skip nested functions."""
+        if func_node is self.root:
+            self.generic_visit(func_node)
 
     def visit_AsyncFunctionDef(self, func_node: ast.AsyncFunctionDef) -> None:
-        """Don't descend into nested async functions."""
-        ...
+        """Traverse the root async function only; skip nested functions."""
+        if func_node is self.root:
+            self.generic_visit(func_node)
 
 
 class ComplexityDetector(BaseDetector):
@@ -168,7 +171,7 @@ class ComplexityDetector(BaseDetector):
         self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]
     ) -> None:
         """Check if function has too many local variables."""
-        visitor = LocalVarVisitor()
+        visitor = LocalVarVisitor(node)
         visitor.visit(node)
         local_vars = visitor.vars
 

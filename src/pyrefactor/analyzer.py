@@ -2,8 +2,9 @@
 
 import ast
 import concurrent.futures
+import fnmatch
 import logging
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from .ast_visitor import BaseDetector
 from .config import Config
@@ -22,6 +23,9 @@ from .models import AnalysisResult, FileAnalysis
 
 logger = logging.getLogger(__name__)
 
+# Maximum file size to read for analysis (10 MB)
+MAX_FILE_BYTES = 10 * 1024 * 1024
+
 
 class Analyzer:
     """Main analyzer that orchestrates all detectors."""
@@ -33,16 +37,11 @@ class Analyzer:
     def _create_detectors(
         self, file_path: str, source_lines: list[str]
     ) -> list[BaseDetector]:
-        """Create all enabled detectors for a file.
-
-        Factory method to consolidate detector initialization and reduce duplication.
-        """
+        """Create all enabled detectors for a file."""
         detectors: list[BaseDetector] = []
 
-        # Complexity detector (always enabled)
         detectors.append(ComplexityDetector(self.config, file_path, source_lines))
 
-        # Conditionally enabled detectors
         detector_configs = [
             (self.config.performance.enabled, PerformanceDetector),
             (self.config.boolean_logic.enabled, BooleanLogicDetector),
@@ -60,24 +59,42 @@ class Analyzer:
 
         return detectors
 
+    def _read_source(self, file_path: Path) -> tuple[str, list[str]] | str:
+        """Read source from a file, returning an error message on failure."""
+        try:
+            file_size = file_path.stat().st_size
+            if file_size > MAX_FILE_BYTES:
+                return (
+                    f"File exceeds maximum size of {MAX_FILE_BYTES} bytes "
+                    f"({file_size} bytes)"
+                )
+
+            source_code = file_path.read_text(encoding="utf-8")
+            return source_code, source_code.splitlines()
+        except UnicodeDecodeError:
+            return "File is not valid UTF-8 text"
+        except OSError as e:
+            return f"Error reading file: {e}"
+
     def analyze_file(self, file_path: Path) -> FileAnalysis:
         """Analyze a single Python file."""
         analysis = FileAnalysis(file_path=str(file_path))
 
         try:
-            # Read the file
-            source_code = file_path.read_text(encoding="utf-8")
-            source_lines = source_code.splitlines()
+            read_result = self._read_source(file_path)
+            if isinstance(read_result, str):
+                analysis.parse_error = read_result
+                return analysis
+
+            source_code, source_lines = read_result
             analysis.lines_of_code = len(source_lines)
 
-            # Parse the AST
             try:
                 tree = ast.parse(source_code, filename=str(file_path))
             except SyntaxError as e:
                 analysis.parse_error = f"Syntax error: {e}"
                 return analysis
 
-            # Create and run all enabled detectors
             detectors = self._create_detectors(str(file_path), source_lines)
             self._run_detectors(detectors, tree, analysis, file_path)
 
@@ -114,18 +131,54 @@ class Analyzer:
         """Analyze all Python files in a directory."""
         result = AnalysisResult()
 
-        # Find all Python files
         python_files = list(directory.rglob("*.py"))
-
-        # Filter excluded patterns
         python_files = self._filter_excluded_files(python_files)
 
         if not python_files:
             logger.warning("No Python files found in %s", directory)
             return result
 
-        # Analyze files in parallel
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        return self._analyze_paths_parallel(python_files, max_workers, result)
+
+    def analyze_files(
+        self, file_paths: list[Path], max_workers: int = 4
+    ) -> AnalysisResult:
+        """Analyze a list of Python files and directories."""
+        result = AnalysisResult()
+        paths_to_analyze: list[Path] = []
+
+        for file_path in file_paths:
+            if file_path.is_file():
+                if file_path.suffix == ".py" and not self._is_excluded(file_path):
+                    paths_to_analyze.append(file_path)
+            elif file_path.is_dir():
+                python_files = [
+                    path
+                    for path in file_path.rglob("*.py")
+                    if not self._is_excluded(path)
+                ]
+                paths_to_analyze.extend(python_files)
+
+        if not paths_to_analyze:
+            return result
+
+        return self._analyze_paths_parallel(paths_to_analyze, max_workers, result)
+
+    def _analyze_paths_parallel(
+        self,
+        python_files: list[Path],
+        max_workers: int,
+        result: AnalysisResult,
+    ) -> AnalysisResult:
+        """Analyze multiple Python files in parallel."""
+        workers = max(1, max_workers)
+
+        if workers == 1 or len(python_files) == 1:
+            for file_path in python_files:
+                result.add_file_analysis(self.analyze_file(file_path))
+            return result
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
             future_to_file = {
                 executor.submit(self.analyze_file, file_path): file_path
                 for file_path in python_files
@@ -147,39 +200,22 @@ class Analyzer:
 
         return result
 
-    def analyze_files(self, file_paths: list[Path]) -> AnalysisResult:
-        """Analyze a list of Python files."""
-        result = AnalysisResult()
+    def _is_excluded(self, file_path: Path) -> bool:
+        """Check if a file matches any exclusion pattern."""
+        if not self.config.exclude_patterns:
+            return False
 
-        for file_path in file_paths:
-            self._process_path(file_path, result)
-
-        return result
-
-    def _process_path(self, file_path: Path, result: AnalysisResult) -> None:
-        """Process a single file or directory path.
-
-        Args:
-            file_path: Path to file or directory
-            result: AnalysisResult to add analyses to
-        """
-        if file_path.is_file():
-            analysis = self.analyze_file(file_path)
-            result.add_file_analysis(analysis)
-        elif file_path.is_dir():
-            dir_result = self.analyze_directory(file_path)
-            for analysis in dir_result.file_analyses:
-                result.add_file_analysis(analysis)
+        posix_path = PurePosixPath(file_path.as_posix())
+        for pattern in self.config.exclude_patterns:
+            normalized = pattern.replace("\\", "/")
+            if posix_path.match(normalized):
+                return True
+            if fnmatch.fnmatch(posix_path.as_posix(), normalized):
+                return True
+            if fnmatch.fnmatch(file_path.name, normalized):
+                return True
+        return False
 
     def _filter_excluded_files(self, files: list[Path]) -> list[Path]:
         """Filter out files matching exclusion patterns."""
-        if not self.config.exclude_patterns:
-            return files
-
-        return [
-            file_path
-            for file_path in files
-            if not any(
-                pattern in str(file_path) for pattern in self.config.exclude_patterns
-            )
-        ]
+        return [file_path for file_path in files if not self._is_excluded(file_path)]

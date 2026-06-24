@@ -1,9 +1,10 @@
 """Configuration management for PyRefactor."""
 
 import configparser
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Mapping, Optional, Union
 
 
 @dataclass
@@ -163,7 +164,6 @@ class Config:
             "general", "exclude_patterns"
         ):
             patterns_str = config.get("general", "exclude_patterns")
-            # Parse comma-separated patterns
             exclude_list = [
                 pattern.strip()
                 for pattern in patterns_str.split(",")
@@ -171,14 +171,158 @@ class Config:
             ]
         return exclude_list
 
-    @classmethod
-    def from_file(cls, config_path: Path) -> "Config":
-        """Load configuration from an INI file.
+    @staticmethod
+    def _coerce_section(
+        section: dict[str, Any], field_types: Mapping[str, type[object]]
+    ) -> dict[str, Any]:
+        """Coerce TOML section values to expected Python types."""
+        result: dict[str, Any] = {}
+        for key, expected_type in field_types.items():
+            if key not in section:
+                continue
+            value = section[key]
+            if expected_type is bool:
+                result[key] = bool(value)
+            elif expected_type is int:
+                result[key] = int(value)
+            elif expected_type is float:
+                result[key] = float(value)
+            elif expected_type is list:
+                if isinstance(value, list):
+                    result[key] = [str(item) for item in value]
+                elif isinstance(value, str):
+                    result[key] = [
+                        pattern.strip()
+                        for pattern in value.split(",")
+                        if pattern.strip()
+                    ]
+        return result
 
-        Technical note: This method works with dynamic INI data which mypy
-        cannot fully type-check. Type ignores are used to suppress Any-related
-        warnings while maintaining runtime safety through try-except handling.
-        """
+    @classmethod
+    def from_toml_data(cls, data: dict[str, Any]) -> "Config":
+        """Load configuration from parsed TOML [tool.pyrefactor] data."""
+        tool_section = data.get("tool", {})
+        pyrefactor = tool_section.get("pyrefactor", {})
+        if not isinstance(pyrefactor, dict):
+            raise ValueError("Invalid [tool.pyrefactor] section in configuration")
+
+        complexity_fields = {
+            "max_branches": int,
+            "max_nesting_depth": int,
+            "max_function_lines": int,
+            "max_arguments": int,
+            "max_local_variables": int,
+            "max_cyclomatic_complexity": int,
+        }
+        duplication_fields = {
+            "enabled": bool,
+            "min_duplicate_lines": int,
+            "similarity_threshold": float,
+        }
+        boolean_fields = {"enabled": bool, "max_boolean_operators": int}
+        enabled_only = {"enabled": bool}
+
+        complexity_section = pyrefactor.get("complexity", {})
+        duplication_section = pyrefactor.get("duplication", {})
+        boolean_section = pyrefactor.get("boolean_logic", {})
+
+        exclude_patterns: list[str] = []
+        raw_exclude = pyrefactor.get("exclude_patterns")
+        if isinstance(raw_exclude, list):
+            exclude_patterns = [str(pattern) for pattern in raw_exclude]
+        elif isinstance(raw_exclude, str):
+            exclude_patterns = [
+                pattern.strip()
+                for pattern in raw_exclude.split(",")
+                if pattern.strip()
+            ]
+
+        return cls(
+            complexity=ComplexityConfig(
+                **cls._coerce_section(
+                    complexity_section if isinstance(complexity_section, dict) else {},
+                    complexity_fields,
+                )
+            ),
+            performance=PerformanceConfig(
+                **cls._coerce_section(
+                    pyrefactor.get("performance", {})
+                    if isinstance(pyrefactor.get("performance"), dict)
+                    else {},
+                    enabled_only,
+                )
+            ),
+            duplication=DuplicationConfig(
+                **cls._coerce_section(
+                    duplication_section if isinstance(duplication_section, dict) else {},
+                    duplication_fields,
+                )
+            ),
+            boolean_logic=BooleanLogicConfig(
+                **cls._coerce_section(
+                    boolean_section if isinstance(boolean_section, dict) else {},
+                    boolean_fields,
+                )
+            ),
+            loops=LoopsConfig(
+                **cls._coerce_section(
+                    pyrefactor.get("loops", {})
+                    if isinstance(pyrefactor.get("loops"), dict)
+                    else {},
+                    enabled_only,
+                )
+            ),
+            context_manager=ContextManagerConfig(
+                **cls._coerce_section(
+                    pyrefactor.get("context_manager", {})
+                    if isinstance(pyrefactor.get("context_manager"), dict)
+                    else {},
+                    enabled_only,
+                )
+            ),
+            control_flow=ControlFlowConfig(
+                **cls._coerce_section(
+                    pyrefactor.get("control_flow", {})
+                    if isinstance(pyrefactor.get("control_flow"), dict)
+                    else {},
+                    enabled_only,
+                )
+            ),
+            dict_operations=DictOperationsConfig(
+                **cls._coerce_section(
+                    pyrefactor.get("dict_operations", {})
+                    if isinstance(pyrefactor.get("dict_operations"), dict)
+                    else {},
+                    enabled_only,
+                )
+            ),
+            comparisons=ComparisonsConfig(
+                **cls._coerce_section(
+                    pyrefactor.get("comparisons", {})
+                    if isinstance(pyrefactor.get("comparisons"), dict)
+                    else {},
+                    enabled_only,
+                )
+            ),
+            exclude_patterns=exclude_patterns,
+        )
+
+    @classmethod
+    def from_toml_file(cls, config_path: Path) -> "Config":
+        """Load configuration from a TOML file."""
+        try:
+            with config_path.open("rb") as config_file:
+                data = tomllib.load(config_file)
+            return cls.from_toml_data(data)
+        except Exception as e:
+            raise ValueError(f"Error loading configuration: {e}") from e
+
+    @classmethod
+    def from_ini_file(cls, config_path: Path) -> "Config":
+        """Load configuration from an INI file."""
+        if not config_path.is_file():
+            return cls()
+
         try:
             parser = configparser.ConfigParser()
             parser.read(config_path, encoding="utf-8")
@@ -205,10 +349,16 @@ class Config:
                 ),
                 exclude_patterns=cls._parse_exclude_patterns(parser),
             )
-        except FileNotFoundError:
-            return cls()
         except Exception as e:
             raise ValueError(f"Error loading configuration: {e}") from e
+
+    @classmethod
+    def from_file(cls, config_path: Path) -> "Config":
+        """Load configuration from a TOML or INI file."""
+        suffix = config_path.suffix.lower()
+        if suffix in {".toml", ".tml"}:
+            return cls.from_toml_file(config_path)
+        return cls.from_ini_file(config_path)
 
     @classmethod
     def load(cls, config_path: Optional[Path] = None) -> "Config":
@@ -216,9 +366,12 @@ class Config:
         if config_path is not None:
             return cls.from_file(config_path)
 
-        # Try to find pyrefactor.ini in current directory
+        pyproject = Path("pyproject.toml")
+        if pyproject.exists():
+            return cls.from_toml_file(pyproject)
+
         ini_file = Path("pyrefactor.ini")
         if ini_file.exists():
-            return cls.from_file(ini_file)
+            return cls.from_ini_file(ini_file)
 
         return cls()

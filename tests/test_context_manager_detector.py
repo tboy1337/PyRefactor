@@ -77,13 +77,12 @@ data = f1.read() + f2.read()
 
 
 def test_method_call_acquire(detector: ContextManagerDetector) -> None:
-    """Test detection of lock.acquire() without with statement."""
+    """Lock.acquire() is not a context manager and should not be flagged."""
     code = """
 import threading
 lock = threading.Lock()
 lock.acquire()
 try:
-    # critical section
     pass
 finally:
     lock.release()
@@ -92,9 +91,7 @@ finally:
     detector.source_lines = code.splitlines()
     issues = detector.analyze(tree)
 
-    assert len(issues) == 1
-    assert issues[0].rule_id == "R001"
-    assert "acquire" in issues[0].message.lower()
+    assert len(issues) == 0
 
 
 def test_suppression_comment(detector: ContextManagerDetector) -> None:
@@ -108,6 +105,22 @@ f = open('file.txt')
     issues = detector.analyze(tree)
 
     assert len(issues) == 0
+
+
+def test_path_open_method(detector: ContextManagerDetector) -> None:
+    """Test detection of Path.open() without with statement."""
+    code = """
+from pathlib import Path
+handle = Path("file.txt").open()
+handle.read()
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 1
+    assert issues[0].rule_id == "R001"
+    assert "open" in issues[0].message.lower()
 
 
 def test_urlopen_without_with(detector: ContextManagerDetector) -> None:

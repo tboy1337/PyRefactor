@@ -1,6 +1,7 @@
 """Tests for complexity detector."""
 
 import ast
+from pathlib import Path
 
 from pyrefactor.ast_visitor import (
     calculate_cyclomatic_complexity,
@@ -60,18 +61,18 @@ class MyClass:
         # Should not trigger too many arguments (5 + self = 6, but self excluded)
         assert not any(issue.rule_id == "C002" for issue in issues)
 
-    def test_too_many_local_variables(self, default_config: Config) -> None:
+    def test_too_many_local_variables(self, tmp_path: Path) -> None:
         """Test detection of too many local variables."""
-        assignments = "\n".join([f"    var{i} = {i}" for i in range(20)])
+        config = Config()
+        config.complexity.max_local_variables = 5
+        assignments = "\n".join([f"    var{i} = {i}" for i in range(10)])
         source = f"def many_vars():\n{assignments}\n    return var0"
         tree = ast.parse(source)
 
-        detector = ComplexityDetector(default_config, "test.py", source.split("\n"))
+        detector = ComplexityDetector(config, "test.py", source.split("\n"))
         issues = detector.analyze(tree)
 
-        # May or may not trigger based on implementation details
-        if issues:
-            assert any(issue.rule_id.startswith("C") for issue in issues)
+        assert any(issue.rule_id == "C003" for issue in issues)
 
     def test_too_many_branches(self, default_config: Config) -> None:
         """Test detection of too many branches."""

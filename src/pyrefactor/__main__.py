@@ -65,7 +65,11 @@ def _add_parser_arguments(parser: argparse.ArgumentParser) -> None:
         help="Minimum severity level to report (default: info)",
     )
     parser.add_argument(
-        "-j", "--jobs", type=int, default=4, help="Number of parallel jobs (default: 4)"
+        "-j",
+        "--jobs",
+        type=int,
+        default=4,
+        help="Number of parallel jobs (default: 4, minimum 1)",
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
@@ -102,13 +106,13 @@ def parse_arguments() -> Args:
     # Convert to our typed class
     # Note: argparse returns Any type for namespace attributes
     return Args(
-        paths=namespace.paths,  # type: ignore[misc]
-        config=namespace.config,  # type: ignore[misc]
-        group_by=namespace.group_by,  # type: ignore[misc]
-        min_severity=namespace.min_severity,  # type: ignore[misc]
-        jobs=namespace.jobs,  # type: ignore[misc]
-        verbose=namespace.verbose,  # type: ignore[misc]
-        version=namespace.version,  # type: ignore[misc]
+        paths=namespace.paths,
+        config=namespace.config,
+        group_by=namespace.group_by,
+        min_severity=namespace.min_severity,
+        jobs=namespace.jobs,
+        verbose=namespace.verbose,
+        version=namespace.version,
     )
 
 
@@ -150,12 +154,12 @@ def _validate_paths(args: Args) -> Optional[list[Path]]:
 
 
 def _analyze_files_safely(
-    analyzer: Analyzer, paths: list[Path]
+    analyzer: Analyzer, paths: list[Path], max_workers: int
 ) -> Optional[AnalysisResult]:
     """Analyze files and handle errors. Returns result or None on error."""
     try:
         logger.info("Analyzing %d path(s)...", len(paths))
-        return analyzer.analyze_files(paths)
+        return analyzer.analyze_files(paths, max_workers=max_workers)
     except Exception as e:
         logger.error("Error during analysis: %s", e)
         return None
@@ -210,8 +214,9 @@ def main() -> int:
         return 2
 
     # Create analyzer and analyze files
+    max_workers = max(1, args.jobs)
     analyzer = Analyzer(config)
-    result = _analyze_files_safely(analyzer, paths)
+    result = _analyze_files_safely(analyzer, paths, max_workers)
     if result is None:
         return 2
 

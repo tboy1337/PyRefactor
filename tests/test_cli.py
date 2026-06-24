@@ -154,9 +154,22 @@ class TestCLI:
         with patch.object(sys, "argv", ["pyrefactor", str(file_path)]):
             exit_code = main()
 
-            # Should not crash, even with syntax errors (exit code 0)
-            # The analyzer handles syntax errors gracefully
-            assert exit_code in (0, 2)
+            # Syntax errors are handled gracefully without crashing
+            assert exit_code == 0
+
+    def test_parse_arguments_jobs(self) -> None:
+        """Test parsing jobs argument."""
+        with patch.object(sys, "argv", ["pyrefactor", "-j", "8", "test.py"]):
+            args = parse_arguments()
+
+            assert args.jobs == 8
+
+    def test_main_no_paths(self) -> None:
+        """Test main exits with error when no paths are provided."""
+        with patch.object(sys, "argv", ["pyrefactor"]):
+            exit_code = main()
+
+            assert exit_code == 2
 
     def test_main_with_verbose_flag(self, tmp_path: Path) -> None:
         """Test main with verbose flag."""

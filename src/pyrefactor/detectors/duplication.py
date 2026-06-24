@@ -100,12 +100,12 @@ class DuplicationDetector(BaseDetector):
 
     # Maximum block size to analyze (prevents excessive memory usage)
     MAX_BLOCK_SIZE = 20
+    MAX_LINES_ANALYZED = 5000
 
     def __init__(self, config: Config, file_path: str, source_lines: list[str]) -> None:
         """Initialize duplication detector."""
         super().__init__(config, file_path, source_lines)
         self.code_blocks: dict[str, list[tuple[int, int, str, str]]] = {}
-        self.checked = False
         self.excluded_ranges: list[tuple[int, int]] = []
 
     def get_detector_name(self) -> str:
@@ -158,7 +158,7 @@ class DuplicationDetector(BaseDetector):
     def _extract_code_blocks(self) -> None:
         """Extract code blocks for comparison."""
         min_lines = self.config.duplication.min_duplicate_lines
-        total_lines = len(self.source_lines)
+        total_lines = min(len(self.source_lines), self.MAX_LINES_ANALYZED)
 
         # Extract sliding windows of code with optimized range
         for start in range(total_lines):

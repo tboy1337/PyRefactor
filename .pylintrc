@@ -1,6 +1,6 @@
 [MAIN]
 # Python version for syntax checking
-py-version=3.9
+py-version=3.12
 
 # Use multiple processes to speed up Pylint (0 = auto-detect cores)
 jobs=0

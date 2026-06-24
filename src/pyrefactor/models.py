@@ -41,6 +41,8 @@ class Issue:
             raise ValueError("Line number must be positive")
         if self.column < 0:
             raise ValueError("Column number must be non-negative")
+        if self.end_line is not None and self.end_line < self.line:
+            raise ValueError("end_line must be >= line")
 
 
 @dataclass

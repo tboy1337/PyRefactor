@@ -40,7 +40,6 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         "pytest",
-        "hypothesis",
         "setuptools",
         "pip",
         "wheel",
@@ -74,6 +73,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version="file_version_info.txt",
 )
 

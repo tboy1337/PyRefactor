@@ -229,7 +229,7 @@ class ComparisonsDetector(BaseDetector):
             self._create_issue(
                 node,
                 severity=Severity.INFO,
-                rule_id="R014",
+                rule_id="R015",
                 message=f"Redundant comparison with {singleton_val}",
                 suggestion=suggestion,
             )
@@ -323,9 +323,12 @@ class ComparisonsDetector(BaseDetector):
             self._create_issue(
                 node,
                 severity=Severity.MEDIUM,
-                rule_id="R015",
+                rule_id="R016",
                 message="Use isinstance() for type checking instead of type() comparison",
-                suggestion=f"Use 'isinstance({obj}, {type_name})' instead of 'type({obj}) == {type_name}'",
+                suggestion=(
+                    f"Use 'isinstance({obj}, {type_name})' instead of "
+                    f"'type({obj}) == {type_name}'"
+                ),
             )
         )
 

@@ -81,6 +81,32 @@ class TestIssue:
                 message="Test",
             )
 
+    def test_issue_invalid_end_line(self) -> None:
+        """Test that end_line before line raises an error."""
+        with pytest.raises(ValueError, match="end_line must be >= line"):
+            Issue(
+                file="test.py",
+                line=10,
+                column=0,
+                severity=Severity.INFO,
+                rule_id="T001",
+                message="Test",
+                end_line=5,
+            )
+
+    def test_issue_valid_end_line(self) -> None:
+        """Test valid end_line values."""
+        issue = Issue(
+            file="test.py",
+            line=10,
+            column=0,
+            severity=Severity.INFO,
+            rule_id="T001",
+            message="Test",
+            end_line=12,
+        )
+        assert issue.end_line == 12
+
 
 class TestFileAnalysis:
     """Tests for FileAnalysis model."""
@@ -287,3 +313,38 @@ class TestAnalysisResult:
         result.add_file_analysis(analysis2)
 
         assert result.files_with_issues() == 1
+
+    def test_get_issues_by_severity(self) -> None:
+        """Test filtering all issues by severity across files."""
+        result = AnalysisResult()
+
+        analysis1 = FileAnalysis(file_path="test1.py")
+        analysis1.add_issue(
+            Issue(
+                file="test1.py",
+                line=1,
+                column=0,
+                severity=Severity.HIGH,
+                rule_id="T001",
+                message="High",
+            )
+        )
+
+        analysis2 = FileAnalysis(file_path="test2.py")
+        analysis2.add_issue(
+            Issue(
+                file="test2.py",
+                line=1,
+                column=0,
+                severity=Severity.LOW,
+                rule_id="T002",
+                message="Low",
+            )
+        )
+
+        result.add_file_analysis(analysis1)
+        result.add_file_analysis(analysis2)
+
+        high_issues = result.get_issues_by_severity(Severity.HIGH)
+        assert len(high_issues) == 1
+        assert high_issues[0].rule_id == "T001"

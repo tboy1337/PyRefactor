@@ -1,3 +1,5 @@
 """PyRefactor - A Python refactoring and optimization linter."""
 
-__version__ = "1.0.6"
+from pyrefactor._version import get_version
+
+__version__ = get_version()
