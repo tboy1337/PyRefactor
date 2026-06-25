@@ -110,27 +110,64 @@ def run_pylint() -> bool:
     return True
 
 
-def main() -> int:
-    """Run the full local verification pipeline."""
-    _ensure_project_root()
-    failures: list[str] = []
+def check_trailing_whitespace() -> bool:
+    """Fail when source or test files contain trailing whitespace."""
+    name = "Trailing whitespace check (autopep8)"
+    command = _python_module(
+        "autopep8",
+        "--diff",
+        "--recursive",
+        "--select=W291,W293",
+        _path(SRC),
+        _path(TESTS),
+    )
+    print(f"\n{'=' * 70}")
+    print(f"STEP: {name}")
+    print(f"CMD:  {' '.join(command)}")
+    print("=" * 70)
 
-    steps: list[tuple[str, list[str], bool]] = [
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    diff_output = (result.stdout or "") + (result.stderr or "")
+    if diff_output.strip():
+        print(f"\n[FAILED] {name}")
+        print("Trailing whitespace found. Run:")
+        print(
+            "  "
+            + " ".join(
+                _python_module(
+                    "autopep8",
+                    "--in-place",
+                    "--recursive",
+                    "--select=W291,W293",
+                    _path(SRC),
+                    _path(TESTS),
+                )
+            )
+        )
+        tail = diff_output.strip().splitlines()[-12:]
+        print("Diff tail:")
+        for line in tail:
+            print(f"  {line}")
+        return False
+
+    print(f"\n[OK] {name}")
+    return True
+
+
+def _build_verification_steps() -> list[tuple[str, list[str], bool]]:
+    """Return the ordered verification pipeline steps."""
+    return [
         (
             "Editable install with dev dependencies",
             _python_module("pip", "install", "-e", _editable_install_target()),
-            False,
-        ),
-        (
-            "Trailing whitespace cleanup (autopep8)",
-            _python_module(
-                "autopep8",
-                "--in-place",
-                "--recursive",
-                "--select=W291,W293",
-                _path(SRC),
-                _path(TESTS),
-            ),
             False,
         ),
         (
@@ -159,25 +196,35 @@ def main() -> int:
             True,
         ),
         (
+            "PyRefactor self-lint",
+            _python_module(
+                "pyrefactor",
+                _path(PACKAGE),
+                "--min-severity",
+                "medium",
+            ),
+            False,
+        ),
+        (
             "Pytest with coverage",
             _python_module("pytest"),
             False,
         ),
     ]
 
-    for name, command, optional in steps[:5]:
-        if not run_step(name, command, optional=optional):
-            if not optional:
-                failures.append(name)
 
-    if not run_pylint():
-        failures.append("Pylint static analysis")
+def _run_named_steps(
+    failures: list[str],
+    steps: list[tuple[str, list[str], bool]],
+) -> None:
+    """Run subprocess steps and record required-step failures."""
+    for name, command, optional in steps:
+        if not run_step(name, command, optional=optional) and not optional:
+            failures.append(name)
 
-    for name, command, optional in steps[5:]:
-        if not run_step(name, command, optional=optional):
-            if not optional:
-                failures.append(name)
 
+def _print_verification_result(failures: list[str]) -> int:
+    """Print the final verification summary and return the exit code."""
     print(f"\n{'=' * 70}")
     if failures:
         print("VERIFICATION FAILED")
@@ -189,6 +236,27 @@ def main() -> int:
     print("VERIFICATION PASSED")
     print("=" * 70)
     return 0
+
+
+def main() -> int:
+    """Run the full local verification pipeline."""
+    _ensure_project_root()
+    failures: list[str] = []
+    steps = _build_verification_steps()
+
+    _run_named_steps(failures, [steps[0]])
+
+    if not check_trailing_whitespace():
+        failures.append("Trailing whitespace check (autopep8)")
+
+    _run_named_steps(failures, steps[1:5])
+
+    if not run_pylint():
+        failures.append("Pylint static analysis")
+
+    _run_named_steps(failures, steps[5:])
+
+    return _print_verification_result(failures)
 
 
 if __name__ == "__main__":

@@ -240,3 +240,57 @@ while condition:
         issues = detector.analyze(tree)
 
         assert len(issues) == 0
+
+    def test_range_len_with_empty_len_args(self, default_config: Config) -> None:
+        """Test range(len()) with empty len() does not trigger L001."""
+        source = """
+for i in range(len()):
+    print(i)
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "L001" for issue in issues)
+
+    def test_range_len_non_name_range_function(self, default_config: Config) -> None:
+        """Test non-name range callee does not trigger L001."""
+        source = """
+items = [1, 2, 3]
+for i in builtins.range(len(items)):
+    print(items[i])
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "L001" for issue in issues)
+
+    def test_loop_invariant_skips_non_name_target(self, default_config: Config) -> None:
+        """Test loop-invariant check skips loops with non-name targets."""
+        source = r"""
+import re
+for a, b in items:
+    re.compile(r'\d+')
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "L004" for issue in issues)
+
+    def test_while_loop_suppressed(self, default_config: Config) -> None:
+        """Test suppressed while loops are still traversed safely."""
+        source = """
+while condition:  # pyrefactor: ignore
+    do_something()
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert len(issues) == 0

@@ -294,20 +294,24 @@ class PerformanceDetector(BaseDetector):
         if not has_zero_comp:
             return
 
-        if any(isinstance(op, (ast.Gt, ast.GtE)) for op in len_parent.ops):
-            self._add_len_issue(
-                len_call,
+        len_truthiness_rules: list[tuple[tuple[type, ...], str, str, str]] = [
+            (
+                (ast.Gt, ast.GtE),
                 "P005",
                 "Use truthiness instead of len() > 0",
                 "Use 'if container:' instead of 'if len(container) > 0:'",
-            )
-        elif any(isinstance(op, (ast.Eq, ast.NotEq)) for op in len_parent.ops):
-            self._add_len_issue(
-                len_call,
+            ),
+            (
+                (ast.Eq, ast.NotEq),
                 "P006",
                 "Use truthiness instead of len() == 0",
                 "Use 'if not container:' instead of 'if len(container) == 0:'",
-            )
+            ),
+        ]
+        for op_types, rule_id, message, suggestion in len_truthiness_rules:
+            if any(isinstance(op, op_types) for op in len_parent.ops):
+                self._add_len_issue(len_call, rule_id, message, suggestion)
+                break
 
     def _add_len_issue(
         self, len_call: ast.Call, rule_id: str, message: str, suggestion: str

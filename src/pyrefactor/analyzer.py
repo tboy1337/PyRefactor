@@ -47,6 +47,18 @@ def _iter_python_files(root: Path) -> list[Path]:
     return python_files
 
 
+def _path_matches_exclude_pattern(
+    posix_path: PurePosixPath, posix_str: str, file_name: str, pattern: str
+) -> bool:
+    """Return True when a file path matches an exclude pattern."""
+    normalized = pattern.replace("\\", "/")
+    if posix_path.match(normalized):
+        return True
+    if fnmatch.fnmatch(posix_str, normalized):
+        return True
+    return fnmatch.fnmatch(file_name, normalized)
+
+
 class Analyzer:
     """Main analyzer that orchestrates all detectors."""
 
@@ -172,26 +184,41 @@ class Analyzer:
 
         return self._analyze_paths_parallel(python_files, max_workers, result)
 
+    def _collect_python_file(self, file_path: Path) -> Path | None:
+        """Return a Python file path to analyze, or None if skipped."""
+        if file_path.suffix != ".py":
+            logger.warning("Skipping non-Python file: %s", file_path)
+            return None
+        if self._is_excluded(file_path):
+            return None
+        return file_path
+
+    def _collect_directory_files(self, directory: Path) -> list[Path]:
+        """Collect analyzable Python files from a directory."""
+        return [
+            path
+            for path in _iter_python_files(directory)
+            if not self._is_excluded(path)
+        ]
+
+    def _collect_paths_to_analyze(self, file_paths: list[Path]) -> list[Path]:
+        """Expand files and directories into a flat list of Python files."""
+        paths_to_analyze: list[Path] = []
+        for file_path in file_paths:
+            if file_path.is_file():
+                collected = self._collect_python_file(file_path)
+                if collected is not None:
+                    paths_to_analyze.append(collected)
+            elif file_path.is_dir():
+                paths_to_analyze.extend(self._collect_directory_files(file_path))
+        return paths_to_analyze
+
     def analyze_files(
         self, file_paths: list[Path], max_workers: int = 4
     ) -> AnalysisResult:
         """Analyze a list of Python files and directories."""
         result = AnalysisResult()
-        paths_to_analyze: list[Path] = []
-
-        for file_path in file_paths:
-            if file_path.is_file():
-                if file_path.suffix != ".py":
-                    logger.warning("Skipping non-Python file: %s", file_path)
-                elif not self._is_excluded(file_path):
-                    paths_to_analyze.append(file_path)
-            elif file_path.is_dir():
-                python_files = [
-                    path
-                    for path in _iter_python_files(file_path)
-                    if not self._is_excluded(path)
-                ]
-                paths_to_analyze.extend(python_files)
+        paths_to_analyze = self._collect_paths_to_analyze(file_paths)
 
         if not paths_to_analyze:
             return result
@@ -250,15 +277,12 @@ class Analyzer:
             return False
 
         posix_path = PurePosixPath(file_path.as_posix())
-        for pattern in self.config.exclude_patterns:
-            normalized = pattern.replace("\\", "/")
-            if posix_path.match(normalized):
-                return True
-            if fnmatch.fnmatch(posix_path.as_posix(), normalized):
-                return True
-            if fnmatch.fnmatch(file_path.name, normalized):
-                return True
-        return False
+        posix_str = posix_path.as_posix()
+        file_name = file_path.name
+        return any(
+            _path_matches_exclude_pattern(posix_path, posix_str, file_name, pattern)
+            for pattern in self.config.exclude_patterns
+        )
 
     def _filter_excluded_files(self, files: list[Path]) -> list[Path]:
         """Filter out files matching exclusion patterns."""

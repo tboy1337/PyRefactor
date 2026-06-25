@@ -59,9 +59,48 @@ class LoopsDetector(BaseDetector):
     # Minimum nesting level to trigger nested loop optimization warning
     MIN_NESTED_LOOPS_FOR_WARNING = 2
 
+    _MEDIUM_LOOP_ISSUES: dict[str, tuple[str, str]] = {
+        "L003": (
+            "Nested loops with comparisons detected",
+            "Consider using a dictionary or set for O(1) lookups instead of nested iteration",
+        ),
+        "L004": (
+            "Loop-invariant code detected inside loop",
+            "Move computations that don't depend on loop variable outside the loop",
+        ),
+    }
+
+    def _emit_medium_loop_issue(self, node: ast.For, rule_id: str) -> None:
+        """Report a medium-severity loop issue by rule ID."""
+        message, suggestion = self._MEDIUM_LOOP_ISSUES[rule_id]
+        self._report_loop_issue(
+            node,
+            rule_id=rule_id,
+            message=message,
+            suggestion=suggestion,
+        )
+
     def get_detector_name(self) -> str:
         """Return the name of this detector."""
         return "loops"
+
+    def _report_loop_issue(
+        self,
+        node: ast.For,
+        *,
+        rule_id: str,
+        message: str,
+        suggestion: str,
+        severity: Severity = Severity.MEDIUM,
+    ) -> None:
+        """Report a loop optimization issue."""
+        self.report_issue(
+            node,
+            severity=severity,
+            rule_id=rule_id,
+            message=message,
+            suggestion=suggestion,
+        )
 
     def visit_For(self, node: ast.For) -> None:
         """Check for loop optimization opportunities."""
@@ -156,13 +195,7 @@ class LoopsDetector(BaseDetector):
         if nested_loop_count > self.MIN_NESTED_LOOPS_FOR_WARNING:
             # Check if inner loop is doing lookups
             if self._has_comparison_in_loops(node):
-                self.report_issue(
-                    node,
-                    severity=Severity.MEDIUM,
-                    rule_id="L003",
-                    message="Nested loops with comparisons detected",
-                    suggestion="Consider using a dictionary or set for O(1) lookups instead of nested iteration",
-                )
+                self._emit_medium_loop_issue(node, "L003")
 
     def _count_nested_loops(self, node: ast.For) -> int:
         """Count the number of nested for loops."""
@@ -199,13 +232,7 @@ class LoopsDetector(BaseDetector):
             checker.visit(stmt)
 
         if checker.invariant_calls:
-            self.report_issue(
-                node,
-                severity=Severity.MEDIUM,
-                rule_id="L004",
-                message="Loop-invariant code detected inside loop",
-                suggestion="Move computations that don't depend on loop variable outside the loop",
-            )
+            self._emit_medium_loop_issue(node, "L004")
 
     def _loop_body_accesses_collection(
         self, loop_node: ast.For, collection: ast.AST

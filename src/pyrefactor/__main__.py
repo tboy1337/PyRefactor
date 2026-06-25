@@ -30,6 +30,7 @@ class Args:
     jobs: int
     verbose: bool
     version: bool
+    fail_on_parse_errors: bool
 
 
 # Class-level constant for severity mapping to avoid recreation
@@ -82,6 +83,11 @@ def _add_parser_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
     )
+    parser.add_argument(
+        "--fail-on-parse-errors",
+        action="store_true",
+        help="Exit with code 1 when any file has a syntax or parse error",
+    )
     parser.add_argument("--version", action="store_true", help="Show version and exit")
 
 
@@ -99,7 +105,7 @@ Examples:
 
 Exit Codes:
   0 - No MEDIUM/HIGH issues (INFO/LOW only, or parse errors reported without failing)
-  1 - MEDIUM or HIGH severity issues found
+  1 - MEDIUM or HIGH severity issues found (or parse errors with --fail-on-parse-errors)
   2 - Configuration, path, or orchestration error (invalid paths, no Python files)
         """,
     )
@@ -119,6 +125,7 @@ def parse_arguments() -> Args:
         jobs=cast(int, namespace.jobs),
         verbose=cast(bool, namespace.verbose),
         version=cast(bool, namespace.version),
+        fail_on_parse_errors=cast(bool, namespace.fail_on_parse_errors),
     )
 
 
@@ -198,6 +205,20 @@ def _has_critical_issues(result: AnalysisResult) -> bool:
     )
 
 
+def _has_parse_errors(result: AnalysisResult) -> bool:
+    """Check if any analyzed file has a parse error."""
+    return any(analysis.parse_error is not None for analysis in result.file_analyses)
+
+
+def _determine_exit_code(result: AnalysisResult, *, fail_on_parse_errors: bool) -> int:
+    """Return the CLI exit code for an analysis result."""
+    if _has_critical_issues(result):
+        return 1
+    if fail_on_parse_errors and _has_parse_errors(result):
+        return 1
+    return 0
+
+
 def main() -> int:
     """Main entry point."""
     args = parse_arguments()
@@ -243,7 +264,7 @@ def main() -> int:
     reporter.report(result, group_by=args.group_by)
 
     # Determine exit code
-    return 1 if _has_critical_issues(result) else 0
+    return _determine_exit_code(result, fail_on_parse_errors=args.fail_on_parse_errors)
 
 
 if __name__ == "__main__":

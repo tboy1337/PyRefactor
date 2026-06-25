@@ -81,12 +81,13 @@ pyrefactor --config custom.toml src/
 - `--min-severity`: Minimum severity to report: `info`, `low`, `medium`, `high` (default: `info`)
 - `-j, --jobs`: Number of parallel workers (default: 4)
 - `-v, --verbose`: Enable verbose logging
+- `--fail-on-parse-errors`: Exit with code 1 when any file has a syntax or parse error
 - `--version`: Show version
 
 ### Exit Codes
 
-- `0` - No MEDIUM/HIGH severity issues (INFO/LOW only). Per-file syntax or parse errors are reported in output but do not change the exit code.
-- `1` - MEDIUM/HIGH severity issues found
+- `0` - No MEDIUM/HIGH severity issues (INFO/LOW only). Per-file syntax or parse errors are reported in output but do not change the exit code unless `--fail-on-parse-errors` is set.
+- `1` - MEDIUM/HIGH severity issues found, or parse errors when `--fail-on-parse-errors` is used
 - `2` - Configuration, path, or orchestration error (invalid paths, missing config, no Python files to analyze)
 
 ## Configuration
@@ -176,6 +177,8 @@ repos:
 
 ### GitHub Actions
 
+Example workflow for consumers (not maintained in this repository):
+
 ```yaml
 name: Code Quality
 on: [push, pull_request]
@@ -184,12 +187,12 @@ jobs:
   pyrefactor:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: pip install pyrefactor
-      - run: pyrefactor --min-severity medium src/
+      - run: pyrefactor --min-severity medium --fail-on-parse-errors src/
 ```
 
 ## Contributing
@@ -211,7 +214,7 @@ pip install -e .
 pip install -r requirements-dev.txt
 ```
 
-Run the local verification script (formatting, type checks, lint, security scan, and pytest with coverage):
+Run the local verification script (formatting, type checks, lint, security scan, self-lint, and pytest with coverage):
 
 ```bash
 python scripts/verify.py

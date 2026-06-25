@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyrefactor"
-version = "1.0.15"
+version = "1.0.16"
 description = "A Python refactoring and optimization linter that analyzes code for performance issues, complexity problems, and opportunities for improvement"
 authors = [{name = "tboy1337"}]
 maintainers = [{name = "tboy1337"}]
@@ -95,7 +95,7 @@ pyrefactor = ["py.typed"]
 
 [tool.black]
 line-length = 88
-target-version = ['py312']
+target-version = ['py312', 'py313', 'py314']
 
 [tool.isort]
 profile = "black"

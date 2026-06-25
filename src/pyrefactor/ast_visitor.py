@@ -2,7 +2,7 @@
 
 import ast
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Union, cast
 
 from .config import Config
 from .models import Issue, Severity
@@ -138,198 +138,198 @@ class BaseDetector(ast.NodeVisitor, ABC):
         return self.issues
 
 
+class _ComplexityVisitor(ast.NodeVisitor):
+    """Visitor to count cyclomatic complexity decision points."""
+
+    def __init__(self) -> None:
+        self.complexity = 1
+
+    def visit_If(self, node: ast.If) -> None:
+        """Count if statements."""
+        self._increment_and_visit(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        """Count for loops."""
+        self._increment_and_visit(node)
+
+    def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
+        """Count async for loops."""
+        self._increment_and_visit(node)
+
+    def visit_While(self, node: ast.While) -> None:
+        """Count while loops."""
+        self._increment_and_visit(node)
+
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
+        """Count except handlers."""
+        self._increment_and_visit(node)
+
+    def visit_TryStar(self, node: ast.TryStar) -> None:
+        """Count except* handlers in exception groups."""
+        self.complexity += len(node.handlers)
+        self.generic_visit(node)
+
+    def visit_With(self, node: ast.With) -> None:
+        """Count with statements."""
+        self._increment_and_visit(node)
+
+    def visit_Assert(self, node: ast.Assert) -> None:
+        """Count assertions."""
+        self._increment_and_visit(node)
+
+    def visit_Match(self, node: ast.Match) -> None:
+        """Count match/case statements."""
+        self.complexity += len(node.cases)
+        self.generic_visit(node)
+
+    def visit_BoolOp(self, node: ast.BoolOp) -> None:
+        """Count boolean operations (and/or)."""
+        self.complexity += len(node.values) - 1
+        self.generic_visit(node)
+
+    def _increment_and_visit(self, node: ast.AST) -> None:
+        """Increment complexity and continue visiting."""
+        self.complexity += 1
+        self.generic_visit(node)
+
+
+class _FunctionRootMixin:
+    """Mixin that only traverses the root function, skipping nested definitions."""
+
+    root: ast.AST
+
+    def _visit_if_root_function(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+        if node is self.root:
+            cast(ast.NodeVisitor, self).generic_visit(node)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        """Traverse the root function only; skip nested functions."""
+        self._visit_if_root_function(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        """Traverse the root async function only; skip nested functions."""
+        self._visit_if_root_function(node)
+
+
+class _NestingVisitor(_FunctionRootMixin, ast.NodeVisitor):
+    """Visitor to track maximum nesting depth."""
+
+    def __init__(self, root: ast.AST) -> None:
+        self.root = root
+        self.current_depth = 0
+        self.max_depth = 0
+
+    def visit_If(self, node: ast.If) -> None:
+        """Track if nesting."""
+        self._visit_nested(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        """Track for loop nesting."""
+        self._visit_nested(node)
+
+    def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
+        """Track async for loop nesting."""
+        self._visit_nested(node)
+
+    def visit_While(self, node: ast.While) -> None:
+        """Track while loop nesting."""
+        self._visit_nested(node)
+
+    def visit_With(self, node: ast.With) -> None:
+        """Track with statement nesting."""
+        self._visit_nested(node)
+
+    def visit_Try(self, node: ast.Try) -> None:
+        """Track try block nesting."""
+        self._visit_nested(node)
+
+    def visit_TryStar(self, node: ast.TryStar) -> None:
+        """Track try* block nesting."""
+        self._visit_nested(node)
+
+    def visit_Match(self, node: ast.Match) -> None:
+        """Track match statement nesting."""
+        self._visit_nested(node)
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        """Do not count nesting inside nested classes."""
+
+    def _visit_nested(self, node: ast.AST) -> None:
+        """Visit a nested structure."""
+        self.current_depth += 1
+        self.max_depth = max(self.max_depth, self.current_depth)
+        self.generic_visit(node)
+        self.current_depth -= 1
+
+
+class _BranchVisitor(_FunctionRootMixin, ast.NodeVisitor):
+    """Visitor to count branches in a function."""
+
+    def __init__(self, root: ast.AST) -> None:
+        self.root = root
+        self.branches = 0
+
+    def visit_If(self, node: ast.If) -> None:
+        """Count if/elif branches."""
+        self.branches += 1
+        if node.orelse:
+            if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
+                pass
+            else:
+                self.branches += 1
+        self.generic_visit(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        """Count for loops as branches."""
+        self.branches += 1
+        self.generic_visit(node)
+
+    def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
+        """Count async for loops as branches."""
+        self.branches += 1
+        self.generic_visit(node)
+
+    def visit_While(self, node: ast.While) -> None:
+        """Count while loops as branches."""
+        self.branches += 1
+        self.generic_visit(node)
+
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
+        """Count exception handlers."""
+        self.branches += 1
+        self.generic_visit(node)
+
+    def visit_TryStar(self, node: ast.TryStar) -> None:
+        """Count exception group handlers."""
+        self.branches += len(node.handlers)
+        self.generic_visit(node)
+
+    def visit_Match(self, node: ast.Match) -> None:
+        """Count match/case branches."""
+        self.branches += len(node.cases)
+        self.generic_visit(node)
+
+
 def calculate_cyclomatic_complexity(
     node: Union[ast.FunctionDef, ast.AsyncFunctionDef],
 ) -> int:
     """Calculate cyclomatic complexity of a function."""
-
-    class ComplexityVisitor(ast.NodeVisitor):
-        """Visitor to count decision points."""
-
-        def __init__(self) -> None:
-            self.complexity = 1  # Base complexity
-
-        def visit_If(self, node: ast.If) -> None:
-            """Count if statements."""
-            self._increment_and_visit(node)
-
-        def visit_For(self, node: ast.For) -> None:
-            """Count for loops."""
-            self._increment_and_visit(node)
-
-        def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
-            """Count async for loops."""
-            self._increment_and_visit(node)
-
-        def visit_While(self, node: ast.While) -> None:
-            """Count while loops."""
-            self._increment_and_visit(node)
-
-        def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
-            """Count except handlers."""
-            self._increment_and_visit(node)
-
-        def visit_TryStar(self, node: ast.TryStar) -> None:
-            """Count except* handlers in exception groups."""
-            self.complexity += len(node.handlers)
-            self.generic_visit(node)
-
-        def visit_With(self, node: ast.With) -> None:
-            """Count with statements."""
-            self._increment_and_visit(node)
-
-        def visit_Assert(self, node: ast.Assert) -> None:
-            """Count assertions."""
-            self._increment_and_visit(node)
-
-        def visit_Match(self, node: ast.Match) -> None:
-            """Count match/case statements."""
-            self.complexity += len(node.cases)
-            self.generic_visit(node)
-
-        def visit_BoolOp(self, node: ast.BoolOp) -> None:
-            """Count boolean operations (and/or)."""
-            self.complexity += len(node.values) - 1
-            self.generic_visit(node)
-
-        def _increment_and_visit(self, node: ast.AST) -> None:
-            """Increment complexity and continue visiting."""
-            self.complexity += 1
-            self.generic_visit(node)
-
-    visitor = ComplexityVisitor()
+    visitor = _ComplexityVisitor()
     visitor.visit(node)
     return visitor.complexity
 
 
 def count_nesting_depth(node: ast.AST) -> int:
     """Calculate maximum nesting depth in a node."""
-
-    class NestingVisitor(ast.NodeVisitor):
-        """Visitor to track nesting depth."""
-
-        def __init__(self, root: ast.AST) -> None:
-            self.root = root
-            self.current_depth = 0
-            self.max_depth = 0
-
-        def visit_If(self, node: ast.If) -> None:
-            """Track if nesting."""
-            self._visit_nested(node)
-
-        def visit_For(self, node: ast.For) -> None:
-            """Track for loop nesting."""
-            self._visit_nested(node)
-
-        def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
-            """Track async for loop nesting."""
-            self._visit_nested(node)
-
-        def visit_While(self, node: ast.While) -> None:
-            """Track while loop nesting."""
-            self._visit_nested(node)
-
-        def visit_With(self, node: ast.With) -> None:
-            """Track with statement nesting."""
-            self._visit_nested(node)
-
-        def visit_Try(self, node: ast.Try) -> None:
-            """Track try block nesting."""
-            self._visit_nested(node)
-
-        def visit_TryStar(self, node: ast.TryStar) -> None:
-            """Track try* block nesting."""
-            self._visit_nested(node)
-
-        def visit_Match(self, node: ast.Match) -> None:
-            """Track match statement nesting."""
-            self._visit_nested(node)
-
-        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-            """Traverse the root function only; skip nested functions."""
-            if node is self.root:
-                self.generic_visit(node)
-
-        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-            """Traverse the root async function only; skip nested functions."""
-            if node is self.root:
-                self.generic_visit(node)
-
-        def visit_ClassDef(self, node: ast.ClassDef) -> None:
-            """Do not count nesting inside nested classes."""
-
-        def _visit_nested(self, node: ast.AST) -> None:
-            """Visit a nested structure."""
-            self.current_depth += 1
-            self.max_depth = max(self.max_depth, self.current_depth)
-            self.generic_visit(node)
-            self.current_depth -= 1
-
-    visitor = NestingVisitor(node)
+    visitor = _NestingVisitor(node)
     visitor.visit(node)
     return visitor.max_depth
 
 
 def count_branches(node: Union[ast.FunctionDef, ast.AsyncFunctionDef]) -> int:
     """Count the number of branches in a function."""
-
-    class BranchVisitor(ast.NodeVisitor):
-        """Visitor to count branches."""
-
-        def __init__(self, root: ast.AST) -> None:
-            self.root = root
-            self.branches = 0
-
-        def visit_If(self, node: ast.If) -> None:
-            """Count if/elif branches."""
-            self.branches += 1
-            if node.orelse:
-                if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
-                    pass
-                else:
-                    self.branches += 1
-            self.generic_visit(node)
-
-        def visit_For(self, node: ast.For) -> None:
-            """Count for loops as branches."""
-            self.branches += 1
-            self.generic_visit(node)
-
-        def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
-            """Count async for loops as branches."""
-            self.branches += 1
-            self.generic_visit(node)
-
-        def visit_While(self, node: ast.While) -> None:
-            """Count while loops as branches."""
-            self.branches += 1
-            self.generic_visit(node)
-
-        def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
-            """Count exception handlers."""
-            self.branches += 1
-            self.generic_visit(node)
-
-        def visit_TryStar(self, node: ast.TryStar) -> None:
-            """Count exception group handlers."""
-            self.branches += len(node.handlers)
-            self.generic_visit(node)
-
-        def visit_Match(self, node: ast.Match) -> None:
-            """Count match/case branches."""
-            self.branches += len(node.cases)
-            self.generic_visit(node)
-
-        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-            """Traverse the root function only; skip nested functions."""
-            if node is self.root:
-                self.generic_visit(node)
-
-        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-            """Traverse the root async function only; skip nested functions."""
-            if node is self.root:
-                self.generic_visit(node)
-
-    visitor = BranchVisitor(node)
+    visitor = _BranchVisitor(node)
     visitor.visit(node)
     return visitor.branches

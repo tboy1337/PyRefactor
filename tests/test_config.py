@@ -161,6 +161,34 @@ exclude_patterns = "build, dist, vendor"
         config = Config.from_toml_file(config_file)
         assert config.exclude_patterns == ["build", "dist", "vendor"]
 
+    def test_toml_invalid_exclude_patterns_type_ignored(self) -> None:
+        """Test non-list exclude_patterns values are ignored."""
+        config = Config.from_toml_data(
+            {"tool": {"pyrefactor": {"exclude_patterns": 123}}}
+        )
+        assert config.exclude_patterns == []
+
+    def test_toml_enabled_only_sections(self) -> None:
+        """Test enabled-only detector sections load from TOML."""
+        config = Config.from_toml_data(
+            {
+                "tool": {
+                    "pyrefactor": {
+                        "loops": {"enabled": False},
+                        "context_manager": {"enabled": False},
+                        "control_flow": {"enabled": True},
+                        "dict_operations": {"enabled": True},
+                        "comparisons": {"enabled": False},
+                    }
+                }
+            }
+        )
+        assert config.loops.enabled is False
+        assert config.context_manager.enabled is False
+        assert config.control_flow.enabled is True
+        assert config.dict_operations.enabled is True
+        assert config.comparisons.enabled is False
+
     def test_load_defaults_in_empty_directory(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

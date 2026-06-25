@@ -28,7 +28,7 @@ def _clear_fallback_version_cache() -> None:
 
 def _is_frozen_runtime() -> bool:
     """Return True when running inside a frozen PyInstaller executable."""
-    return getattr(sys, "frozen", False) is True
+    return bool(getattr(sys, "frozen", False))
 
 
 def _bundled_pyproject_path() -> Path | None:

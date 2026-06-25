@@ -33,12 +33,6 @@ ignore-patterns=^\.#,.*\.pyc$,.*\.pyo$
 # import-outside-toplevel: Used for lazy loading of __version__ in CLI
 # unnecessary-ellipsis: Ellipsis is preferred over pass for empty method bodies
 # unused-argument: Some arguments are required by visitor pattern but not used
-# too-many-nested-blocks: Detection algorithms have inherent complexity
-# inconsistent-quotes: Single quotes within f-strings are acceptable
-# line-too-long: Complex Issue() constructor calls and f-strings exceed 88 chars
-# trailing-newlines: Some files have trailing newlines for editor compatibility
-# redefined-outer-name: Pytest fixtures use this pattern intentionally
-# protected-access: Tests need to access protected methods to test internal APIs
 disable=
     too-few-public-methods,
     fixme,
@@ -303,7 +297,7 @@ int-import-graph=
 known-standard-library=
 
 # Force import order to recognize a module as part of a third party library
-known-third-party=enchant
+known-third-party=
 
 # Couples of modules and preferred modules, separated by a comma
 preferred-modules=

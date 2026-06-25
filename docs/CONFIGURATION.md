@@ -122,6 +122,8 @@ See [RULES.md](RULES.md) for the full rule catalog and suppression syntax.
 
 The CLI does not override individual detector thresholds. Use `--config` to point at a custom file, or `--min-severity` to filter reported issues without changing detection.
 
+Use `--fail-on-parse-errors` when integrating PyRefactor into CI: by default, syntax and parse errors are reported but do not affect the exit code; with this flag, any parse error causes exit code `1`.
+
 ## Related Documentation
 
 - [RULES.md](RULES.md) — rule IDs, severities, and examples

@@ -5,9 +5,14 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-from pyrefactor.__main__ import main, parse_arguments
+from pyrefactor.__main__ import (
+    _determine_exit_code,
+    _has_parse_errors,
+    main,
+    parse_arguments,
+)
 from pyrefactor.analyzer import Analyzer
-from pyrefactor.models import AnalysisResult, FileAnalysis
+from pyrefactor.models import AnalysisResult, FileAnalysis, Issue, Severity
 
 
 class TestCLI:
@@ -76,6 +81,15 @@ class TestCLI:
             args = parse_arguments()
 
             assert args.jobs == 8
+
+    def test_parse_arguments_fail_on_parse_errors(self) -> None:
+        """Test parsing fail-on-parse-errors flag."""
+        with patch.object(
+            sys, "argv", ["pyrefactor", "--fail-on-parse-errors", "test.py"]
+        ):
+            args = parse_arguments()
+
+            assert args.fail_on_parse_errors is True
 
     def test_module_entry_point_version(self) -> None:
         """Test pyrefactor module entry point via subprocess."""
@@ -301,6 +315,20 @@ class TestCLIMain:
             # Syntax errors are handled gracefully without crashing
             assert exit_code == 0
 
+    def test_main_with_syntax_error_and_fail_on_parse_errors(
+        self, tmp_path: Path
+    ) -> None:
+        """Test --fail-on-parse-errors exits with code 1 for syntax errors."""
+        file_path = tmp_path / "test.py"
+        file_path.write_text("def func(:\n    pass")
+
+        with patch.object(
+            sys, "argv", ["pyrefactor", "--fail-on-parse-errors", str(file_path)]
+        ):
+            exit_code = main()
+
+            assert exit_code == 1
+
     def test_main_with_non_python_file(self, tmp_path: Path) -> None:
         """Test main exits with error when given a non-Python file."""
         text_file = tmp_path / "readme.txt"
@@ -337,3 +365,52 @@ class TestCLIMain:
             exit_code = main()
 
             assert exit_code == 0
+
+
+class TestCLIExitCodeHelpers:
+    """Tests for CLI exit-code helper functions."""
+
+    def test_has_parse_errors_true(self) -> None:
+        """Test parse-error detection when a file failed to parse."""
+        result = AnalysisResult()
+        result.add_file_analysis(
+            FileAnalysis(file_path="broken.py", parse_error="Syntax error")
+        )
+
+        assert _has_parse_errors(result) is True
+
+    def test_has_parse_errors_false(self) -> None:
+        """Test parse-error detection when all files parsed."""
+        result = AnalysisResult()
+        result.add_file_analysis(FileAnalysis(file_path="ok.py"))
+
+        assert _has_parse_errors(result) is False
+
+    def test_determine_exit_code_parse_errors_flag(self) -> None:
+        """Test fail-on-parse-errors affects exit code without critical issues."""
+        result = AnalysisResult()
+        result.add_file_analysis(
+            FileAnalysis(file_path="broken.py", parse_error="Syntax error")
+        )
+
+        assert _determine_exit_code(result, fail_on_parse_errors=False) == 0
+        assert _determine_exit_code(result, fail_on_parse_errors=True) == 1
+
+    def test_determine_exit_code_critical_issues(self) -> None:
+        """Test critical issues always return exit code 1."""
+        result = AnalysisResult()
+        analysis = FileAnalysis(file_path="test.py")
+        analysis.add_issue(
+            Issue(
+                file="test.py",
+                line=1,
+                column=0,
+                severity=Severity.HIGH,
+                rule_id="C001",
+                message="Issue",
+            )
+        )
+        result.add_file_analysis(analysis)
+
+        assert _determine_exit_code(result, fail_on_parse_errors=False) == 1
+        assert _determine_exit_code(result, fail_on_parse_errors=True) == 1

@@ -101,7 +101,7 @@ class DictOperationsDetector(BaseDetector):
     ) -> bool:
         """Validate that both if and else branches have valid assignment structure."""
         # Check both are assignments
-        if not (isinstance(if_stmt, ast.Assign) and isinstance(else_stmt, ast.Assign)):
+        if not isinstance(if_stmt, ast.Assign) or not isinstance(else_stmt, ast.Assign):
             return False
 
         # Check both have exactly one target
@@ -109,9 +109,8 @@ class DictOperationsDetector(BaseDetector):
             return False
 
         # Check both targets are simple names
-        if not (
-            isinstance(if_stmt.targets[0], ast.Name)
-            and isinstance(else_stmt.targets[0], ast.Name)
+        if not isinstance(if_stmt.targets[0], ast.Name) or not isinstance(
+            else_stmt.targets[0], ast.Name
         ):
             return False
 

@@ -642,3 +642,48 @@ result = dict([(k, v) for k, v in items])  # pyrefactor: ignore
     issues = detector.analyze(tree)
 
     assert not any(issue.rule_id == "R010" for issue in issues)
+
+
+def test_unnecessary_keys_membership_non_in_operator(
+    detector: DictOperationsDetector,
+) -> None:
+    """Test R009 is not reported for non-in membership comparisons."""
+    code = """
+if key not in my_dict.keys():
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R009" for issue in issues)
+
+
+def test_unnecessary_keys_membership_empty_comparators(
+    detector: DictOperationsDetector,
+) -> None:
+    """Test R009 is not reported when compare has no comparators."""
+    code = """
+if my_dict.keys():
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R009" for issue in issues)
+
+
+def test_dict_get_non_compare_condition(detector: DictOperationsDetector) -> None:
+    """Test R006 is not reported when the if condition is not a compare."""
+    code = """
+if my_dict:
+    value = my_dict[key]
+else:
+    value = default_value
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R006" for issue in issues)

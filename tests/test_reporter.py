@@ -300,3 +300,22 @@ class TestConsoleReporter:
 
         assert reporter.output is output
         mock_stdout.reconfigure.assert_not_called()
+
+    def test_output_encoding_from_text_wrapper(self) -> None:
+        """Test encoding detection for TextIOWrapper streams."""
+        from io import BytesIO, TextIOWrapper
+
+        from pyrefactor.reporter import _output_encoding
+
+        buffer = BytesIO()
+        wrapper = TextIOWrapper(buffer, encoding="utf-8")
+        assert _output_encoding(wrapper) == "utf-8"
+
+    def test_ascii_icon_fallback_for_missing_severity(self) -> None:
+        """Test ASCII icon fallback when severity is not in the icon map."""
+        output = StringIO()
+        reporter = ConsoleReporter(output=output)
+        reporter.use_unicode = False
+
+        with patch.object(reporter, "ASCII_ICONS", {}):
+            assert reporter._get_severity_icon(Severity.HIGH) == "*"

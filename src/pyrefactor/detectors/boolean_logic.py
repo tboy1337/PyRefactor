@@ -51,9 +51,8 @@ class BooleanLogicDetector(BaseDetector):
     def _check_boolean_singleton_comparison(self, node: ast.Compare) -> None:
         """Report use of ``is`` when comparing to boolean constants."""
         for comparator in node.comparators:
-            if not (
-                isinstance(comparator, ast.Constant)
-                and isinstance(comparator.value, bool)
+            if not isinstance(comparator, ast.Constant) or not isinstance(
+                comparator.value, bool
             ):
                 continue
             if not any(isinstance(op, ast.Is) for op in node.ops):

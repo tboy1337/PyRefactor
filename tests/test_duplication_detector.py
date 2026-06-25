@@ -319,3 +319,49 @@ def func2():
 
         result = Analyzer(config).analyze_file(target)
         assert not any(issue.rule_id == "D001" for issue in result.issues)
+
+    def test_tuple_literal_exclusion(self, default_config: Config) -> None:
+        """Test tuple literals are excluded from duplication detection."""
+        source = """
+PAIR_A = (
+    "alpha",
+    "beta",
+    "gamma",
+    "delta",
+    "epsilon",
+)
+
+PAIR_B = (
+    "alpha",
+    "beta",
+    "gamma",
+    "delta",
+    "epsilon",
+)
+"""
+        tree = ast.parse(source)
+        lines = source.split("\n")
+
+        detector = DuplicationDetector(default_config, "test.py", lines)
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "D001" for issue in issues)
+
+    def test_async_function_docstring_exclusion(self, default_config: Config) -> None:
+        """Test async function docstrings are excluded from duplication detection."""
+        source = '''
+async def worker_one():
+    """Shared async worker documentation block."""
+    return 1
+
+async def worker_two():
+    """Shared async worker documentation block."""
+    return 2
+'''
+        tree = ast.parse(source)
+        lines = source.split("\n")
+
+        detector = DuplicationDetector(default_config, "test.py", lines)
+        issues = detector.analyze(tree)
+
+        assert len(issues) == 0

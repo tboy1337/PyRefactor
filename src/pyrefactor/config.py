@@ -4,7 +4,34 @@ import configparser
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Optional, Union
+from typing import Any, Mapping, Optional, TypeVar, Union
+
+_ConfigT = TypeVar("_ConfigT")
+
+_COMPLEXITY_TOML_FIELDS: dict[str, type[object]] = {
+    "enabled": bool,
+    "max_branches": int,
+    "max_nesting_depth": int,
+    "max_function_lines": int,
+    "max_arguments": int,
+    "max_local_variables": int,
+    "max_cyclomatic_complexity": int,
+}
+_PERFORMANCE_TOML_FIELDS: dict[str, type[object]] = {
+    "enabled": bool,
+    "min_concatenations": int,
+    "min_duplicate_calls": int,
+}
+_DUPLICATION_TOML_FIELDS: dict[str, type[object]] = {
+    "enabled": bool,
+    "min_duplicate_lines": int,
+    "similarity_threshold": float,
+}
+_BOOLEAN_TOML_FIELDS: dict[str, type[object]] = {
+    "enabled": bool,
+    "max_boolean_operators": int,
+}
+_ENABLED_ONLY_TOML_FIELDS: dict[str, type[object]] = {"enabled": bool}
 
 
 @dataclass
@@ -320,6 +347,28 @@ class Config:
         return exclude_list
 
     @staticmethod
+    def _coerce_list_value(value: object) -> list[str] | None:
+        """Coerce a TOML value to a list of strings."""
+        if isinstance(value, list):
+            return [str(item) for item in value]
+        if isinstance(value, str):
+            return [pattern.strip() for pattern in value.split(",") if pattern.strip()]
+        return None
+
+    @staticmethod
+    def _coerce_typed_value(
+        expected_type: type[object], value: object
+    ) -> object | None:
+        """Coerce a single TOML value to the expected Python type."""
+        if expected_type is bool:
+            return bool(value)
+        if expected_type is list:
+            return Config._coerce_list_value(value)
+        if expected_type in (int, float) and isinstance(value, (int, float, str)):
+            return expected_type(value)
+        return None
+
+    @staticmethod
     def _coerce_section(
         section: dict[str, Any], field_types: Mapping[str, type[object]]
     ) -> dict[str, Any]:
@@ -328,23 +377,41 @@ class Config:
         for key, expected_type in field_types.items():
             if key not in section:
                 continue
-            value = section[key]
-            if expected_type is bool:
-                result[key] = bool(value)
-            elif expected_type is int:
-                result[key] = int(value)
-            elif expected_type is float:
-                result[key] = float(value)
-            elif expected_type is list:
-                if isinstance(value, list):
-                    result[key] = [str(item) for item in value]
-                elif isinstance(value, str):
-                    result[key] = [
-                        pattern.strip()
-                        for pattern in value.split(",")
-                        if pattern.strip()
-                    ]
+            coerced = Config._coerce_typed_value(expected_type, section[key])
+            if coerced is not None:
+                result[key] = coerced
         return result
+
+    @staticmethod
+    def _dict_section(pyrefactor: dict[str, Any], name: str) -> dict[str, Any]:
+        """Return a detector subsection from parsed TOML, or an empty dict."""
+        section = pyrefactor.get(name, {})
+        return section if isinstance(section, dict) else {}
+
+    @classmethod
+    def _build_config_section(
+        cls,
+        pyrefactor: dict[str, Any],
+        name: str,
+        config_class: type[_ConfigT],
+        field_types: Mapping[str, type[object]],
+    ) -> _ConfigT:
+        """Build a detector config dataclass from a TOML subsection."""
+        return config_class(
+            **cls._coerce_section(cls._dict_section(pyrefactor, name), field_types)
+        )
+
+    @staticmethod
+    def _parse_toml_exclude_patterns(pyrefactor: dict[str, Any]) -> list[str]:
+        """Parse exclude_patterns from a [tool.pyrefactor] table."""
+        raw_exclude = pyrefactor.get("exclude_patterns")
+        if isinstance(raw_exclude, list):
+            return [str(pattern) for pattern in raw_exclude]
+        if isinstance(raw_exclude, str):
+            return [
+                pattern.strip() for pattern in raw_exclude.split(",") if pattern.strip()
+            ]
+        return []
 
     @classmethod
     def from_toml_data(cls, data: dict[str, Any]) -> "Config":
@@ -354,125 +421,41 @@ class Config:
         if not isinstance(pyrefactor, dict):
             raise ValueError("Invalid [tool.pyrefactor] section in configuration")
 
-        complexity_fields = {
-            "enabled": bool,
-            "max_branches": int,
-            "max_nesting_depth": int,
-            "max_function_lines": int,
-            "max_arguments": int,
-            "max_local_variables": int,
-            "max_cyclomatic_complexity": int,
-        }
-        performance_fields = {
-            "enabled": bool,
-            "min_concatenations": int,
-            "min_duplicate_calls": int,
-        }
-        duplication_fields = {
-            "enabled": bool,
-            "min_duplicate_lines": int,
-            "similarity_threshold": float,
-        }
-        boolean_fields = {"enabled": bool, "max_boolean_operators": int}
-        enabled_only = {"enabled": bool}
-
-        complexity_section = pyrefactor.get("complexity", {})
-        duplication_section = pyrefactor.get("duplication", {})
-        boolean_section = pyrefactor.get("boolean_logic", {})
-
-        exclude_patterns: list[str] = []
-        raw_exclude = pyrefactor.get("exclude_patterns")
-        if isinstance(raw_exclude, list):
-            exclude_patterns = [str(pattern) for pattern in raw_exclude]
-        elif isinstance(raw_exclude, str):
-            exclude_patterns = [
-                pattern.strip() for pattern in raw_exclude.split(",") if pattern.strip()
-            ]
-
         config = cls(
-            complexity=ComplexityConfig(
-                **cls._coerce_section(
-                    complexity_section if isinstance(complexity_section, dict) else {},
-                    complexity_fields,
-                )
+            complexity=cls._build_config_section(
+                pyrefactor, "complexity", ComplexityConfig, _COMPLEXITY_TOML_FIELDS
             ),
-            performance=PerformanceConfig(
-                **cls._coerce_section(
-                    (
-                        pyrefactor.get("performance", {})
-                        if isinstance(pyrefactor.get("performance"), dict)
-                        else {}
-                    ),
-                    performance_fields,
-                )
+            performance=cls._build_config_section(
+                pyrefactor, "performance", PerformanceConfig, _PERFORMANCE_TOML_FIELDS
             ),
-            duplication=DuplicationConfig(
-                **cls._coerce_section(
-                    (
-                        duplication_section
-                        if isinstance(duplication_section, dict)
-                        else {}
-                    ),
-                    duplication_fields,
-                )
+            duplication=cls._build_config_section(
+                pyrefactor, "duplication", DuplicationConfig, _DUPLICATION_TOML_FIELDS
             ),
-            boolean_logic=BooleanLogicConfig(
-                **cls._coerce_section(
-                    boolean_section if isinstance(boolean_section, dict) else {},
-                    boolean_fields,
-                )
+            boolean_logic=cls._build_config_section(
+                pyrefactor, "boolean_logic", BooleanLogicConfig, _BOOLEAN_TOML_FIELDS
             ),
-            loops=LoopsConfig(
-                **cls._coerce_section(
-                    (
-                        pyrefactor.get("loops", {})
-                        if isinstance(pyrefactor.get("loops"), dict)
-                        else {}
-                    ),
-                    enabled_only,
-                )
+            loops=cls._build_config_section(
+                pyrefactor, "loops", LoopsConfig, _ENABLED_ONLY_TOML_FIELDS
             ),
-            context_manager=ContextManagerConfig(
-                **cls._coerce_section(
-                    (
-                        pyrefactor.get("context_manager", {})
-                        if isinstance(pyrefactor.get("context_manager"), dict)
-                        else {}
-                    ),
-                    enabled_only,
-                )
+            context_manager=cls._build_config_section(
+                pyrefactor,
+                "context_manager",
+                ContextManagerConfig,
+                _ENABLED_ONLY_TOML_FIELDS,
             ),
-            control_flow=ControlFlowConfig(
-                **cls._coerce_section(
-                    (
-                        pyrefactor.get("control_flow", {})
-                        if isinstance(pyrefactor.get("control_flow"), dict)
-                        else {}
-                    ),
-                    enabled_only,
-                )
+            control_flow=cls._build_config_section(
+                pyrefactor, "control_flow", ControlFlowConfig, _ENABLED_ONLY_TOML_FIELDS
             ),
-            dict_operations=DictOperationsConfig(
-                **cls._coerce_section(
-                    (
-                        pyrefactor.get("dict_operations", {})
-                        if isinstance(pyrefactor.get("dict_operations"), dict)
-                        else {}
-                    ),
-                    enabled_only,
-                )
+            dict_operations=cls._build_config_section(
+                pyrefactor,
+                "dict_operations",
+                DictOperationsConfig,
+                _ENABLED_ONLY_TOML_FIELDS,
             ),
-            comparisons=ComparisonsConfig(
-                **cls._coerce_section(
-                    (
-                        pyrefactor.get("comparisons", {})
-                        if isinstance(pyrefactor.get("comparisons"), dict)
-                        else {}
-                    ),
-                    enabled_only,
-                )
+            comparisons=cls._build_config_section(
+                pyrefactor, "comparisons", ComparisonsConfig, _ENABLED_ONLY_TOML_FIELDS
             ),
-            exclude_patterns=exclude_patterns,
+            exclude_patterns=cls._parse_toml_exclude_patterns(pyrefactor),
         )
         config.validate()
         return config
