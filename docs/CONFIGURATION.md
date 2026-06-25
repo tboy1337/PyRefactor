@@ -60,6 +60,8 @@ enabled = true
 enabled = true
 ```
 
+The duplication detector also applies fixed scan limits (first 5,000 lines per file, block size up to 20 lines). See [RULES.md](RULES.md#duplication-d001).
+
 `exclude_patterns` uses glob-style patterns matched against file paths (POSIX-style, forward slashes).
 
 ## INI Format (`pyrefactor.ini`)

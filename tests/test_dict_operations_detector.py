@@ -467,17 +467,178 @@ if "key" in data:
 
     assert not any(issue.rule_id == "R006" for issue in issues)
 
+    assert not any(issue.rule_id == "R006" for issue in issues)
 
-def test_dict_membership_without_subscript_not_flagged(
-    detector: DictOperationsDetector,
-) -> None:
-    """Test membership check without subscript access is not flagged."""
+
+def test_dict_get_suppressed_on_if_node(detector: DictOperationsDetector) -> None:
+    """Test R006 is not reported when the if node is suppressed."""
     code = """
-for key in data:
-    print(key)
+if key in my_dict:  # pyrefactor: ignore
+    value = my_dict[key]
+else:
+    value = default_value
 """
     tree = ast.parse(code)
     detector.source_lines = code.splitlines()
     issues = detector.analyze(tree)
 
     assert not any(issue.rule_id == "R006" for issue in issues)
+
+
+def test_dict_get_mismatched_assignment_targets(
+    detector: DictOperationsDetector,
+) -> None:
+    """Test R006 is not reported when if/else assign to different variables."""
+    code = """
+if key in my_dict:
+    value = my_dict[key]
+else:
+    other = default_value
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R006" for issue in issues)
+
+
+def test_dict_get_wrong_dict_in_subscript(detector: DictOperationsDetector) -> None:
+    """Test R006 is not reported when subscript uses a different dict."""
+    code = """
+if key in my_dict:
+    value = other_dict[key]
+else:
+    value = default_value
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R006" for issue in issues)
+
+
+def test_dict_get_non_name_key_in_condition(detector: DictOperationsDetector) -> None:
+    """Test R006 is not reported when membership key is not a simple name."""
+    code = """
+if key + 1 in my_dict:
+    value = my_dict[key]
+else:
+    value = default_value
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R006" for issue in issues)
+
+
+def test_dict_get_missing_else_branch(detector: DictOperationsDetector) -> None:
+    """Test R006 is not reported without an else branch."""
+    code = """
+if key in my_dict:
+    value = my_dict[key]
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R006" for issue in issues)
+
+
+def test_dict_get_non_name_assignment_target(detector: DictOperationsDetector) -> None:
+    """Test R006 is not reported when assignment targets are not simple names."""
+    code = """
+if key in my_dict:
+    self.value = my_dict[key]
+else:
+    self.value = default_value
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R006" for issue in issues)
+
+
+def test_dict_get_non_name_subscript_slice(detector: DictOperationsDetector) -> None:
+    """Test R006 is not reported when subscript slice is not a simple name."""
+    code = """
+if key in my_dict:
+    value = my_dict[key + 1]
+else:
+    value = default_value
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R006" for issue in issues)
+
+
+def test_unnecessary_keys_membership_suppressed(
+    detector: DictOperationsDetector,
+) -> None:
+    """Test R009 membership check respects suppression."""
+    code = """
+if key in my_dict.keys():  # pyrefactor: ignore
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R009" for issue in issues)
+
+
+def test_for_loop_keys_on_call_result(detector: DictOperationsDetector) -> None:
+    """Test R009 is not reported when .keys() is on a non-name expression."""
+    code = """
+for key in get_dict().keys():
+    print(key)
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R009" for issue in issues)
+
+
+def test_for_loop_tuple_target_with_keys(detector: DictOperationsDetector) -> None:
+    """Test R009 suggestion uses item fallback for tuple loop targets."""
+    code = """
+for a, b in my_dict.keys():
+    print(a, b)
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 1
+    assert issues[0].rule_id == "R009"
+    assert "for item in my_dict:" in issues[0].suggestion
+
+
+def test_dict_items_wrong_dict_in_body(detector: DictOperationsDetector) -> None:
+    """Test R007 is not reported when body accesses a different dict."""
+    code = """
+for key in my_dict:
+    value = other_dict[key]
+    print(key, value)
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R007" for issue in issues)
+
+
+def test_dict_comprehension_suppressed(detector: DictOperationsDetector) -> None:
+    """Test R010 respects suppression on dict() call."""
+    code = """
+result = dict([(k, v) for k, v in items])  # pyrefactor: ignore
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R010" for issue in issues)

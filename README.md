@@ -211,7 +211,7 @@ pip install -e .
 pip install -r requirements-dev.txt
 ```
 
-Run the local verification script (formatting, type checks, lint, security scan, tests):
+Run the local verification script (formatting, type checks, lint, security scan, and pytest with coverage):
 
 ```bash
 python scripts/verify.py
@@ -219,7 +219,7 @@ python scripts/verify.py
 
 On Windows you can also use `py scripts/verify.py`. The script uses `sys.executable` and absolute paths so it behaves the same on Windows, macOS, and Linux.
 
-Run tests directly:
+Run tests directly (same suite as verify, without formatting or lint steps):
 
 ```bash
 pytest

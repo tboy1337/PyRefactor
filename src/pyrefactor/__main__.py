@@ -6,7 +6,7 @@ import sys
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 from . import __version__
 from .analyzer import Analyzer
@@ -41,6 +41,10 @@ SEVERITY_MAP: dict[str, Severity] = {
 }
 
 
+SEVERITY_CHOICES: tuple[str, ...] = ("info", "low", "medium", "high")
+GROUP_BY_CHOICES: tuple[str, ...] = ("file", "severity")
+
+
 def _add_parser_arguments(parser: argparse.ArgumentParser) -> None:
     """Add all arguments to the parser."""
     parser.add_argument(
@@ -50,18 +54,21 @@ def _add_parser_arguments(parser: argparse.ArgumentParser) -> None:
         "-c",
         "--config",
         type=Path,
-        help="Path to configuration file (default: pyproject.toml)",
+        help=(
+            "Path to configuration file; when omitted, auto-discover "
+            "pyproject.toml ([tool.pyrefactor]), then pyrefactor.ini, then defaults"
+        ),
     )
     parser.add_argument(
         "-g",
         "--group-by",
-        choices=["file", "severity"],
+        choices=GROUP_BY_CHOICES,
         default="file",
         help="Group output by file or severity (default: file)",
     )
     parser.add_argument(
         "--min-severity",
-        choices=["info", "low", "medium", "high"],
+        choices=SEVERITY_CHOICES,
         default="info",
         help="Minimum severity level to report (default: info)",
     )
@@ -104,16 +111,14 @@ def parse_arguments() -> Args:
     """Parse command line arguments."""
     parser = _create_argument_parser()
     namespace = parser.parse_args()
-    # Convert to our typed class
-    # Note: argparse returns Any type for namespace attributes
     return Args(
-        paths=namespace.paths,
-        config=namespace.config,
-        group_by=namespace.group_by,
-        min_severity=namespace.min_severity,
-        jobs=namespace.jobs,
-        verbose=namespace.verbose,
-        version=namespace.version,
+        paths=cast(list[Path], namespace.paths),
+        config=cast(Optional[Path], namespace.config),
+        group_by=cast(str, namespace.group_by),
+        min_severity=cast(str, namespace.min_severity),
+        jobs=cast(int, namespace.jobs),
+        verbose=cast(bool, namespace.verbose),
+        version=cast(bool, namespace.version),
     )
 
 

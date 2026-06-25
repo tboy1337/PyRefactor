@@ -220,6 +220,81 @@ class Config:
         return boolean_dict
 
     @staticmethod
+    def _complexity_config_from_ini(
+        parser: configparser.ConfigParser,
+    ) -> ComplexityConfig:
+        """Build ComplexityConfig from INI parser data."""
+        defaults = ComplexityConfig()
+        parsed = Config._parse_complexity_config(parser)
+        return ComplexityConfig(
+            enabled=bool(parsed.get("enabled", defaults.enabled)),
+            max_branches=int(parsed.get("max_branches", defaults.max_branches)),
+            max_nesting_depth=int(
+                parsed.get("max_nesting_depth", defaults.max_nesting_depth)
+            ),
+            max_function_lines=int(
+                parsed.get("max_function_lines", defaults.max_function_lines)
+            ),
+            max_arguments=int(parsed.get("max_arguments", defaults.max_arguments)),
+            max_local_variables=int(
+                parsed.get("max_local_variables", defaults.max_local_variables)
+            ),
+            max_cyclomatic_complexity=int(
+                parsed.get(
+                    "max_cyclomatic_complexity", defaults.max_cyclomatic_complexity
+                )
+            ),
+        )
+
+    @staticmethod
+    def _performance_config_from_ini(
+        parser: configparser.ConfigParser,
+    ) -> PerformanceConfig:
+        """Build PerformanceConfig from INI parser data."""
+        defaults = PerformanceConfig()
+        parsed = Config._parse_performance_config(parser)
+        return PerformanceConfig(
+            enabled=bool(parsed.get("enabled", defaults.enabled)),
+            min_concatenations=int(
+                parsed.get("min_concatenations", defaults.min_concatenations)
+            ),
+            min_duplicate_calls=int(
+                parsed.get("min_duplicate_calls", defaults.min_duplicate_calls)
+            ),
+        )
+
+    @staticmethod
+    def _duplication_config_from_ini(
+        parser: configparser.ConfigParser,
+    ) -> DuplicationConfig:
+        """Build DuplicationConfig from INI parser data."""
+        defaults = DuplicationConfig()
+        parsed = Config._parse_duplication_config(parser)
+        return DuplicationConfig(
+            enabled=bool(parsed.get("enabled", defaults.enabled)),
+            min_duplicate_lines=int(
+                parsed.get("min_duplicate_lines", defaults.min_duplicate_lines)
+            ),
+            similarity_threshold=float(
+                parsed.get("similarity_threshold", defaults.similarity_threshold)
+            ),
+        )
+
+    @staticmethod
+    def _boolean_logic_config_from_ini(
+        parser: configparser.ConfigParser,
+    ) -> BooleanLogicConfig:
+        """Build BooleanLogicConfig from INI parser data."""
+        defaults = BooleanLogicConfig()
+        parsed = Config._parse_boolean_logic_config(parser)
+        return BooleanLogicConfig(
+            enabled=bool(parsed.get("enabled", defaults.enabled)),
+            max_boolean_operators=int(
+                parsed.get("max_boolean_operators", defaults.max_boolean_operators)
+            ),
+        )
+
+    @staticmethod
     def _parse_enabled_flag(
         config: configparser.ConfigParser, section: str
     ) -> dict[str, bool]:
@@ -444,10 +519,10 @@ class Config:
             parser.read(config_path, encoding="utf-8")
 
             config = cls(
-                complexity=ComplexityConfig(**cls._parse_complexity_config(parser)),  # type: ignore[arg-type]
-                performance=PerformanceConfig(**cls._parse_performance_config(parser)),  # type: ignore[arg-type]
-                duplication=DuplicationConfig(**cls._parse_duplication_config(parser)),  # type: ignore[arg-type]
-                boolean_logic=BooleanLogicConfig(**cls._parse_boolean_logic_config(parser)),  # type: ignore[arg-type]
+                complexity=cls._complexity_config_from_ini(parser),
+                performance=cls._performance_config_from_ini(parser),
+                duplication=cls._duplication_config_from_ini(parser),
+                boolean_logic=cls._boolean_logic_config_from_ini(parser),
                 loops=LoopsConfig(**cls._parse_enabled_flag(parser, "loops")),
                 context_manager=ContextManagerConfig(
                     **cls._parse_enabled_flag(parser, "context_manager")

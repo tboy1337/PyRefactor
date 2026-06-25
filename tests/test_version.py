@@ -7,7 +7,16 @@ from unittest.mock import patch
 
 import pytest
 
-from pyrefactor._version import _fallback_version, get_version
+from pyrefactor._version import (
+    _clear_fallback_version_cache,
+    _fallback_version,
+    get_version,
+)
+
+
+def _clear_fallback_cache() -> None:
+    """Reset cached fallback version between tests."""
+    _clear_fallback_version_cache()
 
 
 def _pyproject_version() -> str:
@@ -29,7 +38,7 @@ class TestVersion:
 
     def test_fallback_version_matches_repository_pyproject(self) -> None:
         """Fallback version matches pyproject.toml without requiring a fresh install."""
-        _fallback_version.cache_clear()
+        _clear_fallback_cache()
         with patch(
             "pyrefactor._version.version",
             side_effect=PackageNotFoundError("pyrefactor"),
@@ -52,7 +61,7 @@ class TestVersion:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         """Fallback parser reads version from pyproject.toml."""
-        _fallback_version.cache_clear()
+        _clear_fallback_cache()
         fake_pkg = tmp_path / "src" / "pyrefactor"
         fake_pkg.mkdir(parents=True)
         monkeypatch.setattr(
@@ -66,7 +75,7 @@ class TestVersion:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         """Fallback returns unknown when pyproject.toml is missing."""
-        _fallback_version.cache_clear()
+        _clear_fallback_cache()
         fake_pkg = tmp_path / "src" / "pyrefactor"
         fake_pkg.mkdir(parents=True)
         monkeypatch.setattr(
@@ -78,7 +87,7 @@ class TestVersion:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         """Fallback returns unknown when pyproject.toml has no version line."""
-        _fallback_version.cache_clear()
+        _clear_fallback_cache()
         fake_pkg = tmp_path / "src" / "pyrefactor"
         fake_pkg.mkdir(parents=True)
         monkeypatch.setattr(
@@ -90,7 +99,7 @@ class TestVersion:
 
     def test_get_version_uses_fallback_when_not_installed(self) -> None:
         """Fallback is used when the distribution is not installed."""
-        _fallback_version.cache_clear()
+        _clear_fallback_cache()
         with patch(
             "pyrefactor._version.version",
             side_effect=PackageNotFoundError("pyrefactor"),
@@ -111,14 +120,14 @@ class TestVersion:
         )
 
         assert _pyproject_path() == bundled
-        _fallback_version.cache_clear()
+        _clear_fallback_cache()
         assert _fallback_version() == "8.8.8"
 
     def test_fallback_version_unknown_for_invalid_toml(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         """Fallback returns unknown when pyproject.toml is not valid TOML."""
-        _fallback_version.cache_clear()
+        _clear_fallback_cache()
         fake_pkg = tmp_path / "src" / "pyrefactor"
         fake_pkg.mkdir(parents=True)
         monkeypatch.setattr(
@@ -127,3 +136,24 @@ class TestVersion:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text("[project\nversion = broken", encoding="utf-8")
         assert _fallback_version() == "unknown"
+
+    def test_pyproject_path_falls_back_when_meipass_has_no_bundle(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Frozen executables fall back when bundled pyproject.toml is missing."""
+        from pyrefactor._version import _pyproject_path
+
+        fake_pkg = tmp_path / "src" / "pyrefactor"
+        fake_pkg.mkdir(parents=True)
+        monkeypatch.setattr(
+            "pyrefactor._version.__file__", str(fake_pkg / "_version.py")
+        )
+        monkeypatch.setattr("pyrefactor._version.sys.frozen", True, raising=False)
+        monkeypatch.setattr(
+            "pyrefactor._version.sys._MEIPASS", str(tmp_path / "bundle"), raising=False
+        )
+
+        expected = tmp_path / "pyproject.toml"
+        expected.write_text('[project]\nversion = "1.2.3"\n', encoding="utf-8")
+
+        assert _pyproject_path() == expected

@@ -402,6 +402,22 @@ exclude_patterns = "build, dist, vendor"
         with pytest.raises(ValueError, match="max_boolean_operators"):
             config.validate()
 
+    def test_validate_rejects_negative_min_concatenations(self) -> None:
+        """Test validation rejects negative performance.min_concatenations."""
+        config = Config()
+        config.performance.min_concatenations = -1
+
+        with pytest.raises(ValueError, match="performance.min_concatenations"):
+            config.validate()
+
+    def test_validate_rejects_negative_min_duplicate_calls(self) -> None:
+        """Test validation rejects negative performance.min_duplicate_calls."""
+        config = Config()
+        config.performance.min_duplicate_calls = -1
+
+        with pytest.raises(ValueError, match="performance.min_duplicate_calls"):
+            config.validate()
+
     def test_toml_load_rejects_invalid_threshold(self, tmp_path: Path) -> None:
         """Test loading invalid threshold from TOML raises ValueError."""
         config_file = tmp_path / "config.toml"

@@ -10,6 +10,16 @@ from colorama import Fore, Style, init
 from .models import AnalysisResult, Issue, Severity
 
 
+def _issue_line(issue: Issue) -> int:
+    """Return the line number for sorting issues."""
+    return issue.line
+
+
+def _issue_file_line(issue: Issue) -> tuple[str, int]:
+    """Return file and line for sorting issues."""
+    return (issue.file, issue.line)
+
+
 class _ColoramaInitializer:
     """One-time colorama initialization for console output."""
 
@@ -104,9 +114,7 @@ class ConsoleReporter:
             self._print(f"\n{Fore.CYAN}{analysis.file_path}{Style.RESET_ALL}")
 
             # Sort issues by line number
-            sorted_issues = sorted(
-                analysis.issues, key=lambda issue: issue.line  # type: ignore[misc]
-            )
+            sorted_issues = sorted(analysis.issues, key=_issue_line)
 
             # Print each issue
             for issue in sorted_issues:
@@ -131,9 +139,7 @@ class ConsoleReporter:
             )
 
             # Sort by file and line
-            sorted_issues = sorted(
-                issues, key=lambda issue: (issue.file, issue.line)  # type: ignore[misc]
-            )
+            sorted_issues = sorted(issues, key=_issue_file_line)
 
             for issue in sorted_issues:
                 self._print_issue(issue, include_file=True)

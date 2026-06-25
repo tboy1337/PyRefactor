@@ -4,6 +4,7 @@ import ast
 import hashlib
 import tokenize
 from io import StringIO
+from operator import itemgetter
 from typing import Optional, cast
 
 from ..ast_visitor import BaseDetector
@@ -206,9 +207,7 @@ class DuplicationDetector(BaseDetector):
                 continue
 
             # Sort by line number
-            sorted_occurrences = sorted(
-                occurrences, key=lambda item: item[0]  # type: ignore[misc]
-            )
+            sorted_occurrences = sorted(occurrences, key=itemgetter(0))
 
             # Report each duplicate (except the first occurrence)
             first_start, first_end, _, first_normalized = sorted_occurrences[0]

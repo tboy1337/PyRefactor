@@ -548,3 +548,153 @@ if isinstance(value, (int, float)):
     issues = detector.analyze(tree)
 
     assert not any(issue.rule_id == "R013" for issue in issues)
+
+
+def test_boolop_suppression_skips_checks(detector: ComparisonsDetector) -> None:
+    """Test suppressed BoolOp nodes skip comparison checks."""
+    code = """
+if x == 1 or x == 2:  # pyrefactor: ignore
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 0
+
+
+def test_isinstance_call_with_attribute_func_not_flagged(
+    detector: ComparisonsDetector,
+) -> None:
+    """Test isinstance checks via non-Name callable are not combined."""
+    code = """
+if mod.isinstance(value, int) or mod.isinstance(value, float):
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R013" for issue in issues)
+
+
+def test_isinstance_single_check_not_flagged(detector: ComparisonsDetector) -> None:
+    """Test a single isinstance check does not trigger R013."""
+    code = """
+if isinstance(value, int):
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R013" for issue in issues)
+
+
+def test_chained_comparison_non_chainable_ops(detector: ComparisonsDetector) -> None:
+    """Test comparisons with unsupported operators are not chained."""
+    code = """
+if a in b and b in c:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R012" for issue in issues)
+
+
+def test_redundant_true_inequality_suggestion(detector: ComparisonsDetector) -> None:
+    """Test != True suggests negation."""
+    code = """
+if x != True:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 1
+    assert issues[0].rule_id == "R015"
+    assert "not x" in issues[0].suggestion
+
+
+def test_redundant_false_equality_suggestion(detector: ComparisonsDetector) -> None:
+    """Test == False suggests negation."""
+    code = """
+if x == False:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 1
+    assert issues[0].rule_id == "R015"
+    assert "not x" in issues[0].suggestion
+
+
+def test_redundant_false_inequality_suggestion(detector: ComparisonsDetector) -> None:
+    """Test != False suggests direct truthiness."""
+    code = """
+if x != False:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 1
+    assert issues[0].rule_id == "R015"
+    assert issues[0].suggestion == "Use 'x' directly instead of '!= False'"
+
+
+def test_none_comparison_with_is_not(detector: ComparisonsDetector) -> None:
+    """Test None compared with is not is not flagged."""
+    code = """
+if x is not None:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R014" for issue in issues)
+
+
+def test_type_check_wrong_callable_not_flagged(detector: ComparisonsDetector) -> None:
+    """Test non-type() calls are not flagged for R016."""
+    code = """
+if builtins.type(x) == int:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R016" for issue in issues)
+
+
+def test_type_check_wrong_arg_count_not_flagged(detector: ComparisonsDetector) -> None:
+    """Test type() calls with wrong arity are not flagged for R016."""
+    code = """
+if type(x, y) == int:
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R016" for issue in issues)
+
+
+def test_visit_call_suppression(detector: ComparisonsDetector) -> None:
+    """Test suppressed Call nodes still allow child traversal."""
+    code = """
+result = foo()  # pyrefactor: ignore
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert isinstance(issues, list)

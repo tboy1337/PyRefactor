@@ -505,3 +505,44 @@ class TestAnalyzerEdgeCases:
 
         assert str(inside_file) in analyzed_paths
         assert str(outside_file) not in analyzed_paths
+
+    def test_unexpected_analysis_error_is_recorded(
+        self, default_config: Config, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test unexpected errors during analysis are captured as parse errors."""
+        target = tmp_path / "sample.py"
+        target.write_text("x = 1\n", encoding="utf-8")
+
+        def _raise_unexpected(
+            _self: Analyzer, _path: str, _lines: list[str]
+        ) -> list[BaseDetector]:
+            raise KeyError("unexpected")
+
+        monkeypatch.setattr(Analyzer, "_create_detectors", _raise_unexpected)
+
+        analysis = Analyzer(default_config).analyze_file(target)
+
+        assert analysis.parse_error == "Error analyzing file: unexpected error"
+        assert analysis.issues == []
+
+    def test_parallel_unexpected_analysis_error_is_recorded(
+        self, default_config: Config, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test unexpected parallel worker failures are recorded."""
+        first = tmp_path / "first.py"
+        second = tmp_path / "second.py"
+        first.write_text("x = 1\n", encoding="utf-8")
+        second.write_text("y = 2\n", encoding="utf-8")
+
+        def _raise_unexpected(_self: Analyzer, _path: Path) -> object:
+            raise RuntimeError("worker boom")
+
+        monkeypatch.setattr(Analyzer, "analyze_file", _raise_unexpected)
+
+        result = Analyzer(default_config).analyze_files([first, second], max_workers=2)
+
+        assert len(result.file_analyses) == 2
+        assert all(
+            analysis.parse_error == "Analysis failed: unexpected error"
+            for analysis in result.file_analyses
+        )

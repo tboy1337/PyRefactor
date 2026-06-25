@@ -55,6 +55,8 @@ B002/B003 are intentionally not used; boolean `== True`/`== False` checks are re
 |------|----------|-------------|
 | D001 | MEDIUM | Similar duplicate code block detected in the same file |
 
+For performance, the duplication detector scans at most the first **5,000 lines** of each file and compares blocks up to **20 lines** long. These limits are fixed in the implementation and are not configurable.
+
 ## Context Manager (R001)
 
 | Rule | Severity | Description |
