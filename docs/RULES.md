@@ -45,7 +45,7 @@ B002/B003 are intentionally not used; boolean `== True`/`== False` checks are re
 | Rule | Severity | Description |
 |------|----------|-------------|
 | L001 | LOW | `for i in range(len(seq))` should use `enumerate()` |
-| L002 | LOW | Manual index increment pattern (`i += 1`) |
+| L002 | INFO | Manual index increment pattern (`i += 1`) |
 | L003 | MEDIUM | Deeply nested loops with membership or subscript lookups |
 | L004 | MEDIUM | Loop-invariant expensive call inside loop body |
 
@@ -81,8 +81,8 @@ Covers `open`, `urlopen`, `ZipFile`, `Popen`, `Path.open()`, and related APIs.
 | Rule | Severity | Description |
 |------|----------|-------------|
 | R006 | LOW | `if key in d: x = d[key] else: x = default` should use `.get()` |
-| R007 | LOW | Consider `.items()` when iterating keys and accessing values |
-| R009 | LOW | Unnecessary `.keys()` in a membership test |
+| R007 | MEDIUM | Consider `.items()` when iterating keys and accessing values |
+| R009 | INFO | Unnecessary `.keys()` in a membership test |
 | R010 | LOW | `dict([...])` should be a dict comprehension |
 
 R008 is reserved and not currently implemented.
@@ -114,8 +114,14 @@ y = 2
 
 ## Exit Codes
 
+Exit codes are computed **after** applying `--min-severity`. Issues below the minimum severity are omitted from output and do not affect the exit code.
+
 | Code | Meaning |
 |------|---------|
-| 0 | No MEDIUM/HIGH issues (after severity filter). Per-file syntax/parse errors are reported but exit 0. |
-| 1 | One or more MEDIUM/HIGH issues found |
+| 0 | No MEDIUM/HIGH issues remain after the severity filter. Per-file syntax/parse errors are reported but exit 0 unless `--fail-on-parse-errors` is set. |
+| 1 | One or more MEDIUM/HIGH issues remain after the severity filter, or any parse error when `--fail-on-parse-errors` is set |
 | 2 | Configuration, path, or orchestration error (invalid paths, no Python files to analyze) |
+
+## Analysis Limits
+
+Files larger than **10 MB** are skipped with a parse-style error message. This limit is fixed in the implementation and is not configurable.

@@ -247,6 +247,8 @@ def main() -> int:
         return 2
 
     # Create analyzer and analyze files
+    if args.jobs < 1:
+        logger.warning("--jobs must be at least 1; using 1 worker")
     max_workers = max(1, args.jobs)
     analyzer = Analyzer(config)
     result = _analyze_files_safely(analyzer, paths, max_workers, verbose=args.verbose)

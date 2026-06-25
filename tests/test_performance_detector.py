@@ -120,6 +120,41 @@ for item in items:
 
         assert len(issues) == 0
 
+    def test_async_for_string_concatenation(self, default_config: Config) -> None:
+        """Test detection of string concatenation in async for loop."""
+        source = """
+async def process(items):
+    result_str = ""
+    async for item in items:
+        result_str += item
+        result_str += item
+        result_str += item
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert len(issues) > 0
+        assert any(issue.rule_id == "P001" for issue in issues)
+
+    def test_async_for_duplicate_calls(self, default_config: Config) -> None:
+        """Test detection of duplicate calls in async for loop."""
+        source = """
+async def process(items):
+    async for item in items:
+        expensive_compute(item)
+        expensive_compute(item)
+        expensive_compute(item)
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert len(issues) > 0
+        assert any(issue.rule_id == "P007" for issue in issues)
+
     def test_while_loop_tracking(self, default_config: Config) -> None:
         """Test that while loops are tracked for performance issues."""
         source = """

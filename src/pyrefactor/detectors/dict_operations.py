@@ -1,7 +1,7 @@
 """Dictionary operations detector for PyRefactor."""
 
 import ast
-from typing import Optional, Tuple, cast
+from typing import cast
 
 from ..ast_visitor import BaseDetector
 from ..models import Severity
@@ -67,7 +67,7 @@ class DictOperationsDetector(BaseDetector):
 
     def _extract_dict_get_components(
         self, node: ast.If
-    ) -> Optional[Tuple[str, str, str, str]]:
+    ) -> tuple[str, str, str, str] | None:
         """Extract variable names and values for dict.get() suggestion."""
         if_stmt = node.body[0]
         else_stmt = node.orelse[0]
@@ -123,7 +123,7 @@ class DictOperationsDetector(BaseDetector):
 
     def _extract_condition_data(
         self, test: ast.expr
-    ) -> Optional[Tuple[ast.Name, ast.Name]]:
+    ) -> tuple[ast.Name, ast.Name] | None:
         """Extract key and dict names from the condition."""
         if not isinstance(test, ast.Compare):
             return None
@@ -336,7 +336,7 @@ class DictOperationsDetector(BaseDetector):
             "for better readability and performance",
         )
 
-    def _get_name(self, node: ast.AST) -> Optional[str]:
+    def _get_name(self, node: ast.AST) -> str | None:
         """Extract the name from a node."""
         if isinstance(node, ast.Name):
             return node.id

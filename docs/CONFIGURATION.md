@@ -124,6 +124,12 @@ The CLI does not override individual detector thresholds. Use `--config` to poin
 
 Use `--fail-on-parse-errors` when integrating PyRefactor into CI: by default, syntax and parse errors are reported but do not affect the exit code; with this flag, any parse error causes exit code `1`.
 
+`--min-severity` filters both console output and exit-code calculation. Issues below the minimum severity are omitted entirely.
+
+## Analysis Limits
+
+Files larger than **10 MB** are skipped with a parse-style error message. This limit is fixed in the implementation and is not configurable.
+
 ## Related Documentation
 
 - [RULES.md](RULES.md) — rule IDs, severities, and examples

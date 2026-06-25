@@ -324,14 +324,6 @@ class ComparisonsDetector(BaseDetector):
             ),
         )
 
-    def visit_Call(self, node: ast.Call) -> None:
-        """Visit call nodes for comparison checks."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
-        self.generic_visit(node)
-
     def _get_op_str(self, op: ast.cmpop) -> Optional[str]:
         """Convert comparison operator to string."""
         op_map = {

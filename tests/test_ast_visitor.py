@@ -3,6 +3,7 @@
 import ast
 
 from pyrefactor.ast_visitor import (
+    BaseDetector,
     build_parent_map,
     calculate_cyclomatic_complexity,
     count_branches,
@@ -10,6 +11,7 @@ from pyrefactor.ast_visitor import (
     node_col_offset,
     node_lineno,
 )
+from pyrefactor.config import Config
 
 
 class TestNodeLineno:
@@ -154,3 +156,34 @@ def func(value):
         func_def = tree.body[0]
         assert isinstance(func_def, ast.FunctionDef)
         assert count_branches(func_def) >= 2
+
+
+class _SuppressionProbeDetector(BaseDetector):
+    """Minimal detector for exercising suppression helpers."""
+
+    def get_detector_name(self) -> str:
+        return "suppression_probe"
+
+
+class TestBaseDetectorSuppression:
+    """Tests for BaseDetector suppression behavior."""
+
+    def test_noqa_suppresses_all_rules(self) -> None:
+        """Test blanket # noqa suppresses every rule on the line."""
+        source_lines = ["x = 1  # noqa"]
+        detector = _SuppressionProbeDetector(Config(), "test.py", source_lines)
+        tree = ast.parse("x = 1")
+        node = tree.body[0]
+
+        assert detector.is_suppressed(node, "C001") is True
+        assert detector.is_suppressed(node, "P001") is True
+
+    def test_rule_scoped_noqa_does_not_suppress_other_rules(self) -> None:
+        """Test rule-specific pyrefactor ignore does not blanket-suppress."""
+        source_lines = ["x = 1  # pyrefactor: ignore C001"]
+        detector = _SuppressionProbeDetector(Config(), "test.py", source_lines)
+        tree = ast.parse("x = 1")
+        node = tree.body[0]
+
+        assert detector.is_suppressed(node, "C001") is True
+        assert detector.is_suppressed(node, "P001") is False

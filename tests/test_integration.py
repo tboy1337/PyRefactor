@@ -197,7 +197,9 @@ def duplicate_logic2():
         analysis = analyzer.analyze_file(file_path)
 
         # Should detect multiple issue types
-        assert len(analysis.issues) > 0
+        rule_ids = {issue.rule_id for issue in analysis.issues}
+        expected_rules = {"P001", "P005", "P006", "C002", "D001"}
+        assert expected_rules & rule_ids
 
         # Check severity distribution
         severities = {issue.severity for issue in analysis.issues}
@@ -258,6 +260,38 @@ for i in range(len(items)):
                 "dict_operations",
                 "R0",
                 "if key in my_dict:\n    value = my_dict[key]\nelse:\n    value = default\n",
+            ),
+            (
+                "complexity",
+                "C",
+                "def f(a, b, c, d, e, f, g, h):\n    return a + b\n",
+            ),
+            (
+                "performance",
+                "P",
+                "result_str = ''\nfor item in items:\n    result_str += item\n    result_str += item\n    result_str += item\n",
+            ),
+            (
+                "duplication",
+                "D",
+                "def func1():\n"
+                "    x = 1\n"
+                "    y = 2\n"
+                "    z = 3\n"
+                "    result = x + y + z\n"
+                "    return result\n"
+                "\n"
+                "def func2():\n"
+                "    x = 1\n"
+                "    y = 2\n"
+                "    z = 3\n"
+                "    result = x + y + z\n"
+                "    return result\n",
+            ),
+            (
+                "loops",
+                "L",
+                "for i in range(len(items)):\n    print(items[i])\n",
             ),
         ],
     )

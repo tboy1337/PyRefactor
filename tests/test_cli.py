@@ -402,6 +402,32 @@ class TestCLIMain:
 
         assert result.returncode == 0
         assert "Files analyzed: 1" in result.stdout
+        assert "--jobs must be at least 1" in result.stderr
+
+    def test_main_subprocess_pyproject_disables_detector(self, tmp_path: Path) -> None:
+        """Test CLI discovers pyproject.toml and honors disabled detectors."""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            """
+[tool.pyrefactor.context_manager]
+enabled = false
+""".strip() + "\n",
+            encoding="utf-8",
+        )
+        file_path = tmp_path / "resource.py"
+        file_path.write_text("f = open('data.txt')\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [sys.executable, "-m", "pyrefactor", str(file_path)],
+            cwd=tmp_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 0
+        assert "R001" not in result.stdout
+        assert "Files analyzed: 1" in result.stdout
 
     def test_main_subprocess_min_severity_medium(self, tmp_path: Path) -> None:
         """Test --min-severity medium filters low/info from exit code."""

@@ -131,7 +131,7 @@ class PerformanceDetector(BaseDetector):
         """Return True when a node is suppressed for a specific rule."""
         return self.is_suppressed(node, rule_id)
 
-    def _visit_loop(self, node: ast.For | ast.While) -> None:
+    def _visit_loop(self, node: ast.For | ast.While | ast.AsyncFor) -> None:
         """Track loop entry, analyze body, then exit."""
         self.loop_stack.append(node)
         self.in_loop = True
@@ -142,6 +142,10 @@ class PerformanceDetector(BaseDetector):
 
     def visit_For(self, node: ast.For) -> None:
         """Track when we're inside a for loop."""
+        self._visit_loop(node)
+
+    def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
+        """Track when we're inside an async for loop."""
         self._visit_loop(node)
 
     def visit_While(self, node: ast.While) -> None:
@@ -172,12 +176,16 @@ class PerformanceDetector(BaseDetector):
         """Return True if an expression initializes a string value."""
         return isinstance(node, ast.Constant) and isinstance(node.value, str)
 
-    def _check_loop_performance(self, loop_node: ast.For | ast.While) -> None:
+    def _check_loop_performance(
+        self, loop_node: ast.For | ast.While | ast.AsyncFor
+    ) -> None:
         """Check loop body for concatenation and duplicate call patterns."""
         self._check_string_concatenations(loop_node)
         self._check_duplicate_calls(loop_node)
 
-    def _check_string_concatenations(self, loop_node: ast.For | ast.While) -> None:
+    def _check_string_concatenations(
+        self, loop_node: ast.For | ast.While | ast.AsyncFor
+    ) -> None:
         """Report P001 when string += count meets threshold."""
         counter = _LoopBodyConcatCounter(
             self._is_suppressed_for_rule,
@@ -200,7 +208,9 @@ class PerformanceDetector(BaseDetector):
                 ),
             )
 
-    def _check_duplicate_calls(self, loop_node: ast.For | ast.While) -> None:
+    def _check_duplicate_calls(
+        self, loop_node: ast.For | ast.While | ast.AsyncFor
+    ) -> None:
         """Report P007 when identical calls repeat within a loop body."""
         counter = _LoopBodyCallCounter(self._is_suppressed_for_rule, "P007")
         counter.visit(loop_node)

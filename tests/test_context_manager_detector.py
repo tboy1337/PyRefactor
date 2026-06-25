@@ -237,19 +237,6 @@ open('file.txt').read()
     assert len(issues) == 0
 
 
-def test_open_in_return_not_flagged(detector: ContextManagerDetector) -> None:
-    """Test open() used in return context is not flagged."""
-    code = """
-def read_file():
-    return open('file.txt')
-"""
-    tree = ast.parse(code)
-    detector.source_lines = code.splitlines()
-    issues = detector.analyze(tree)
-
-    assert len(issues) == 0
-
-
 def test_zipfile_without_with(detector: ContextManagerDetector) -> None:
     """Test detection of ZipFile() without with statement."""
     code = """

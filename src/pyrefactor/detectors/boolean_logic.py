@@ -1,7 +1,6 @@
 """Boolean logic detector for PyRefactor."""
 
 import ast
-from typing import Union
 
 from ..ast_visitor import BaseDetector
 from ..models import Severity
@@ -68,8 +67,8 @@ class BooleanLogicDetector(BaseDetector):
             )
             return
 
-    def visit_FunctionDef(
-        self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]
+    def _visit_function_scope(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef
     ) -> None:
         """Track function context for early return detection."""
         old_function = self.current_function
@@ -77,9 +76,13 @@ class BooleanLogicDetector(BaseDetector):
         self.generic_visit(node)
         self.current_function = old_function
 
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        """Track function context for early return detection."""
+        self._visit_function_scope(node)
+
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         """Track async function context for early return detection."""
-        self.visit_FunctionDef(node)
+        self._visit_function_scope(node)
 
     def visit_If(self, node: ast.If) -> None:
         """Check for opportunities to use early returns."""

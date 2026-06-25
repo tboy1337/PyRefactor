@@ -17,11 +17,11 @@ A Python refactoring and optimization linter that uses AST analysis to identify 
 - **Complexity**: High cyclomatic complexity functions
 - **Performance**: String concatenation in loops (thresholded), repeated uncached calls in loops, inefficient operations
 - **Boolean Logic**: Overcomplicated boolean expressions
-- **Loops**: Index patterns, nested loops with lookups, loop-invariant calls (dict comprehensions are R010)
+- **Loops**: Index patterns, nested loops with lookups, loop-invariant calls
 - **Duplication**: Duplicate code blocks
 - **Context Manager**: Missing `with` statements for resource operations
 - **Control Flow**: Unnecessary `else` after `return`/`raise`/`break`/`continue`
-- **Dictionary Operations**: Non-idiomatic dict patterns, missing `.get()`, unnecessary `.keys()`
+- **Dictionary Operations**: Non-idiomatic dict patterns, missing `.get()`, unnecessary `.keys()`, dict comprehensions (R010)
 - **Comparisons**: Chained comparisons, singleton checks, `type()` vs `isinstance()`
 
 See [docs/RULES.md](docs/RULES.md) for the full rule catalog (C001–C006, P001–P007, B001/B004–B007, L001–L004, D001, R001–R016).
@@ -78,7 +78,7 @@ pyrefactor --config custom.toml src/
 
 - `-c, --config`: Configuration file path; when omitted, auto-discover `pyproject.toml` (`[tool.pyrefactor]`), then `pyrefactor.ini`, then built-in defaults
 - `-g, --group-by`: Group by `file` or `severity` (default: `file`)
-- `--min-severity`: Minimum severity to report: `info`, `low`, `medium`, `high` (default: `info`)
+- `--min-severity`: Minimum severity to report: `info`, `low`, `medium`, `high` (default: `info`). Also filters which issues count toward the exit code.
 - `-j, --jobs`: Number of parallel workers (default: 4)
 - `-v, --verbose`: Enable verbose logging
 - `--fail-on-parse-errors`: Exit with code 1 when any file has a syntax or parse error
@@ -86,9 +86,15 @@ pyrefactor --config custom.toml src/
 
 ### Exit Codes
 
-- `0` - No MEDIUM/HIGH severity issues (INFO/LOW only). Per-file syntax or parse errors are reported in output but do not change the exit code unless `--fail-on-parse-errors` is set.
-- `1` - MEDIUM/HIGH severity issues found, or parse errors when `--fail-on-parse-errors` is used
+Exit codes are computed **after** applying `--min-severity`. For example, `--min-severity high` can exit `0` even when MEDIUM issues exist, because those issues are filtered out before the exit code is determined.
+
+- `0` - No MEDIUM/HIGH severity issues remain after filtering (INFO/LOW only). Per-file syntax or parse errors are reported in output but do not change the exit code unless `--fail-on-parse-errors` is set.
+- `1` - MEDIUM/HIGH severity issues remain after filtering, or parse errors when `--fail-on-parse-errors` is used
 - `2` - Configuration, path, or orchestration error (invalid paths, missing config, no Python files to analyze)
+
+### Analysis Limits
+
+Files larger than **10 MB** are skipped with a parse-style error message. This limit is fixed and not configurable.
 
 ## Configuration
 
@@ -140,6 +146,8 @@ enabled = true
 Configuration is searched in: `--config` → `pyproject.toml` → `pyrefactor.ini` → defaults
 
 ### INI configuration (`pyrefactor.ini`)
+
+See the repository's [`pyrefactor.ini`](pyrefactor.ini) for a full annotated example with every detector section. A minimal example:
 
 ```ini
 [complexity]

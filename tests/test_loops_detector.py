@@ -4,6 +4,7 @@ import ast
 
 from pyrefactor.config import Config
 from pyrefactor.detectors.loops import LoopsDetector
+from pyrefactor.models import Severity
 
 
 class TestLoopsDetector:
@@ -44,7 +45,9 @@ for item in items:
         issues = detector.analyze(tree)
 
         assert len(issues) > 0
-        assert any(issue.rule_id == "L002" for issue in issues)
+        l002_issues = [issue for issue in issues if issue.rule_id == "L002"]
+        assert l002_issues
+        assert l002_issues[0].severity == Severity.INFO
         assert any("manual index" in issue.message.lower() for issue in issues)
 
     def test_nested_loops_with_lookups(self, default_config: Config) -> None:
