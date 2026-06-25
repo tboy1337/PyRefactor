@@ -62,7 +62,15 @@ enabled = true
 enabled = true
 ```
 
-The duplication detector also applies fixed scan limits (first 5,000 lines per file, block size up to 20 lines). See [RULES.md](RULES.md#duplication-d001).
+The duplication detector also applies fixed scan limits that are not configurable:
+
+| Limit | Value | Purpose |
+|-------|-------|---------|
+| `MAX_LINES_ANALYZED` | 5,000 | Only the first 5,000 lines of each file are scanned |
+| `MAX_BLOCK_SIZE` | 20 | Maximum duplicate block length in lines |
+| `MAX_BLOCKS_STORED` | 50,000 | Cap on stored code blocks per file (memory guard) |
+
+See [RULES.md](RULES.md#duplication-d001) for rule details.
 
 `exclude_patterns` uses glob-style patterns matched against file paths (POSIX-style, forward slashes).
 
@@ -114,6 +122,8 @@ Per-line suppressions are supported in source files:
 x = foo()  # pyrefactor: ignore C001
 y = bar()  # pyrefactor: ignore
 z = baz()  # noqa
+z = baz()  # noqa: R001
+z = baz()  # noqa: R001,P002
 ```
 
 See [RULES.md](RULES.md) for the full rule catalog and suppression syntax.

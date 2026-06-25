@@ -189,34 +189,21 @@ def _get_min_severity(severity_str: str) -> Severity:
     return SEVERITY_MAP[severity_str]
 
 
-def _filter_by_severity(result: AnalysisResult, min_severity: Severity) -> None:
-    """Filter issues by minimum severity in-place."""
-    for file_analysis in result.file_analyses:
-        file_analysis.issues = [
-            issue for issue in file_analysis.issues if issue.severity >= min_severity
-        ]
-
-
-def _has_critical_issues(result: AnalysisResult) -> bool:
-    """Check if result has HIGH or MEDIUM severity issues."""
-    return any(
+def _determine_exit_code(result: AnalysisResult, *, fail_on_parse_errors: bool) -> int:
+    """Return the CLI exit code for an analysis result."""
+    if any(
         issue.severity in (Severity.HIGH, Severity.MEDIUM)
         for issue in result.get_all_issues()
-    )
+    ):
+        return 1
+    if fail_on_parse_errors and _has_parse_errors(result):
+        return 1
+    return 0
 
 
 def _has_parse_errors(result: AnalysisResult) -> bool:
     """Check if any analyzed file has a parse error."""
     return any(analysis.parse_error is not None for analysis in result.file_analyses)
-
-
-def _determine_exit_code(result: AnalysisResult, *, fail_on_parse_errors: bool) -> int:
-    """Return the CLI exit code for an analysis result."""
-    if _has_critical_issues(result):
-        return 1
-    if fail_on_parse_errors and _has_parse_errors(result):
-        return 1
-    return 0
 
 
 def main() -> int:
@@ -257,16 +244,18 @@ def main() -> int:
             logger.error("No Python files found to analyze")
         return 2
 
-    # Filter by minimum severity
+    # Filter by minimum severity without mutating the original result
     min_severity = _get_min_severity(args.min_severity)
-    _filter_by_severity(result, min_severity)
+    filtered_result = result.filtered(min_severity)
 
     # Report results
     reporter = ConsoleReporter()
-    reporter.report(result, group_by=args.group_by)
+    reporter.report(filtered_result, group_by=args.group_by)
 
     # Determine exit code
-    return _determine_exit_code(result, fail_on_parse_errors=args.fail_on_parse_errors)
+    return _determine_exit_code(
+        filtered_result, fail_on_parse_errors=args.fail_on_parse_errors
+    )
 
 
 if __name__ == "__main__":

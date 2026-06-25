@@ -35,7 +35,7 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit test / coverage reports
+# Coverage reports
 htmlcov/
 .tox/
 .nox/
@@ -44,6 +44,7 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+coverage.json
 *.cover
 *.py,cover
 .pytest_cache/
@@ -206,12 +207,6 @@ temp/
 config.ini
 .secrets
 secrets.json
-
-# Coverage reports
-htmlcov/
-.coverage
-coverage.xml
-coverage.json
 
 # Pylint report
 pylint-report.txt

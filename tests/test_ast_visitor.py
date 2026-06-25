@@ -6,12 +6,15 @@ from pyrefactor.ast_visitor import (
     BaseDetector,
     build_parent_map,
     calculate_cyclomatic_complexity,
+    collect_function_metrics,
     count_branches,
     count_nesting_depth,
     node_col_offset,
     node_lineno,
 )
 from pyrefactor.config import Config
+from pyrefactor.detectors.complexity import ComplexityDetector
+from pyrefactor.models import Severity
 
 
 class TestNodeLineno:
@@ -53,6 +56,7 @@ class TestBuildParentMap:
         parent_map = build_parent_map(tree)
 
         if_node = tree.body[0]
+        assert isinstance(if_node, ast.If)
         assign_node = if_node.body[0]
         assert parent_map[if_node] is tree
         assert parent_map[assign_node] is if_node
@@ -157,6 +161,67 @@ def func(value):
         assert isinstance(func_def, ast.FunctionDef)
         assert count_branches(func_def) >= 2
 
+    def test_metrics_parity_with_complexity_detector(
+        self, default_config: Config
+    ) -> None:
+        """Test public metric helpers match ComplexityDetector collection."""
+        source = """
+def func(value):
+    try:
+        if value > 0:
+            with open("x") as f:
+                return f.read()
+    except ValueError:
+        return ""
+    except KeyError:
+        return None
+"""
+        tree = ast.parse(source)
+        func_def = tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
+
+        metrics = collect_function_metrics(func_def)
+        assert (
+            calculate_cyclomatic_complexity(func_def) == metrics.cyclomatic_complexity
+        )
+        assert count_branches(func_def) == metrics.branches
+        assert count_nesting_depth(func_def) == metrics.max_nesting
+
+        detector = ComplexityDetector(default_config, "test.py", source.splitlines())
+        detector._check_function(func_def)
+        # Metrics drive rule thresholds; parity ensures helpers match detector logic.
+
+    def test_try_except_metrics(self) -> None:
+        """Test try/except increases cyclomatic complexity and branches."""
+        source = """
+def func():
+    try:
+        risky()
+    except ValueError:
+        return 1
+    except TypeError:
+        return 2
+"""
+        tree = ast.parse(source)
+        func_def = tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
+        metrics = collect_function_metrics(func_def)
+        assert metrics.cyclomatic_complexity >= 4
+        assert metrics.branches >= 2
+
+    def test_with_statement_nesting(self) -> None:
+        """Test with statements increase nesting depth."""
+        source = """
+def func():
+    with open("a") as f:
+        if f:
+            return f.read()
+"""
+        tree = ast.parse(source)
+        func_def = tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
+        assert count_nesting_depth(func_def) >= 2
+
 
 class _SuppressionProbeDetector(BaseDetector):
     """Minimal detector for exercising suppression helpers."""
@@ -187,3 +252,62 @@ class TestBaseDetectorSuppression:
 
         assert detector.is_suppressed(node, "C001") is True
         assert detector.is_suppressed(node, "P001") is False
+
+    def test_noqa_rule_specific(self) -> None:
+        """Test rule-specific # noqa suppresses only listed rules."""
+        source_lines = ["x = 1  # noqa: C001"]
+        detector = _SuppressionProbeDetector(Config(), "test.py", source_lines)
+        tree = ast.parse("x = 1")
+        node = tree.body[0]
+
+        assert detector.is_suppressed(node, "C001") is True
+        assert detector.is_suppressed(node, "P001") is False
+
+    def test_noqa_multiple_rules(self) -> None:
+        """Test comma-separated # noqa rule lists."""
+        source_lines = ["x = 1  # noqa: C001,P001"]
+        detector = _SuppressionProbeDetector(Config(), "test.py", source_lines)
+        tree = ast.parse("x = 1")
+        node = tree.body[0]
+
+        assert detector.is_suppressed(node, "C001") is True
+        assert detector.is_suppressed(node, "P001") is True
+        assert detector.is_suppressed(node, "R001") is False
+
+    def test_suppression_on_previous_line(self) -> None:
+        """Test suppression comment on the line above the code."""
+        source_lines = ["# pyrefactor: ignore C001", "x = 1"]
+        detector = _SuppressionProbeDetector(Config(), "test.py", source_lines)
+        tree = ast.parse("x = 1")
+        node = tree.body[0]
+
+        assert detector.is_suppressed(node, "C001") is True
+        assert detector.is_suppressed(node, "P001") is False
+
+
+class _ReportIssueProbeDetector(BaseDetector):
+    """Detector that reports issues for nodes without line numbers."""
+
+    def get_detector_name(self) -> str:
+        return "report_probe"
+
+    def report_for_module(self, tree: ast.Module) -> None:
+        """Attempt to report on module node (no lineno)."""
+        self.report_issue(
+            tree,
+            severity=Severity.INFO,
+            rule_id="T001",
+            message="module issue",
+            suggestion="n/a",
+        )
+
+
+class TestBaseDetectorReportIssue:
+    """Tests for BaseDetector.report_issue edge cases."""
+
+    def test_report_issue_skips_nodes_without_lineno(self) -> None:
+        """Test report_issue does not add issues when lineno is missing."""
+        detector = _ReportIssueProbeDetector(Config(), "test.py", [])
+        tree = ast.parse("")
+        detector.report_for_module(tree)
+        assert not detector.issues

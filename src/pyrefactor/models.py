@@ -105,3 +105,21 @@ class AnalysisResult:
     def files_with_issues(self) -> int:
         """Get count of files that have issues."""
         return sum(1 for analysis in self.file_analyses if analysis.issues)
+
+    def filtered(self, min_severity: Severity) -> "AnalysisResult":
+        """Return a shallow copy with issues below min_severity removed."""
+        filtered_analyses: list[FileAnalysis] = []
+        for analysis in self.file_analyses:
+            filtered_issues = [
+                issue for issue in analysis.issues if issue.severity >= min_severity
+            ]
+            filtered_analyses.append(
+                FileAnalysis(
+                    file_path=analysis.file_path,
+                    issues=filtered_issues,
+                    warnings=list(analysis.warnings),
+                    parse_error=analysis.parse_error,
+                    lines_of_code=analysis.lines_of_code,
+                )
+            )
+        return AnalysisResult(file_analyses=filtered_analyses)

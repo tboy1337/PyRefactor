@@ -368,3 +368,36 @@ class TestAnalysisResult:
         high_issues = result.get_issues_by_severity(Severity.HIGH)
         assert len(high_issues) == 1
         assert high_issues[0].rule_id == "T001"
+
+    def test_filtered_returns_copy_without_mutating_original(self) -> None:
+        """Test filtered() returns a new result and leaves the original intact."""
+        result = AnalysisResult()
+
+        analysis = FileAnalysis(file_path="test.py")
+        analysis.add_issue(
+            Issue(
+                file="test.py",
+                line=1,
+                column=0,
+                severity=Severity.LOW,
+                rule_id="T001",
+                message="Low",
+            )
+        )
+        analysis.add_issue(
+            Issue(
+                file="test.py",
+                line=2,
+                column=0,
+                severity=Severity.HIGH,
+                rule_id="T002",
+                message="High",
+            )
+        )
+        result.add_file_analysis(analysis)
+
+        filtered = result.filtered(Severity.HIGH)
+
+        assert result.total_issues() == 2
+        assert filtered.total_issues() == 1
+        assert filtered.get_all_issues()[0].rule_id == "T002"

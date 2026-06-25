@@ -613,6 +613,7 @@ for a, b in my_dict.keys():
 
     assert len(issues) == 1
     assert issues[0].rule_id == "R009"
+    assert issues[0].suggestion is not None
     assert "for item in my_dict:" in issues[0].suggestion
 
 

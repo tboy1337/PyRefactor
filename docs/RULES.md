@@ -57,7 +57,7 @@ L003 flags nested loops that contain `in` / `not in` membership tests or subscri
 |------|----------|-------------|
 | D001 | MEDIUM | Similar duplicate code block detected in the same file |
 
-For performance, the duplication detector scans at most the first **5,000 lines** of each file and compares blocks up to **20 lines** long. These limits are fixed in the implementation and are not configurable.
+For performance, the duplication detector scans at most the first **5,000 lines** of each file, compares blocks up to **20 lines** long, and stores at most **50,000** code blocks per file. These limits are fixed in the implementation and are not configurable.
 
 ## Context Manager (R001)
 
@@ -110,7 +110,7 @@ x = 1  # pyrefactor: ignore R001, R002
 y = 2
 ```
 
-`# noqa` is also accepted (suppresses all rules on that line).
+`# noqa` is also accepted. A bare `# noqa` suppresses all rules on that line; rule-specific suppression uses `# noqa: R001` or `# noqa: R001,P002` (comma-separated).
 
 ## Exit Codes
 

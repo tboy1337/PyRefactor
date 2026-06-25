@@ -502,7 +502,10 @@ if isinstance(value, int) or isinstance(value, float):
     issues = detector.analyze(tree)
 
     assert any(issue.rule_id == "R013" for issue in issues)
-    assert any("isinstance" in issue.suggestion for issue in issues)
+    assert any(
+        issue.suggestion is not None and "isinstance" in issue.suggestion
+        for issue in issues
+    )
 
 
 def test_consecutive_isinstance_different_objects_not_flagged(
@@ -616,6 +619,7 @@ if x != True:
 
     assert len(issues) == 1
     assert issues[0].rule_id == "R015"
+    assert issues[0].suggestion is not None
     assert "not x" in issues[0].suggestion
 
 
@@ -631,6 +635,7 @@ if x == False:
 
     assert len(issues) == 1
     assert issues[0].rule_id == "R015"
+    assert issues[0].suggestion is not None
     assert "not x" in issues[0].suggestion
 
 

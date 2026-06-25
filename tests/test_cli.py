@@ -171,6 +171,45 @@ class TestCLIMain:
             exit_code = main()
             assert exit_code == 0
 
+    def test_main_does_not_mutate_analysis_result(self, tmp_path: Path) -> None:
+        """Test main leaves the original AnalysisResult issue lists unchanged."""
+        file_path = tmp_path / "test.py"
+        file_path.write_text("if x == True:\n    pass")
+
+        original_result = AnalysisResult()
+        file_analysis = FileAnalysis(file_path=str(file_path))
+        file_analysis.add_issue(
+            Issue(
+                file=str(file_path),
+                line=1,
+                column=0,
+                severity=Severity.INFO,
+                rule_id="R011",
+                message="info issue",
+            )
+        )
+        file_analysis.add_issue(
+            Issue(
+                file=str(file_path),
+                line=1,
+                column=0,
+                severity=Severity.HIGH,
+                rule_id="C004",
+                message="high issue",
+            )
+        )
+        original_result.add_file_analysis(file_analysis)
+
+        with patch.object(
+            sys, "argv", ["pyrefactor", "--min-severity", "high", str(file_path)]
+        ):
+            with patch.object(Analyzer, "analyze_files", return_value=original_result):
+                exit_code = main()
+
+        assert exit_code == 1
+        assert original_result.total_issues() == 2
+        assert len(original_result.file_analyses[0].issues) == 2
+
     def test_main_with_missing_config(self, tmp_path: Path) -> None:
         """Test main exits with error when explicit config file is missing."""
         file_path = tmp_path / "test.py"

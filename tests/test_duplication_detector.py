@@ -1,6 +1,9 @@
 """Tests for duplication detector."""
 
 import ast
+from pathlib import Path
+
+import pytest
 
 from pyrefactor.config import Config
 from pyrefactor.detectors.duplication import DuplicationDetector
@@ -374,11 +377,15 @@ def func2():
 
         assert any(issue.rule_id == "D001" for issue in issues)
 
-    def test_max_lines_analyzed_boundary(self, default_config: Config) -> None:
+    def test_max_lines_analyzed_boundary(
+        self, default_config: Config, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test duplication detector only scans the first MAX_LINES_ANALYZED lines."""
         from pyrefactor.detectors.duplication import DuplicationDetector as DupDet
 
-        filler = "\n".join(f"_line_{i} = {i}" for i in range(DupDet.MAX_LINES_ANALYZED))
+        max_lines = 50
+        monkeypatch.setattr(DupDet, "MAX_LINES_ANALYZED", max_lines)
+        filler = "\n".join(f"_line_{i} = {i}" for i in range(max_lines))
         duplicate_block = """
 def func1():
     a = 1
