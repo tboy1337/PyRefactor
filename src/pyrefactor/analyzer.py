@@ -148,12 +148,14 @@ class Analyzer:
                 TypeError,
                 AttributeError,
             ) as e:
+                detector_name = detector.get_detector_name()
                 logger.error(
                     "Error running %s on %s: %s",
-                    detector.get_detector_name(),
+                    detector_name,
                     file_path,
                     e,
                 )
+                analysis.add_warning(f"Detector {detector_name} failed: {e}")
 
     def analyze_directory(
         self, directory: Path, max_workers: int = 4
@@ -210,6 +212,8 @@ class Analyzer:
                 result.add_file_analysis(self.analyze_file(file_path))
             return result
 
+        completed_analyses: list[FileAnalysis] = []
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
             future_to_file = {
                 executor.submit(self.analyze_file, file_path): file_path
@@ -219,11 +223,10 @@ class Analyzer:
             for future in concurrent.futures.as_completed(future_to_file):
                 file_path = future_to_file[future]
                 try:
-                    analysis = future.result()
-                    result.add_file_analysis(analysis)
+                    completed_analyses.append(future.result())
                 except _ANALYSIS_ERRORS as e:
                     logger.error("Error analyzing %s: %s", file_path, e)
-                    result.add_file_analysis(
+                    completed_analyses.append(
                         FileAnalysis(
                             file_path=str(file_path),
                             parse_error=f"Analysis failed: {e}",
@@ -231,13 +234,14 @@ class Analyzer:
                     )
                 except Exception:
                     logger.exception("Unexpected error analyzing %s", file_path)
-                    result.add_file_analysis(
+                    completed_analyses.append(
                         FileAnalysis(
                             file_path=str(file_path),
                             parse_error="Analysis failed: unexpected error",
                         )
                     )
 
+        result.file_analyses.extend(completed_analyses)
         return result
 
     def _is_excluded(self, file_path: Path) -> bool:

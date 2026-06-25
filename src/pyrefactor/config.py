@@ -490,9 +490,7 @@ class Config:
     def from_toml_file(cls, config_path: Path) -> "Config":
         """Load configuration from a TOML file."""
         if not config_path.is_file():
-            config = cls()
-            config.validate()
-            return config
+            raise ValueError(f"Configuration file not found: {config_path}")
 
         try:
             with config_path.open("rb") as config_file:
@@ -510,9 +508,7 @@ class Config:
     def from_ini_file(cls, config_path: Path) -> "Config":
         """Load configuration from an INI file."""
         if not config_path.is_file():
-            config = cls()
-            config.validate()
-            return config
+            raise ValueError(f"Configuration file not found: {config_path}")
 
         try:
             parser = configparser.ConfigParser()

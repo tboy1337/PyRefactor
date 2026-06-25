@@ -115,6 +115,24 @@ class TestConsoleReporter:
         assert "Parse error" in output_text
         assert "Files with parse errors: 1" in output_text
 
+    def test_report_analysis_warnings(self) -> None:
+        """Test reporting non-fatal analysis warnings."""
+        output = StringIO()
+        reporter = ConsoleReporter(output=output)
+
+        analysis = FileAnalysis(file_path="test.py")
+        analysis.add_warning("Detector complexity failed: boom")
+
+        result = AnalysisResult()
+        result.add_file_analysis(analysis)
+
+        reporter.report(result)
+
+        output_text = output.getvalue()
+        assert "test.py" in output_text
+        assert "Warning: Detector complexity failed: boom" in output_text
+        assert "Analysis warnings: 1" in output_text
+
     def test_lazy_colorama_initialization(self) -> None:
         """Test colorama is initialized on first reporter use."""
         from unittest.mock import patch
@@ -234,6 +252,28 @@ class TestConsoleReporter:
 
         reporter.report(result)
         assert "x = 1" in output.getvalue()
+
+    def test_print_handles_unicode_encode_error(self) -> None:
+        """Test reporter replaces unencodable output on narrow encodings."""
+        from unittest.mock import MagicMock, patch
+
+        narrow_stdout = MagicMock()
+        narrow_stdout.encoding = "ascii"
+
+        call_count = 0
+
+        def _raise_once(message: str, *, file: object) -> None:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise UnicodeEncodeError("ascii", "x", 0, 1, "ordinal not in range")
+            print(message, file=narrow_stdout)
+
+        reporter = ConsoleReporter(output=narrow_stdout)
+        with patch("pyrefactor.reporter.print", side_effect=_raise_once):
+            reporter._print("test ⚠ message")
+
+        assert call_count == 2
 
     def test_stdout_utf8_fallback_uses_ascii_icons(self) -> None:
         """Test reporter falls back to ASCII icons when UTF-8 setup fails."""

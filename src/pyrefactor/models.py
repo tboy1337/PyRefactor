@@ -53,8 +53,13 @@ class FileAnalysis:
 
     file_path: str
     issues: list[Issue] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
     parse_error: Optional[str] = None
     lines_of_code: int = 0
+
+    def add_warning(self, message: str) -> None:
+        """Add a non-fatal warning to the analysis results."""
+        self.warnings.append(message)
 
     def add_issue(self, issue: Issue) -> None:
         """Add an issue to the analysis results."""

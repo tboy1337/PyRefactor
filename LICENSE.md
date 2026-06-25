@@ -2,7 +2,7 @@
 
 **Version 1.1**
 
-**Copyright (c) 2025 tboy1337**
+**Copyright (c) 2026 tboy1337**
 
 ## Grant of Rights
 

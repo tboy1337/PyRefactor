@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyrefactor"
-version = "1.0.13"
+version = "1.0.14"
 description = "A Python refactoring and optimization linter that analyzes code for performance issues, complexity problems, and opportunities for improvement"
 authors = [{name = "tboy1337"}]
 maintainers = [{name = "tboy1337"}]
@@ -29,7 +29,7 @@ keywords = [
     "cyclomatic-complexity",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: Other/Proprietary License",
     "Operating System :: OS Independent",
@@ -61,7 +61,6 @@ dev = [
     "pytest",
     "pytest-timeout",
     "pytest-xdist",
-    "pytest-mock",
     "pytest-cov",
     "pylint",
     "mypy",

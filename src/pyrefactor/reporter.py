@@ -20,6 +20,15 @@ def _issue_file_line(issue: Issue) -> tuple[str, int]:
     return (issue.file, issue.line)
 
 
+def _output_encoding(output: TextIO) -> str:
+    """Return a usable encoding name for the output stream."""
+    if isinstance(output, io.TextIOWrapper):
+        wrapper_encoding = output.encoding
+        if wrapper_encoding is not None:
+            return wrapper_encoding
+    return "ascii"
+
+
 class _ColoramaInitializer:
     """One-time colorama initialization for console output."""
 
@@ -107,11 +116,17 @@ class ConsoleReporter:
                 self._print(f"  Parse error: {analysis.parse_error}")
                 continue
 
-            if not analysis.issues:
+            if not analysis.issues and not analysis.warnings:
                 continue
 
             # Print file header
             self._print(f"\n{Fore.CYAN}{analysis.file_path}{Style.RESET_ALL}")
+
+            for warning in analysis.warnings:
+                self._print(f"  {Fore.YELLOW}⚠ Warning: {warning}{Style.RESET_ALL}")
+
+            if not analysis.issues:
+                continue
 
             # Sort issues by line number
             sorted_issues = sorted(analysis.issues, key=_issue_line)
@@ -179,6 +194,11 @@ class ConsoleReporter:
             1 for analysis in result.file_analyses if analysis.parse_error is not None
         )
 
+    @staticmethod
+    def _count_warnings(result: AnalysisResult) -> int:
+        """Return the total number of analysis warnings."""
+        return sum(len(analysis.warnings) for analysis in result.file_analyses)
+
     def _print_summary(self, result: AnalysisResult) -> None:
         """Print summary statistics."""
         self._print(f"\n{Fore.YELLOW}{'=' * 70}{Style.RESET_ALL}")
@@ -189,11 +209,14 @@ class ConsoleReporter:
         files_analyzed = result.files_analyzed()
         files_with_issues = result.files_with_issues()
         files_with_parse_errors = self._count_parse_errors(result)
+        total_warnings = self._count_warnings(result)
 
         self._print(f"\nFiles analyzed: {files_analyzed}")
         self._print(f"Files with issues: {files_with_issues}")
         if files_with_parse_errors > 0:
             self._print(f"Files with parse errors: {files_with_parse_errors}")
+        if total_warnings > 0:
+            self._print(f"Analysis warnings: {total_warnings}")
         self._print(f"Total issues: {total_issues}")
 
         if total_issues > 0:
@@ -232,4 +255,9 @@ class ConsoleReporter:
 
     def _print(self, message: str) -> None:
         """Print a message to output."""
-        print(message, file=self.output)
+        try:
+            print(message, file=self.output)
+        except UnicodeEncodeError:
+            encoding = _output_encoding(self.output)
+            safe_message = message.encode(encoding, errors="replace").decode(encoding)
+            print(safe_message, file=self.output)

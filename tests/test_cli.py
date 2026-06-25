@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from pyrefactor.__main__ import main, parse_arguments
 from pyrefactor.analyzer import Analyzer
+from pyrefactor.models import AnalysisResult, FileAnalysis
 
 
 class TestCLI:
@@ -155,6 +156,70 @@ class TestCLIMain:
         ):
             exit_code = main()
             assert exit_code == 0
+
+    def test_main_with_missing_config(self, tmp_path: Path) -> None:
+        """Test main exits with error when explicit config file is missing."""
+        file_path = tmp_path / "test.py"
+        file_path.write_text("def func(): pass")
+
+        missing_config = tmp_path / "missing.toml"
+
+        with patch.object(
+            sys,
+            "argv",
+            ["pyrefactor", "--config", str(missing_config), str(file_path)],
+        ):
+            exit_code = main()
+
+            assert exit_code == 2
+
+    def test_main_passes_jobs_to_analyzer(self, tmp_path: Path) -> None:
+        """Test main forwards --jobs to Analyzer.analyze_files."""
+        file_path = tmp_path / "test.py"
+        file_path.write_text("def func(): pass")
+
+        with patch.object(sys, "argv", ["pyrefactor", "-j", "6", str(file_path)]):
+            with patch.object(Analyzer, "analyze_files") as mock_analyze:
+                result = AnalysisResult()
+                result.add_file_analysis(FileAnalysis(file_path=str(file_path)))
+                mock_analyze.return_value = result
+                exit_code = main()
+
+            assert exit_code == 0
+            mock_analyze.assert_called_once()
+            assert mock_analyze.call_args.kwargs["max_workers"] == 6
+
+    def test_main_subprocess_clean_file(self, tmp_path: Path) -> None:
+        """Test subprocess analyze exits 0 for clean file."""
+        file_path = tmp_path / "clean.py"
+        file_path.write_text("def add(a: int, b: int) -> int:\n    return a + b\n")
+
+        result = subprocess.run(
+            [sys.executable, "-m", "pyrefactor", str(file_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+
+        assert result.returncode == 0
+
+    def test_main_subprocess_file_with_issues(self, tmp_path: Path) -> None:
+        """Test subprocess analyze exits 1 when medium/high issues exist."""
+        file_path = tmp_path / "issues.py"
+        code = "\n".join([f"    x = {i}" for i in range(60)])
+        file_path.write_text(f"def long_func():\n{code}\n    return x\n")
+
+        result = subprocess.run(
+            [sys.executable, "-m", "pyrefactor", str(file_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+
+        assert result.returncode == 1
+        assert "C001" in result.stdout
 
     def test_main_with_invalid_config(self, tmp_path: Path) -> None:
         """Test main with invalid config file."""

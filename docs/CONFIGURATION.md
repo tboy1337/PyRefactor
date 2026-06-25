@@ -13,6 +13,8 @@ When you run `pyrefactor`, configuration is loaded in this order:
 
 After loading, all values are validated. Invalid settings (negative thresholds, out-of-range similarity, and so on) raise an error at startup.
 
+When you pass `--config`, the path must exist. A missing explicit config file raises an error instead of silently falling back to defaults. Auto-discovery still uses built-in defaults only when no config file is found in the search order above.
+
 ## TOML Format (`pyproject.toml`)
 
 Add a `[tool.pyrefactor]` section to your project's `pyproject.toml`:

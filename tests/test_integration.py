@@ -94,26 +94,21 @@ def duplicate_b():
         # Verify issues were detected
         assert len(analysis.issues) > 0
 
-        # Check for different types of issues
         rule_ids = {issue.rule_id for issue in analysis.issues}
-
-        # Should have complexity issues
-        assert any(rule_id.startswith("C") for rule_id in rule_ids)
-
-        # Should have boolean logic issues
-        assert any(rule_id.startswith("B") for rule_id in rule_ids)
-
-        # Should have performance issues
-        assert any(rule_id.startswith("P") for rule_id in rule_ids)
-
-        # Should have loop issues
-        assert any(rule_id.startswith("L") for rule_id in rule_ids)
-
-        # Should have duplication issues
-        assert any(rule_id.startswith("D") for rule_id in rule_ids)
-
-        # Should have refactoring issues (context manager, control flow, dict, comparisons)
-        assert any(rule_id.startswith("R") for rule_id in rule_ids)
+        expected_rules = {
+            "B001",
+            "C003",
+            "C004",
+            "C005",
+            "D001",
+            "L001",
+            "P001",
+            "P007",
+            "R001",
+            "R002",
+            "R015",
+        }
+        assert expected_rules.issubset(rule_ids)
 
     def test_multi_file_analysis(self, tmp_path: Path) -> None:
         """Test analyzing multiple files."""
@@ -141,6 +136,13 @@ def simple2():
 
         # At least one file should have issues
         assert result.files_with_issues() >= 1
+
+        file3_analysis = next(
+            analysis
+            for analysis in result.file_analyses
+            if analysis.file_path.endswith("file3.py")
+        )
+        assert any(issue.rule_id == "C001" for issue in file3_analysis.issues)
 
     def test_real_world_scenario(self, tmp_path: Path) -> None:
         """Test a real-world-like scenario."""

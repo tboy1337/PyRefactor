@@ -114,13 +114,11 @@ max_arguments = 0
             Config.from_file(config_file)
 
     def test_load_nonexistent_file(self, tmp_path: Path) -> None:
-        """Test loading from nonexistent file."""
+        """Test loading from nonexistent file raises an error."""
         config_file = tmp_path / "nonexistent.ini"
 
-        config = Config.from_file(config_file)
-
-        # Should return default config
-        assert config.complexity.max_branches == 10
+        with pytest.raises(ValueError, match="Configuration file not found"):
+            Config.from_file(config_file)
 
     def test_load_ini_duplication_and_boolean_sections(self, tmp_path: Path) -> None:
         """Test loading duplication and boolean_logic INI sections."""
@@ -363,12 +361,11 @@ exclude_patterns = "build, dist, vendor"
         assert config.exclude_patterns == ["build", "dist", "vendor"]
 
     def test_load_nonexistent_toml_file(self, tmp_path: Path) -> None:
-        """Test loading from nonexistent TOML file returns defaults."""
+        """Test loading from nonexistent TOML file raises an error."""
         config_file = tmp_path / "nonexistent.toml"
 
-        config = Config.from_file(config_file)
-
-        assert config.complexity.max_branches == 10
+        with pytest.raises(ValueError, match="Configuration file not found"):
+            Config.from_file(config_file)
 
     def test_validate_rejects_negative_max_branches(self) -> None:
         """Test validation rejects negative complexity thresholds."""

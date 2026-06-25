@@ -157,3 +157,10 @@ class TestVersion:
         expected.write_text('[project]\nversion = "1.2.3"\n', encoding="utf-8")
 
         assert _pyproject_path() == expected
+
+    def test_py_typed_marker_exists_in_package(self) -> None:
+        """PEP 561 marker is present in the source package layout."""
+        import pyrefactor
+
+        package_dir = Path(pyrefactor.__file__).resolve().parent
+        assert (package_dir / "py.typed").is_file()

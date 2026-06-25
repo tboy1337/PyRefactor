@@ -455,6 +455,8 @@ class TestAnalyzerEdgeCases:
 
         assert analysis.parse_error is None
         assert analysis.issues == []
+        assert len(analysis.warnings) == 1
+        assert "complexity failed" in analysis.warnings[0]
 
     def test_parallel_future_failure(
         self, default_config: Config, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

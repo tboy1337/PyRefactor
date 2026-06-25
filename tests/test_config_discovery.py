@@ -76,3 +76,22 @@ max_branches = 9
 
         with pytest.raises(ValueError, match="Error loading configuration"):
             Config.from_toml_file(config_file)
+
+    def test_load_pyproject_preferred_over_ini(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test Config.load prefers pyproject.toml over pyrefactor.ini."""
+        monkeypatch.chdir(tmp_path)
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text("""
+[tool.pyrefactor.complexity]
+max_branches = 12
+""")
+        ini_file = tmp_path / "pyrefactor.ini"
+        ini_file.write_text("""
+[complexity]
+max_branches = 99
+""")
+
+        config = Config.load()
+        assert config.complexity.max_branches == 12
