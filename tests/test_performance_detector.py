@@ -75,7 +75,30 @@ if len(items) == 0:
         issues = detector.analyze(tree)
 
         assert len(issues) > 0
-        assert any(issue.rule_id == "P006" for issue in issues)
+        p006_issues = [issue for issue in issues if issue.rule_id == "P006"]
+        assert p006_issues
+        suggestion = p006_issues[0].suggestion
+        assert suggestion is not None
+        assert "not container" in suggestion
+
+    def test_len_not_equals_zero(self, default_config: Config) -> None:
+        """Test detection of len() != 0 pattern with correct suggestion."""
+        source = """
+if len(items) != 0:
+    pass
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert len(issues) > 0
+        p006_issues = [issue for issue in issues if issue.rule_id == "P006"]
+        assert p006_issues
+        assert "!= 0" in p006_issues[0].message
+        suggestion = p006_issues[0].suggestion
+        assert suggestion is not None
+        assert "if container:" in suggestion
 
     def test_redundant_list_conversion(self, default_config: Config) -> None:
         """Test detection of redundant list() conversion."""

@@ -130,8 +130,9 @@ def func1():
     z = 3
     result = x + y + z
     return result
-# pyrefactor: ignore
+
 def func2():
+    # pyrefactor: ignore
     x = 1
     y = 2
     z = 3
@@ -333,8 +334,8 @@ def func1():
     result = x + y + z
     return result
 
-# pyrefactor: ignore D001
 def func2():
+    # pyrefactor: ignore D001
     x = 1
     y = 2
     z = 3
@@ -413,6 +414,7 @@ def func2():
         issues = detector.analyze(tree)
 
         assert not any(issue.rule_id == "D001" for issue in issues)
+        assert any("lines" in warning for warning in detector.analysis_warnings)
 
     def test_max_block_size_boundary(
         self, default_config: Config, monkeypatch: pytest.MonkeyPatch
@@ -493,6 +495,7 @@ def duplicate_b():
         issues = detector.analyze(tree)
 
         assert not any(issue.rule_id == "D001" for issue in issues)
+        assert any("blocks" in warning for warning in detector.analysis_warnings)
 
     def test_tuple_literal_exclusion(self, default_config: Config) -> None:
         """Test tuple literals are excluded from duplication detection."""

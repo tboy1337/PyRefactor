@@ -81,6 +81,7 @@ class AnalysisResult:
     """Overall analysis results for multiple files."""
 
     file_analyses: list[FileAnalysis] = field(default_factory=list)
+    excluded_file_count: int = 0
 
     def add_file_analysis(self, analysis: FileAnalysis) -> None:
         """Add a file analysis to the results."""

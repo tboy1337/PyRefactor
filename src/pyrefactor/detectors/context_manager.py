@@ -42,7 +42,7 @@ class ContextManagerDetector(BaseDetector):
     def analyze(self, tree: ast.AST) -> list[Issue]:
         """Run the detector on an AST and return issues found."""
         self._reset_state()
-        self.parent_map = build_parent_map(tree)
+        self.parent_map = self.shared_parent_map or build_parent_map(tree)
         self.visit(tree)
         return self.issues
 
@@ -86,10 +86,6 @@ class ContextManagerDetector(BaseDetector):
 
     def visit_Assign(self, node: ast.Assign) -> None:
         """Check for resource-allocating assignments."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         # Check if the value is a context manager call
         if isinstance(node.value, ast.Call) and self._is_context_manager_call(
             node.value
@@ -100,10 +96,6 @@ class ContextManagerDetector(BaseDetector):
 
     def visit_Expr(self, node: ast.Expr) -> None:
         """Check for context manager calls used as statements without assignment."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         # Check if the expression contains a context manager call (could be chained)
         cm_call = self._find_context_manager_call(node.value)
         if cm_call:

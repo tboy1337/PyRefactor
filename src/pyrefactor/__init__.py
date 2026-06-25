@@ -3,6 +3,7 @@
 from pyrefactor._version import get_version
 from pyrefactor.analyzer import Analyzer
 from pyrefactor.config import Config
+from pyrefactor.json_reporter import JsonReporter
 from pyrefactor.models import AnalysisResult, FileAnalysis, Issue, Severity
 from pyrefactor.reporter import ConsoleReporter
 
@@ -13,6 +14,7 @@ __all__ = [
     "AnalysisResult",
     "Config",
     "ConsoleReporter",
+    "JsonReporter",
     "FileAnalysis",
     "Issue",
     "Severity",

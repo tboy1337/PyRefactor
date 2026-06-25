@@ -144,7 +144,7 @@ def func(value):
         assert calculate_cyclomatic_complexity(func_def) >= 2
 
     def test_try_star_increases_branch_count(self) -> None:
-        """Test except* handlers are counted as branches."""
+        """Test except* handlers are counted once, matching regular try."""
         source = """
 def func():
     try:
@@ -157,7 +157,27 @@ def func():
         tree = ast.parse(source)
         func_def = tree.body[0]
         assert isinstance(func_def, ast.FunctionDef)
-        assert count_branches(func_def) >= 2
+        try_star_metrics = collect_function_metrics(func_def)
+
+        regular_try_source = """
+def func():
+    try:
+        raise ValueError()
+    except ValueError:
+        return 1
+    except KeyError:
+        return 2
+"""
+        regular_tree = ast.parse(regular_try_source)
+        regular_func = regular_tree.body[0]
+        assert isinstance(regular_func, ast.FunctionDef)
+        regular_metrics = collect_function_metrics(regular_func)
+
+        assert try_star_metrics.branches == regular_metrics.branches
+        assert (
+            try_star_metrics.cyclomatic_complexity
+            == regular_metrics.cyclomatic_complexity
+        )
 
     def test_match_cases_counted_as_branches(self) -> None:
         """Test match/case statements are counted as branches."""
@@ -173,6 +193,20 @@ def func(value):
         func_def = tree.body[0]
         assert isinstance(func_def, ast.FunctionDef)
         assert count_branches(func_def) >= 2
+
+    def test_tuple_unpacking_counts_local_variables(self) -> None:
+        """Test tuple unpacking increments local variable metrics."""
+        source = """
+def func(items):
+    a, b = items
+    for x, y in items:
+        pass
+"""
+        tree = ast.parse(source)
+        func_def = tree.body[0]
+        assert isinstance(func_def, ast.FunctionDef)
+        metrics = collect_function_metrics(func_def)
+        assert {"a", "b", "x", "y"}.issubset(metrics.local_vars)
 
     def test_metrics_parity_with_complexity_detector(
         self, default_config: Config

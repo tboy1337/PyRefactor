@@ -16,10 +16,6 @@ class DictOperationsDetector(BaseDetector):
 
     def visit_If(self, node: ast.If) -> None:
         """Check for dict.get() opportunities."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         # Pattern: if key in dict: x = dict[key] else: x = default
         self._check_dict_get_pattern(node)
 
@@ -162,10 +158,6 @@ class DictOperationsDetector(BaseDetector):
 
     def visit_Compare(self, node: ast.Compare) -> None:
         """Check for unnecessary .keys() in membership tests."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         self._check_unnecessary_keys_membership(node)
         self.generic_visit(node)
 
@@ -198,10 +190,6 @@ class DictOperationsDetector(BaseDetector):
 
     def visit_For(self, node: ast.For) -> None:
         """Check for dictionary iteration improvements."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         # Check for .keys() that should be removed
         self._check_unnecessary_keys(node)
 
@@ -294,10 +282,6 @@ class DictOperationsDetector(BaseDetector):
 
     def visit_Call(self, node: ast.Call) -> None:
         """Check for dict comprehension opportunities."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         # Pattern: dict([(k, v) for ...]) or dict([...])
         self._check_dict_comprehension(node)
 

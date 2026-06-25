@@ -22,10 +22,6 @@ class ControlFlowDetector(BaseDetector):
 
     def visit_If(self, node: ast.If) -> None:
         """Check for unnecessary else clauses."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         self._check_unnecessary_else(node)
         self.generic_visit(node)
 
@@ -131,9 +127,25 @@ class ControlFlowDetector(BaseDetector):
         if isinstance(last_stmt, ast.If):
             return self._get_if_terminator_type(last_stmt)
 
+        if isinstance(last_stmt, ast.Try):
+            return self._get_try_terminator_type(last_stmt)
+
         if isinstance(last_stmt, ast.Match):
             return self._get_match_terminator_type(last_stmt)
 
+        return ""
+
+    def _get_try_terminator_type(self, node: ast.Try) -> str:
+        """Get terminator type from a try when all paths terminate."""
+        if not self._try_always_terminates(node):
+            return ""
+        terminator = self._get_terminator_type(node.body)
+        if terminator:
+            return terminator
+        for handler in node.handlers:
+            terminator = self._get_terminator_type(handler.body)
+            if terminator:
+                return terminator
         return ""
 
     def _report_unnecessary_else(

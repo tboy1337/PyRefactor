@@ -14,6 +14,9 @@ _NOQA_RULES_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Number of source lines above an issue line to check for suppression comments.
+SUPPRESSION_LOOKBACK = 1
+
 
 def node_lineno(node: ast.AST) -> int | None:
     """Return a valid 1-based line number for an AST node, or None."""
@@ -34,6 +37,19 @@ def build_parent_map(tree: ast.AST) -> dict[ast.AST, ast.AST]:
         for child in ast.iter_child_nodes(parent):
             parent_map[child] = parent
     return parent_map
+
+
+def collect_store_names(target: ast.AST) -> set[str]:
+    """Collect variable names assigned via an assignment target."""
+    names: set[str] = set()
+    if isinstance(target, ast.Name) and isinstance(target.ctx, ast.Store):
+        names.add(target.id)
+    elif isinstance(target, (ast.Tuple, ast.List)):
+        for element in target.elts:
+            names.update(collect_store_names(element))
+    elif isinstance(target, ast.Starred):
+        names.update(collect_store_names(target.value))
+    return names
 
 
 @dataclass
@@ -80,6 +96,30 @@ class FunctionMetricsVisitor(ast.NodeVisitor):
             self.local_vars.add(name_node.id)
         self.generic_visit(name_node)
 
+    def visit_Assign(self, node: ast.Assign) -> None:
+        """Track tuple and multi-target assignments."""
+        for target in node.targets:
+            self.local_vars.update(collect_store_names(target))
+        self.generic_visit(node)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        """Track annotated assignments."""
+        if node.target is not None:
+            self.local_vars.update(collect_store_names(node.target))
+        self.generic_visit(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        """Count for loops and track loop target variables."""
+        self.local_vars.update(collect_store_names(node.target))
+        self.branches += 1
+        self._increment_complexity_and_visit_nested(node)
+
+    def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
+        """Count async for loops and track loop target variables."""
+        self.local_vars.update(collect_store_names(node.target))
+        self.branches += 1
+        self._increment_complexity_and_visit_nested(node)
+
     def visit_If(self, node: ast.If) -> None:
         """Count if branches, nesting, and cyclomatic complexity."""
         self.branches += 1
@@ -88,27 +128,23 @@ class FunctionMetricsVisitor(ast.NodeVisitor):
                 self.branches += 1
         self._increment_complexity_and_visit_nested(node)
 
-    def visit_For(self, node: ast.For) -> None:
-        """Count for loops."""
-        self.branches += 1
-        self._increment_complexity_and_visit_nested(node)
-
-    def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
-        """Count async for loops."""
-        self.branches += 1
-        self._increment_complexity_and_visit_nested(node)
-
     def visit_While(self, node: ast.While) -> None:
         """Count while loops."""
         self.branches += 1
         self._increment_complexity_and_visit_nested(node)
 
     def visit_With(self, node: ast.With) -> None:
-        """Count with statements."""
+        """Count with statements and track context manager targets."""
+        for item in node.items:
+            if item.optional_vars is not None:
+                self.local_vars.update(collect_store_names(item.optional_vars))
         self._increment_complexity_and_visit_nested(node)
 
     def visit_AsyncWith(self, node: ast.AsyncWith) -> None:
-        """Count async with statements."""
+        """Count async with statements and track context manager targets."""
+        for item in node.items:
+            if item.optional_vars is not None:
+                self.local_vars.update(collect_store_names(item.optional_vars))
         self._increment_complexity_and_visit_nested(node)
 
     def visit_Try(self, node: ast.Try) -> None:
@@ -116,9 +152,7 @@ class FunctionMetricsVisitor(ast.NodeVisitor):
         self._increment_complexity_and_visit_nested(node)
 
     def visit_TryStar(self, node: ast.TryStar) -> None:
-        """Count try* blocks and handlers."""
-        self.branches += len(node.handlers)
-        self.complexity += len(node.handlers)
+        """Count try* blocks."""
         self._increment_complexity_and_visit_nested(node)
 
     def visit_Match(self, node: ast.Match) -> None:
@@ -128,7 +162,11 @@ class FunctionMetricsVisitor(ast.NodeVisitor):
         self._increment_complexity_and_visit_nested(node)
 
     def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
-        """Count exception handlers."""
+        """Count exception handlers and track exception target variables."""
+        if isinstance(node.name, str):
+            self.local_vars.add(node.name)
+        elif node.name is not None:
+            self.local_vars.update(collect_store_names(node.name))
         self.branches += 1
         self.complexity += 1
         self.generic_visit(node)
@@ -200,7 +238,9 @@ class BaseDetector(ast.NodeVisitor, ABC):
         self.file_path = file_path
         self.source_lines = source_lines
         self.issues: list[Issue] = []
+        self.analysis_warnings: list[str] = []
         self.current_function: Union[ast.FunctionDef, ast.AsyncFunctionDef, None] = None
+        self.shared_parent_map: dict[ast.AST, ast.AST] | None = None
 
     @abstractmethod
     def get_detector_name(self) -> str:
@@ -257,13 +297,12 @@ class BaseDetector(ast.NodeVisitor, ABC):
         if lineno is None:
             return False
 
-        line = self.get_source_line(lineno)
-        if self._line_suppresses(line, rule_id):
-            return True
-
-        if lineno > 1:
-            prev_line = self.get_source_line(lineno - 1)
-            if self._line_suppresses(prev_line, rule_id):
+        for offset in range(SUPPRESSION_LOOKBACK + 1):
+            check_line = lineno - offset
+            if check_line < 1:
+                break
+            line = self.get_source_line(check_line)
+            if self._line_suppresses(line, rule_id):
                 return True
 
         return False
@@ -313,5 +352,6 @@ class BaseDetector(ast.NodeVisitor, ABC):
     def analyze(self, tree: ast.AST) -> list[Issue]:
         """Run the detector on an AST and return issues found."""
         self.issues = []
+        self.analysis_warnings = []
         self.visit(tree)
         return self.issues

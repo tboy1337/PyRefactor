@@ -23,7 +23,7 @@ Configurable thresholds live under `[tool.pyrefactor.complexity]` or `[complexit
 | P002 | LOW | List `+=` concatenation inside a loop |
 | P004 | INFO | Redundant `list()` around a list comprehension |
 | P005 | INFO | Use truthiness instead of `len(x) > 0` |
-| P006 | INFO | Use truthiness instead of `len(x) == 0` |
+| P006 | INFO | Use truthiness instead of `len(x) == 0` or `len(x) != 0` |
 | P007 | MEDIUM | Repeated identical call expressions inside a loop |
 
 P001 uses naming heuristics (variable names ending in `str`/`s` or containing `str`) and tracks variables initialized with string constants; it may miss renamed string variables or flag non-string list targets. P002 flags list `+=` in loops by type/name heuristics. P003 was removed; dict `.keys()` membership is covered by R009.
@@ -49,7 +49,9 @@ B002/B003 are intentionally not used; boolean `== True`/`== False` checks are re
 | L003 | MEDIUM | Deeply nested loops with membership or subscript lookups |
 | L004 | MEDIUM | Loop-invariant expensive call inside loop body |
 
-L003 flags nested loops that contain `in` / `not in` membership tests or subscript lookups (e.g. `cache[key]`), not arbitrary equality comparisons.
+L003 flags nested loops that contain `in` / `not in` membership tests or subscript lookups (e.g. `cache[key]`), not arbitrary equality comparisons. Nested loops inside inner function definitions are not counted toward L003 depth.
+
+While-loop-specific rules are not implemented yet; `while` loops are still analyzed for patterns shared with `for` loops where applicable.
 
 ## Duplication (D001)
 
@@ -57,7 +59,9 @@ L003 flags nested loops that contain `in` / `not in` membership tests or subscri
 |------|----------|-------------|
 | D001 | MEDIUM | Similar duplicate code block detected in the same file |
 
-For performance, the duplication detector scans at most the first **5,000 lines** of each file, compares blocks up to **20 lines** long, and stores at most **50,000** code blocks per file. These limits are fixed in the implementation and are not configurable.
+For performance, the duplication detector scans at most the first **5,000 lines** of each file, compares blocks up to **20 lines** long, and stores at most **50,000** code blocks per file. These limits are fixed in the implementation and are not configurable. When a limit is reached, PyRefactor emits a file-level warning and results may be incomplete.
+
+Similarity uses a Jaccard score over normalized token sets, so token order and multiplicity are not preserved. This can miss ordered duplicates or match shuffled token sets with high overlap.
 
 ## Context Manager (R001)
 
@@ -100,7 +104,7 @@ R008 is reserved and not currently implemented.
 
 ## Suppression
 
-Suppress a finding on the same line or the line above:
+Suppress a finding on the same line or up to **one line above** (`SUPPRESSION_LOOKBACK = 1`):
 
 ```python
 x = 1  # pyrefactor: ignore
@@ -118,9 +122,9 @@ Exit codes are computed **after** applying `--min-severity`. Issues below the mi
 
 | Code | Meaning |
 |------|---------|
-| 0 | No MEDIUM/HIGH issues remain after the severity filter. Per-file syntax/parse errors are reported but exit 0 unless `--fail-on-parse-errors` is set. |
-| 1 | One or more MEDIUM/HIGH issues remain after the severity filter, or any parse error when `--fail-on-parse-errors` is set |
-| 2 | Configuration, path, or orchestration error (invalid paths, no Python files to analyze) |
+| 0 | No issues remain at or above `--min-severity`. Per-file syntax/parse errors are reported but exit 0 unless `--fail-on-parse-errors` is set. |
+| 1 | One or more issues remain at or above `--min-severity`, or any parse error when `--fail-on-parse-errors` is set |
+| 2 | Configuration, path, or orchestration error (invalid paths, no Python files to analyze, or all files excluded by patterns) |
 
 ## Analysis Limits
 

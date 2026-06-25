@@ -86,18 +86,31 @@ class ComplexityDetector(BaseDetector):
         self._check_nesting_depth(node, metrics.max_nesting)
         self._check_cyclomatic_complexity(node, metrics.cyclomatic_complexity)
 
+    def _function_end_lineno(
+        self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]
+    ) -> int | None:
+        """Return the end line of a function, with fallback from body span."""
+        end_lineno = cast(Optional[int], getattr(node, "end_lineno", None))
+        if end_lineno is not None:
+            return end_lineno
+        if not node.body:
+            return node_lineno(node)
+        last_stmt = node.body[-1]
+        last_end = cast(Optional[int], getattr(last_stmt, "end_lineno", None))
+        if last_end is not None:
+            return last_end
+        return node_lineno(last_stmt)
+
     def _check_function_length(
         self, node: Union[ast.FunctionDef, ast.AsyncFunctionDef]
     ) -> None:
         """Check if function is too long."""
-        if not hasattr(node, "lineno") or not hasattr(node, "end_lineno"):
+        start_lineno = node_lineno(node)
+        end_lineno = self._function_end_lineno(node)
+        if start_lineno is None or end_lineno is None:
             return
 
-        end_lineno = cast(Optional[int], getattr(node, "end_lineno", None))
-        if end_lineno is None:
-            return
-
-        function_lines = end_lineno - node.lineno + 1
+        function_lines = end_lineno - start_lineno + 1
         max_lines = self.config.complexity.max_function_lines
 
         if function_lines > max_lines:

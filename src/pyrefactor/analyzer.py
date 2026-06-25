@@ -7,7 +7,7 @@ import logging
 import os
 from pathlib import Path, PurePosixPath
 
-from .ast_visitor import BaseDetector
+from .ast_visitor import BaseDetector, build_parent_map
 from .config import Config
 from .detectors import (
     BooleanLogicDetector,
@@ -148,11 +148,15 @@ class Analyzer:
         file_path: Path,
     ) -> None:
         """Run all detectors and collect issues."""
+        parent_map = build_parent_map(tree)
         for detector in detectors:
+            detector.shared_parent_map = parent_map
             try:
                 issues = detector.analyze(tree)
                 for issue in issues:
                     analysis.add_issue(issue)
+                for warning in detector.analysis_warnings:
+                    analysis.add_warning(warning)
             except (
                 RecursionError,
                 MemoryError,
@@ -193,7 +197,9 @@ class Analyzer:
             return result
 
         python_files = _iter_python_files(directory)
+        excluded_count = sum(1 for path in python_files if self._is_excluded(path))
         python_files = self._filter_excluded_files(python_files)
+        result.excluded_file_count = excluded_count
 
         if not python_files:
             logger.warning("No Python files found in %s", directory)
@@ -201,45 +207,67 @@ class Analyzer:
 
         return self._analyze_paths_parallel(python_files, max_workers, result)
 
-    def _collect_python_file(self, file_path: Path) -> Path | None:
-        """Return a Python file path to analyze, or None if skipped."""
+    def _collect_python_file(self, file_path: Path) -> tuple[Path | None, bool]:
+        """Return a Python file path to analyze, or None if skipped.
+
+        The bool is True when the file was excluded by configuration patterns.
+        """
         if file_path.suffix != ".py":
             logger.warning("Skipping non-Python file: %s", file_path)
-            return None
+            return None, False
         if self._is_excluded(file_path):
-            return None
-        return file_path
+            return None, True
+        return file_path, False
 
-    def _collect_directory_files(self, directory: Path) -> list[Path]:
-        """Collect analyzable Python files from a directory."""
-        return [
-            path
-            for path in _iter_python_files(directory)
-            if not self._is_excluded(path)
-        ]
+    def _collect_directory_files(self, directory: Path) -> tuple[list[Path], int]:
+        """Collect analyzable Python files from a directory.
 
-    def _collect_paths_to_analyze(self, file_paths: list[Path]) -> list[Path]:
+        Returns the file list and the number of excluded files.
+        """
+        paths: list[Path] = []
+        excluded_count = 0
+        for path in _iter_python_files(directory):
+            if self._is_excluded(path):
+                excluded_count += 1
+            else:
+                paths.append(path)
+        return paths, excluded_count
+
+    def _collect_input_path(self, file_path: Path) -> tuple[list[Path], int]:
+        """Collect analyzable paths from a single file or directory input."""
+        if file_path.is_file():
+            collected, excluded = self._collect_python_file(file_path)
+            if excluded:
+                return [], 1
+            if collected is None:
+                return [], 0
+            return [collected], 0
+
+        if file_path.is_dir():
+            return self._collect_directory_files(file_path)
+
+        logger.debug("Skipping path that is not a file or directory: %s", file_path)
+        return [], 0
+
+    def _collect_paths_to_analyze(
+        self, file_paths: list[Path]
+    ) -> tuple[list[Path], int]:
         """Expand files and directories into a flat list of Python files."""
         paths_to_analyze: list[Path] = []
+        excluded_count = 0
         for file_path in file_paths:
-            if file_path.is_file():
-                collected = self._collect_python_file(file_path)
-                if collected is not None:
-                    paths_to_analyze.append(collected)
-            elif file_path.is_dir():
-                paths_to_analyze.extend(self._collect_directory_files(file_path))
-            else:
-                logger.debug(
-                    "Skipping path that is not a file or directory: %s", file_path
-                )
-        return paths_to_analyze
+            collected_paths, path_excluded = self._collect_input_path(file_path)
+            paths_to_analyze.extend(collected_paths)
+            excluded_count += path_excluded
+        return paths_to_analyze, excluded_count
 
     def analyze_files(
         self, file_paths: list[Path], max_workers: int = 4
     ) -> AnalysisResult:
         """Analyze a list of Python files and directories."""
         result = AnalysisResult()
-        paths_to_analyze = self._collect_paths_to_analyze(file_paths)
+        paths_to_analyze, excluded_count = self._collect_paths_to_analyze(file_paths)
+        result.excluded_file_count = excluded_count
 
         if not paths_to_analyze:
             return result

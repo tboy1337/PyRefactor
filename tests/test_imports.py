@@ -10,6 +10,7 @@ def test_public_api_imports() -> None:
         ConsoleReporter,
         FileAnalysis,
         Issue,
+        JsonReporter,
         Severity,
         __version__,
     )
@@ -19,6 +20,7 @@ def test_public_api_imports() -> None:
     assert Analyzer is not None
     assert Config is not None
     assert ConsoleReporter is not None
+    assert JsonReporter is not None
     assert AnalysisResult is not None
     assert FileAnalysis is not None
     assert Issue is not None

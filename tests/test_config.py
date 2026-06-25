@@ -58,6 +58,18 @@ enabled = false
         assert config.complexity.max_nesting_depth == 4
         assert config.performance.enabled is False
 
+    def test_load_explicit_config_path(self, tmp_path: Path) -> None:
+        """Test Config.load with an explicit configuration path."""
+        config_file = tmp_path / "custom.toml"
+        config_file.write_text("""
+[tool.pyrefactor.complexity]
+max_branches = 9
+""".strip())
+
+        config = Config.load(config_file)
+
+        assert config.complexity.max_branches == 9
+
     def test_load_from_toml_file(self, tmp_path: Path) -> None:
         """Test loading from a TOML configuration file."""
         config_file = tmp_path / "pyproject.toml"

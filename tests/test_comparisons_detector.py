@@ -703,3 +703,19 @@ result = foo()  # pyrefactor: ignore
     issues = detector.analyze(tree)
 
     assert isinstance(issues, list)
+
+
+def test_rule_specific_noqa_does_not_suppress_other_rules(
+    detector: ComparisonsDetector,
+) -> None:
+    """Test rule-specific noqa suppresses only the listed rule on a BoolOp."""
+    code = """
+if x == 1 or x == 2 or flag == True:  # noqa: R011
+    pass
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R011" for issue in issues)
+    assert any(issue.rule_id == "R015" for issue in issues)

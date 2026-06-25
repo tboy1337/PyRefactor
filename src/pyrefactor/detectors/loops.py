@@ -114,10 +114,6 @@ class LoopsDetector(BaseDetector):
 
     def _visit_for_loop(self, node: ast.For | ast.AsyncFor) -> None:
         """Run loop checks shared by for and async for."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         self._check_range_len_pattern(node)
         self._check_manual_index_tracking(node)
         self._check_nested_loop_optimization(node)
@@ -205,14 +201,22 @@ class LoopsDetector(BaseDetector):
     ) -> int:
         """Return the maximum nesting depth of for/async-for loops under node."""
         max_depth = depth
-        for child in ast.walk(node):
-            if child is node:
-                continue
-            if isinstance(child, (ast.For, ast.AsyncFor)):
-                max_depth = max(
-                    max_depth, self._max_nested_loop_depth(child, depth + 1)
-                )
+        for stmt in node.body:
+            max_depth = max(max_depth, self._loop_depth_in_scope(stmt, depth + 1))
         return max_depth
+
+    def _loop_depth_in_scope(self, node: ast.AST, depth: int) -> int:
+        """Count nested loop depth within a statement, excluding nested functions."""
+        if isinstance(node, (ast.For, ast.AsyncFor)):
+            return self._max_nested_loop_depth(node, depth)
+        if isinstance(
+            node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+        ):
+            return 0
+        max_found = 0
+        for child in ast.iter_child_nodes(node):
+            max_found = max(max_found, self._loop_depth_in_scope(child, depth))
+        return max_found
 
     def _has_comparison_in_loops(self, node: ast.For | ast.AsyncFor) -> bool:
         """Check if nested loops contain membership or subscript lookups."""
@@ -274,9 +278,5 @@ class LoopsDetector(BaseDetector):
 
     def visit_While(self, node: ast.While) -> None:
         """Check while loops for optimization opportunities."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         # Could add while-loop specific checks here
         self.generic_visit(node)

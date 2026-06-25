@@ -580,10 +580,12 @@ class Config:
             try:
                 with pyproject.open("rb") as config_file:
                     data = tomllib.load(config_file)
-            except (OSError, tomllib.TOMLDecodeError):
+            except (OSError, tomllib.TOMLDecodeError) as exc:
                 logger.warning(
-                    "Failed to read or parse %s; falling back to pyrefactor.ini or defaults",
-                    pyproject,
+                    "Failed to read or parse %s (%s); "
+                    "using pyrefactor.ini or built-in defaults instead",
+                    pyproject.resolve(),
+                    exc,
                 )
             else:
                 if cls._has_pyrefactor_config(data):

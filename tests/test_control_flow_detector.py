@@ -364,3 +364,22 @@ def func(x):
     issues = detector.analyze(tree)
 
     assert not any(issue.rule_id == "R002" for issue in issues)
+
+
+def test_unnecessary_else_after_try_return(detector: ControlFlowDetector) -> None:
+    """Test unnecessary outer else when try/except always returns."""
+    code = """
+def func(x):
+    if x > 0:
+        try:
+            return handle(x)
+        except ValueError:
+            return None
+    else:
+        return 0
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert any(issue.rule_id == "R002" for issue in issues)

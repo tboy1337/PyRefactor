@@ -1,5 +1,6 @@
 """Tests for CLI."""
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -156,13 +157,12 @@ class TestCLIMain:
         file_path = tmp_path / "test.py"
         file_path.write_text("if x == True:\n    pass")
 
-        # With default settings, should show INFO issues
+        # With default settings, INFO issues are reported and affect exit code
         with patch.object(sys, "argv", ["pyrefactor", str(file_path)]):
             exit_code = main()
-            # Info issues don't cause non-zero exit
-            assert exit_code == 0
+            assert exit_code == 1
 
-        # With high minimum severity, should show nothing
+        # With high minimum severity, filtered issues are empty
         with patch.object(
             sys,
             "argv",
@@ -540,3 +540,71 @@ class TestCLIExitCodeHelpers:
 
         assert _determine_exit_code(result, fail_on_parse_errors=False) == 1
         assert _determine_exit_code(result, fail_on_parse_errors=True) == 1
+
+    def test_main_subprocess_json_output(self, tmp_path: Path) -> None:
+        """Test --format json writes valid JSON to stdout."""
+        file_path = tmp_path / "clean.py"
+        file_path.write_text("def func():\n    return 1\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pyrefactor",
+                str(file_path),
+                "--format",
+                "json",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 0
+        payload = json.loads(result.stdout)
+        assert payload["summary"]["files_analyzed"] == 1
+        assert payload["files"][0]["path"].endswith("clean.py")
+
+    def test_main_subprocess_group_by_file(self, tmp_path: Path) -> None:
+        """Test default file grouping in text output."""
+        file_path = tmp_path / "sample.py"
+        file_path.write_text("f = open('x.txt')\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pyrefactor",
+                str(file_path),
+                "--group-by",
+                "file",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 1
+        assert "sample.py" in result.stdout
+        assert "R001" in result.stdout
+
+    def test_main_all_files_excluded(self, tmp_path: Path) -> None:
+        """Test exit code 2 when every Python file is excluded."""
+        config_file = tmp_path / "pyrefactor.ini"
+        config_file.write_text("[general]\nexclude_patterns = *.py\n")
+        file_path = tmp_path / "main.py"
+        file_path.write_text("def func(): pass\n", encoding="utf-8")
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "pyrefactor",
+                "--config",
+                str(config_file),
+                str(file_path),
+            ],
+        ):
+            exit_code = main()
+
+        assert exit_code == 2

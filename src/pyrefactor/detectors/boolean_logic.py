@@ -17,10 +17,6 @@ class BooleanLogicDetector(BaseDetector):
 
     def visit_BoolOp(self, node: ast.BoolOp) -> None:
         """Check for complex boolean operations."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         operator_count = self._count_operators(node)
         max_operators = self.config.boolean_logic.max_boolean_operators
 
@@ -40,10 +36,6 @@ class BooleanLogicDetector(BaseDetector):
 
     def visit_Compare(self, node: ast.Compare) -> None:
         """Check for redundant boolean comparisons."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         self._check_boolean_singleton_comparison(node)
         self.generic_visit(node)
 
@@ -86,10 +78,6 @@ class BooleanLogicDetector(BaseDetector):
 
     def visit_If(self, node: ast.If) -> None:
         """Check for opportunities to use early returns."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         if self.current_function:
             self._check_early_return_opportunity(node)
 
@@ -126,10 +114,6 @@ class BooleanLogicDetector(BaseDetector):
 
     def visit_UnaryOp(self, node: ast.UnaryOp) -> None:
         """Check for De Morgan's law opportunities."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         if isinstance(node.op, ast.Not) and isinstance(node.operand, ast.BoolOp):
             if isinstance(node.operand.op, (ast.And, ast.Or)):
                 rule_id, suggestion = (

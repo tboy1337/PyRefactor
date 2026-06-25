@@ -67,6 +67,9 @@ pyrefactor --min-severity medium src/
 # Group by severity level
 pyrefactor --group-by severity src/
 
+# Machine-readable JSON output for CI and tooling
+pyrefactor --format json src/
+
 # Use more workers for faster analysis
 pyrefactor --jobs 8 src/
 
@@ -77,7 +80,8 @@ pyrefactor --config custom.toml src/
 ### Options
 
 - `-c, --config`: Configuration file path; when omitted, auto-discover `pyproject.toml` (`[tool.pyrefactor]`), then `pyrefactor.ini`, then built-in defaults
-- `-g, --group-by`: Group by `file` or `severity` (default: `file`)
+- `-g, --group-by`: Group text output by `file` or `severity` (default: `file`)
+- `--format`: Output format: `text` (default) or `json`
 - `--min-severity`: Minimum severity to report: `info`, `low`, `medium`, `high` (default: `info`). Also filters which issues count toward the exit code.
 - `-j, --jobs`: Number of parallel workers (default: 4)
 - `-v, --verbose`: Enable verbose logging
@@ -86,11 +90,11 @@ pyrefactor --config custom.toml src/
 
 ### Exit Codes
 
-Exit codes are computed **after** applying `--min-severity`. For example, `--min-severity high` can exit `0` even when MEDIUM issues exist, because those issues are filtered out before the exit code is determined.
+Exit codes are computed **after** applying `--min-severity`. For example, `--min-severity high` exits `0` when only MEDIUM issues exist, because those issues are filtered out before the exit code is determined.
 
-- `0` - No MEDIUM/HIGH severity issues remain after filtering (INFO/LOW only). Per-file syntax or parse errors are reported in output but do not change the exit code unless `--fail-on-parse-errors` is set.
-- `1` - MEDIUM/HIGH severity issues remain after filtering, or parse errors when `--fail-on-parse-errors` is used
-- `2` - Configuration, path, or orchestration error (invalid paths, missing config, no Python files to analyze)
+- `0` - No issues remain at or above `--min-severity`. Per-file syntax or parse errors are reported in output but do not change the exit code unless `--fail-on-parse-errors` is set.
+- `1` - One or more issues remain at or above `--min-severity`, or parse errors when `--fail-on-parse-errors` is used
+- `2` - Configuration, path, or orchestration error (invalid paths, missing config, no Python files to analyze, or all files excluded by patterns)
 
 ### Analysis Limits
 

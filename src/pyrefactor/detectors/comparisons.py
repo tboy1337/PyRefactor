@@ -19,10 +19,6 @@ class ComparisonsDetector(BaseDetector):
 
     def visit_BoolOp(self, node: ast.BoolOp) -> None:
         """Check for patterns that could use 'in' operator or chained comparisons."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         # Check for multiple equality comparisons
         if isinstance(node.op, ast.Or):
             self._check_consider_using_in(node)
@@ -182,10 +178,6 @@ class ComparisonsDetector(BaseDetector):
 
     def visit_Compare(self, node: ast.Compare) -> None:
         """Check for singleton comparisons and type checks."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         self._check_singleton_comparison(node)
         self._check_unidiomatic_typecheck(node)
 

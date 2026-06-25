@@ -7,7 +7,7 @@ from io import StringIO
 from operator import itemgetter
 from typing import Optional, cast
 
-from ..ast_visitor import BaseDetector
+from ..ast_visitor import SUPPRESSION_LOOKBACK, BaseDetector
 from ..config import Config
 from ..models import Issue, Severity
 
@@ -111,6 +111,8 @@ class DuplicationDetector(BaseDetector):
         self.excluded_ranges: list[tuple[int, int]] = []
         self._normalization_cache: dict[str, str] = {}
         self._blocks_stored = 0
+        self._line_limit_reached = False
+        self._block_limit_reached = False
 
     def get_detector_name(self) -> str:
         """Return the name of this detector."""
@@ -119,10 +121,13 @@ class DuplicationDetector(BaseDetector):
     def _reset_state(self) -> None:
         """Reset per-analysis state."""
         self.issues = []
+        self.analysis_warnings = []
         self.code_blocks = {}
         self.excluded_ranges = []
         self._normalization_cache = {}
         self._blocks_stored = 0
+        self._line_limit_reached = False
+        self._block_limit_reached = False
 
     def analyze(self, tree: ast.AST) -> list[Issue]:
         """Run duplication detection on the entire file."""
@@ -135,8 +140,22 @@ class DuplicationDetector(BaseDetector):
 
         # Finally, find duplicates
         self._find_duplicates()
+        self._add_limit_warnings()
 
         return self.issues
+
+    def _add_limit_warnings(self) -> None:
+        """Emit warnings when duplication scan limits are reached."""
+        if self._line_limit_reached:
+            self.analysis_warnings.append(
+                f"Duplication scan truncated at {self.MAX_LINES_ANALYZED} lines; "
+                "results may be incomplete"
+            )
+        if self._block_limit_reached:
+            self.analysis_warnings.append(
+                f"Duplication scan truncated at {self.MAX_BLOCKS_STORED} blocks; "
+                "results may be incomplete"
+            )
 
     def _identify_excluded_ranges(self, tree: ast.AST) -> None:
         """Identify line ranges that should be excluded from duplication detection.
@@ -171,10 +190,14 @@ class DuplicationDetector(BaseDetector):
     def _extract_code_blocks(self) -> None:
         """Extract code blocks for comparison."""
         min_lines = self.config.duplication.min_duplicate_lines
-        total_lines = min(len(self.source_lines), self.MAX_LINES_ANALYZED)
+        source_line_count = len(self.source_lines)
+        total_lines = min(source_line_count, self.MAX_LINES_ANALYZED)
+        if source_line_count > self.MAX_LINES_ANALYZED:
+            self._line_limit_reached = True
 
         for start in range(total_lines):
             if self._blocks_stored >= self.MAX_BLOCKS_STORED:
+                self._block_limit_reached = True
                 break
             max_length = min(self.MAX_BLOCK_SIZE, total_lines - start)
             for length in range(min_lines, max_length + 1):
@@ -265,7 +288,7 @@ class DuplicationDetector(BaseDetector):
         if line < 1 or line > len(self.source_lines):
             return False
 
-        for offset in range(4):
+        for offset in range(SUPPRESSION_LOOKBACK + 1):
             check_line = line - offset
             if check_line < 1:
                 break

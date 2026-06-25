@@ -132,7 +132,7 @@ class PerformanceDetector(BaseDetector):
     def analyze(self, tree: ast.AST) -> list[Issue]:
         """Run the detector on an AST and return issues found."""
         self._reset_state()
-        self.parent_map = build_parent_map(tree)
+        self.parent_map = self.shared_parent_map or build_parent_map(tree)
         self.visit(tree)
         return self.issues
 
@@ -243,30 +243,19 @@ class PerformanceDetector(BaseDetector):
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         """Check for inefficient augmented assignments in loops."""
-        if not self.in_loop or self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
-        if not isinstance(node.op, ast.Add):
-            self.generic_visit(node)
-            return
-
-        if self._matches_type_hint(node.target, "list"):
-            self.report_issue(
-                node,
-                severity=Severity.LOW,
-                rule_id="P002",
-                message="List concatenation in loop using += may be inefficient",
-                suggestion="Use list.extend() or list comprehension for better performance",
-            )
+        if self.in_loop and isinstance(node.op, ast.Add):
+            if self._matches_type_hint(node.target, "list"):
+                self.report_issue(
+                    node,
+                    severity=Severity.LOW,
+                    rule_id="P002",
+                    message="List concatenation in loop using += may be inefficient",
+                    suggestion="Use list.extend() or list comprehension for better performance",
+                )
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
         """Check for inefficient function calls."""
-        if self.is_suppressed(node):
-            self.generic_visit(node)
-            return
-
         self._check_redundant_list_conversion(node)
         self._check_len_usage(node)
 
@@ -325,10 +314,16 @@ class PerformanceDetector(BaseDetector):
                 "Use 'if container:' instead of 'if len(container) > 0:'",
             ),
             (
-                (ast.Eq, ast.NotEq),
+                (ast.Eq,),
                 "P006",
                 "Use truthiness instead of len() == 0",
                 "Use 'if not container:' instead of 'if len(container) == 0:'",
+            ),
+            (
+                (ast.NotEq,),
+                "P006",
+                "Use truthiness instead of len() != 0",
+                "Use 'if container:' instead of 'if len(container) != 0:'",
             ),
         ]
         for op_types, rule_id, message, suggestion in len_truthiness_rules:

@@ -118,6 +118,7 @@ class TestAnalyzer:
         result = analyzer.analyze_directory(tmp_path)
 
         assert result.files_analyzed() == 1
+        assert result.excluded_file_count == 1
         assert all("main.py" in a.file_path for a in result.file_analyses)
         assert not any("test_file.py" in a.file_path for a in result.file_analyses)
 

@@ -198,8 +198,8 @@ def duplicate_logic2():
 
         # Should detect multiple issue types
         rule_ids = {issue.rule_id for issue in analysis.issues}
-        expected_rules = {"P001", "P005", "P006", "C002", "D001"}
-        assert expected_rules & rule_ids
+        expected_rules = {"P005", "C002", "C005", "D001"}
+        assert expected_rules.issubset(rule_ids)
 
         # Check severity distribution
         severities = {issue.severity for issue in analysis.issues}
@@ -314,6 +314,8 @@ for i in range(len(items)):
             if issue.rule_id.startswith(rule_prefix)
         ]
         assert enabled_rules
+        if detector_attr == "duplication":
+            assert "D001" in enabled_rules
 
         disabled_config = Config()
         getattr(disabled_config, detector_attr).enabled = False

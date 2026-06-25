@@ -348,3 +348,25 @@ for item in list1:
         issues = detector.analyze(tree)
 
         assert not any(issue.rule_id == "L003" for issue in issues)
+
+    def test_nested_function_loops_do_not_inflate_l003(
+        self, default_config: Config
+    ) -> None:
+        """Test loops inside nested functions are excluded from L003 depth."""
+        source = """
+lookup = set()
+for item in outer:
+    for other in inner:
+        def helper():
+            for deep in nested:
+                for deeper in more:
+                    if deeper in lookup:
+                        pass
+        helper()
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "L003" for issue in issues)

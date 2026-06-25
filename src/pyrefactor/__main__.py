@@ -11,6 +11,7 @@ from typing import Optional, cast
 from . import __version__
 from .analyzer import Analyzer
 from .config import Config
+from .json_reporter import JsonReporter
 from .models import AnalysisResult, Severity
 from .reporter import ConsoleReporter
 
@@ -26,6 +27,7 @@ class Args:
     paths: list[Path]
     config: Optional[Path]
     group_by: str
+    output_format: str
     min_severity: str
     jobs: int
     verbose: bool
@@ -44,10 +46,11 @@ SEVERITY_MAP: dict[str, Severity] = {
 
 SEVERITY_CHOICES: tuple[str, ...] = ("info", "low", "medium", "high")
 GROUP_BY_CHOICES: tuple[str, ...] = ("file", "severity")
+FORMAT_CHOICES: tuple[str, ...] = ("text", "json")
 
 
-def _add_parser_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add all arguments to the parser."""
+def _add_core_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add path, config, and output arguments."""
     parser.add_argument(
         "paths", nargs="*", type=Path, help="Python files or directories to analyze"
     )
@@ -65,14 +68,28 @@ def _add_parser_arguments(parser: argparse.ArgumentParser) -> None:
         "--group-by",
         choices=GROUP_BY_CHOICES,
         default="file",
-        help="Group output by file or severity (default: file)",
+        help="Group text output by file or severity (default: file)",
+    )
+    parser.add_argument(
+        "--format",
+        choices=FORMAT_CHOICES,
+        default="text",
+        dest="output_format",
+        help="Output format: text (default) or json",
     )
     parser.add_argument(
         "--min-severity",
         choices=SEVERITY_CHOICES,
         default="info",
-        help="Minimum severity level to report (default: info)",
+        help=(
+            "Minimum severity level to report and to use for exit codes "
+            "(default: info)"
+        ),
     )
+
+
+def _add_execution_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add runtime behavior arguments."""
     parser.add_argument(
         "-j",
         "--jobs",
@@ -91,6 +108,12 @@ def _add_parser_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--version", action="store_true", help="Show version and exit")
 
 
+def _add_parser_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add all arguments to the parser."""
+    _add_core_arguments(parser)
+    _add_execution_arguments(parser)
+
+
 def _create_argument_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser."""
     parser = argparse.ArgumentParser(
@@ -104,8 +127,8 @@ Examples:
   pyrefactor --config custom.toml . Analyze with custom config
 
 Exit Codes:
-  0 - No MEDIUM/HIGH issues (INFO/LOW only, or parse errors reported without failing)
-  1 - MEDIUM or HIGH severity issues found (or parse errors with --fail-on-parse-errors)
+  0 - No issues at or above --min-severity (or parse errors without --fail-on-parse-errors)
+  1 - Issues at or above --min-severity found (or parse errors with --fail-on-parse-errors)
   2 - Configuration, path, or orchestration error (invalid paths, no Python files)
         """,
     )
@@ -121,6 +144,7 @@ def parse_arguments() -> Args:
         paths=cast(list[Path], namespace.paths),
         config=cast(Optional[Path], namespace.config),
         group_by=cast(str, namespace.group_by),
+        output_format=cast(str, namespace.output_format),
         min_severity=cast(str, namespace.min_severity),
         jobs=cast(int, namespace.jobs),
         verbose=cast(bool, namespace.verbose),
@@ -191,10 +215,7 @@ def _get_min_severity(severity_str: str) -> Severity:
 
 def _determine_exit_code(result: AnalysisResult, *, fail_on_parse_errors: bool) -> int:
     """Return the CLI exit code for an analysis result."""
-    if any(
-        issue.severity in (Severity.HIGH, Severity.MEDIUM)
-        for issue in result.get_all_issues()
-    ):
+    if any(issue for issue in result.get_all_issues()):
         return 1
     if fail_on_parse_errors and _has_parse_errors(result):
         return 1
@@ -206,53 +227,79 @@ def _has_parse_errors(result: AnalysisResult) -> bool:
     return any(analysis.parse_error is not None for analysis in result.file_analyses)
 
 
-def main() -> int:
-    """Main entry point."""
-    args = parse_arguments()
+def _handle_empty_analysis_result(result: AnalysisResult) -> int:
+    """Log and return the exit code for an empty analysis run."""
+    if result.excluded_file_count > 0:
+        logger.error(
+            "All %d Python file(s) were excluded by configuration patterns",
+            result.excluded_file_count,
+        )
+    else:
+        logger.error("No Python files found to analyze")
+    return 2
 
-    # Handle version
-    version_exit = _handle_version(args)
-    if version_exit is not None:
-        return version_exit
 
-    # Check if paths were provided
-    if not args.paths:
-        logger.error("No paths provided")
-        return 2
+def _report_results(args: Args, result: AnalysisResult) -> AnalysisResult:
+    """Filter and print analysis results."""
+    min_severity = _get_min_severity(args.min_severity)
+    filtered_result = result.filtered(min_severity)
+    if args.output_format == "json":
+        JsonReporter().report(filtered_result)
+    else:
+        ConsoleReporter().report(filtered_result, group_by=args.group_by)
+    return filtered_result
 
-    # Configure logging
-    _configure_logging(args)
 
-    # Load configuration
-    config = _load_config(args)
-    if config is None:
-        return 2
-
-    # Validate paths
-    paths = _validate_paths(args)
-    if paths is None:
-        return 2
-
-    # Create analyzer and analyze files
+def _run_analysis(
+    args: Args, config: Config, paths: list[Path]
+) -> AnalysisResult | None:
+    """Run analysis and return results, or None on orchestration failure."""
     if args.jobs < 1:
         logger.warning("--jobs must be at least 1; using 1 worker")
     max_workers = max(1, args.jobs)
     analyzer = Analyzer(config)
-    result = _analyze_files_safely(analyzer, paths, max_workers, verbose=args.verbose)
-    if result is None or result.files_analyzed() == 0:
-        if result is not None:
-            logger.error("No Python files found to analyze")
+    return _analyze_files_safely(analyzer, paths, max_workers, verbose=args.verbose)
+
+
+def _prepare_cli_run(args: Args) -> tuple[Config, list[Path]] | int:
+    """Validate CLI inputs and return config/paths or an exit code."""
+    if not args.paths:
+        logger.error("No paths provided")
         return 2
 
-    # Filter by minimum severity without mutating the original result
-    min_severity = _get_min_severity(args.min_severity)
-    filtered_result = result.filtered(min_severity)
+    _configure_logging(args)
 
-    # Report results
-    reporter = ConsoleReporter()
-    reporter.report(filtered_result, group_by=args.group_by)
+    config = _load_config(args)
+    if config is None:
+        return 2
 
-    # Determine exit code
+    paths = _validate_paths(args)
+    if paths is None:
+        return 2
+
+    return config, paths
+
+
+def main() -> int:
+    """Main entry point."""
+    args = parse_arguments()
+
+    version_exit = _handle_version(args)
+    if version_exit is not None:
+        return version_exit
+
+    prepared = _prepare_cli_run(args)
+    if isinstance(prepared, int):
+        return prepared
+
+    config, paths = prepared
+    result = _run_analysis(args, config, paths)
+    if result is None:
+        return 2
+    if result.files_analyzed() == 0:
+        return _handle_empty_analysis_result(result)
+
+    filtered_result = _report_results(args, result)
     return _determine_exit_code(
         filtered_result, fail_on_parse_errors=args.fail_on_parse_errors
     )
