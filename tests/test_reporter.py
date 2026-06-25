@@ -113,6 +113,18 @@ class TestConsoleReporter:
         output_text = output.getvalue()
         assert "broken.py" in output_text
         assert "Parse error" in output_text
+        assert "Files with parse errors: 1" in output_text
+
+    def test_lazy_colorama_initialization(self) -> None:
+        """Test colorama is initialized on first reporter use."""
+        from unittest.mock import patch
+
+        import pyrefactor.reporter as reporter_module
+
+        reporter_module._ColoramaInitializer._initialized = False
+        with patch.object(reporter_module, "init") as mock_init:
+            ConsoleReporter(output=StringIO())
+            mock_init.assert_called_once_with(autoreset=True)
 
     def test_summary_statistics(self) -> None:
         """Test summary statistics."""

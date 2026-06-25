@@ -1,6 +1,7 @@
 """Package version resolution."""
 
 import sys
+import tomllib
 from functools import lru_cache
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -25,10 +26,16 @@ def _fallback_version() -> str:
     pyproject = _pyproject_path()
     if not pyproject.is_file():
         return "unknown"
-    for line in pyproject.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if stripped.startswith("version = "):
-            return stripped.split("=", 1)[1].strip().strip('"').strip("'")
+    try:
+        data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError:
+        return "unknown"
+    project = data.get("project")
+    if not isinstance(project, dict):
+        return "unknown"
+    version_value = project.get("version")
+    if isinstance(version_value, str) and version_value:
+        return version_value
     return "unknown"
 
 

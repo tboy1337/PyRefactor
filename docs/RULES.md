@@ -112,6 +112,6 @@ y = 2
 
 | Code | Meaning |
 |------|---------|
-| 0 | No MEDIUM/HIGH issues (after severity filter) |
+| 0 | No MEDIUM/HIGH issues (after severity filter). Per-file syntax/parse errors are reported but exit 0. |
 | 1 | One or more MEDIUM/HIGH issues found |
-| 2 | Configuration, path, or analysis error (including no Python files to analyze) |
+| 2 | Configuration, path, or orchestration error (invalid paths, no Python files to analyze) |

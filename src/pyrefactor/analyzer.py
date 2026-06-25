@@ -4,6 +4,7 @@ import ast
 import concurrent.futures
 import fnmatch
 import logging
+import os
 from pathlib import Path, PurePosixPath
 
 from .ast_visitor import BaseDetector
@@ -25,6 +26,25 @@ logger = logging.getLogger(__name__)
 
 # Maximum file size to read for analysis (10 MB)
 MAX_FILE_BYTES = 10 * 1024 * 1024
+
+_ANALYSIS_ERRORS = (
+    OSError,
+    RecursionError,
+    MemoryError,
+    ValueError,
+    TypeError,
+    AttributeError,
+)
+
+
+def _iter_python_files(root: Path) -> list[Path]:
+    """Collect .py files under root without following directory symlinks."""
+    python_files: list[Path] = []
+    for dirpath, _dirnames, filenames in os.walk(root, followlinks=False):
+        for filename in filenames:
+            if filename.endswith(".py"):
+                python_files.append(Path(dirpath) / filename)
+    return python_files
 
 
 class Analyzer:
@@ -99,9 +119,12 @@ class Analyzer:
             detectors = self._create_detectors(str(file_path), source_lines)
             self._run_detectors(detectors, tree, analysis, file_path)
 
-        except Exception as e:
+        except _ANALYSIS_ERRORS as e:
             analysis.parse_error = f"Error analyzing file: {e}"
             logger.error("Error analyzing %s: %s", file_path, e)
+        except Exception:
+            analysis.parse_error = "Error analyzing file: unexpected error"
+            logger.exception("Unexpected error analyzing %s", file_path)
 
         return analysis
 
@@ -138,7 +161,7 @@ class Analyzer:
         """Analyze all Python files in a directory."""
         result = AnalysisResult()
 
-        python_files = list(directory.rglob("*.py"))
+        python_files = _iter_python_files(directory)
         python_files = self._filter_excluded_files(python_files)
 
         if not python_files:
@@ -163,7 +186,7 @@ class Analyzer:
             elif file_path.is_dir():
                 python_files = [
                     path
-                    for path in file_path.rglob("*.py")
+                    for path in _iter_python_files(file_path)
                     if not self._is_excluded(path)
                 ]
                 paths_to_analyze.extend(python_files)
@@ -198,12 +221,20 @@ class Analyzer:
                 try:
                     analysis = future.result()
                     result.add_file_analysis(analysis)
-                except Exception as e:
+                except _ANALYSIS_ERRORS as e:
                     logger.error("Error analyzing %s: %s", file_path, e)
                     result.add_file_analysis(
                         FileAnalysis(
                             file_path=str(file_path),
                             parse_error=f"Analysis failed: {e}",
+                        )
+                    )
+                except Exception:
+                    logger.exception("Unexpected error analyzing %s", file_path)
+                    result.add_file_analysis(
+                        FileAnalysis(
+                            file_path=str(file_path),
+                            parse_error="Analysis failed: unexpected error",
                         )
                     )
 

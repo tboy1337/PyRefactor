@@ -9,8 +9,18 @@ from colorama import Fore, Style, init
 
 from .models import AnalysisResult, Issue, Severity
 
-# Initialize colorama for cross-platform colored output
-init(autoreset=True)
+
+class _ColoramaInitializer:
+    """One-time colorama initialization for console output."""
+
+    _initialized = False
+
+    @classmethod
+    def ensure(cls) -> None:
+        """Initialize colorama once on first reporter use."""
+        if not cls._initialized:
+            init(autoreset=True)
+            cls._initialized = True
 
 
 class ConsoleReporter:
@@ -41,6 +51,7 @@ class ConsoleReporter:
 
     def __init__(self, output: TextIO = sys.stdout) -> None:
         """Initialize reporter with output stream."""
+        _ColoramaInitializer.ensure()
         # Try to ensure UTF-8 encoding for Unicode symbols
         if output is sys.stdout:
             try:
@@ -155,6 +166,13 @@ class ConsoleReporter:
                 f"    {Fore.LIGHTBLACK_EX}{issue.code_snippet}{Style.RESET_ALL}"
             )
 
+    @staticmethod
+    def _count_parse_errors(result: AnalysisResult) -> int:
+        """Return the number of files with parse errors."""
+        return sum(
+            1 for analysis in result.file_analyses if analysis.parse_error is not None
+        )
+
     def _print_summary(self, result: AnalysisResult) -> None:
         """Print summary statistics."""
         self._print(f"\n{Fore.YELLOW}{'=' * 70}{Style.RESET_ALL}")
@@ -164,9 +182,12 @@ class ConsoleReporter:
         total_issues = result.total_issues()
         files_analyzed = result.files_analyzed()
         files_with_issues = result.files_with_issues()
+        files_with_parse_errors = self._count_parse_errors(result)
 
         self._print(f"\nFiles analyzed: {files_analyzed}")
         self._print(f"Files with issues: {files_with_issues}")
+        if files_with_parse_errors > 0:
+            self._print(f"Files with parse errors: {files_with_parse_errors}")
         self._print(f"Total issues: {total_issues}")
 
         if total_issues > 0:

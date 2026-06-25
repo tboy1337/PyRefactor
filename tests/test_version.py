@@ -59,7 +59,7 @@ class TestVersion:
             "pyrefactor._version.__file__", str(fake_pkg / "_version.py")
         )
         pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text('version = "9.9.9"\n', encoding="utf-8")
+        pyproject.write_text('[project]\nversion = "9.9.9"\n', encoding="utf-8")
         assert _fallback_version() == "9.9.9"
 
     def test_fallback_version_unknown_without_pyproject(
@@ -104,7 +104,7 @@ class TestVersion:
         from pyrefactor._version import _pyproject_path
 
         bundled = tmp_path / "pyproject.toml"
-        bundled.write_text('version = "8.8.8"\n', encoding="utf-8")
+        bundled.write_text('[project]\nversion = "8.8.8"\n', encoding="utf-8")
         monkeypatch.setattr("pyrefactor._version.sys.frozen", True, raising=False)
         monkeypatch.setattr(
             "pyrefactor._version.sys._MEIPASS", str(tmp_path), raising=False
@@ -113,3 +113,17 @@ class TestVersion:
         assert _pyproject_path() == bundled
         _fallback_version.cache_clear()
         assert _fallback_version() == "8.8.8"
+
+    def test_fallback_version_unknown_for_invalid_toml(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Fallback returns unknown when pyproject.toml is not valid TOML."""
+        _fallback_version.cache_clear()
+        fake_pkg = tmp_path / "src" / "pyrefactor"
+        fake_pkg.mkdir(parents=True)
+        monkeypatch.setattr(
+            "pyrefactor._version.__file__", str(fake_pkg / "_version.py")
+        )
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text("[project\nversion = broken", encoding="utf-8")
+        assert _fallback_version() == "unknown"

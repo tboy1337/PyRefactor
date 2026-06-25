@@ -242,3 +242,80 @@ class OtherClass:
 
         # Docstrings should not be flagged as duplicates
         assert len(issues) == 0
+
+    def test_min_duplicate_lines_boundary(self) -> None:
+        """Test duplication detection at min_duplicate_lines=2 boundary."""
+        config = Config()
+        config.duplication.min_duplicate_lines = 2
+        source = """
+def func1():
+    x = 1
+    return x
+
+def func2():
+    x = 1
+    return x
+"""
+        tree = ast.parse(source)
+        lines = source.split("\n")
+
+        detector = DuplicationDetector(config, "test.py", lines)
+        issues = detector.analyze(tree)
+
+        assert any(issue.rule_id == "D001" for issue in issues)
+
+    def test_high_similarity_threshold_excludes_near_duplicates(self) -> None:
+        """Test strict similarity threshold ignores loosely similar blocks."""
+        config = Config()
+        config.duplication.similarity_threshold = 1.0
+        source = """
+def func1():
+    alpha = 1
+    beta = 2
+    gamma = 3
+    delta = 4
+    result = alpha + beta + gamma + delta
+    return result
+
+def func2():
+    one = 1
+    two = 2
+    three = 3
+    four = 4
+    total = one + two + three + four
+    return total
+"""
+        tree = ast.parse(source)
+        lines = source.split("\n")
+
+        detector = DuplicationDetector(config, "test.py", lines)
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "D001" for issue in issues)
+
+    def test_disabled_via_analyzer(self, tmp_path: Path) -> None:
+        """Test duplication detector disabled through analyzer config."""
+        from pyrefactor.analyzer import Analyzer
+
+        config = Config()
+        config.duplication.enabled = False
+        source = """
+def func1():
+    x = 1
+    y = 2
+    z = 3
+    result = x + y + z
+    return result
+
+def func2():
+    x = 1
+    y = 2
+    z = 3
+    result = x + y + z
+    return result
+"""
+        target = tmp_path / "dup.py"
+        target.write_text(source, encoding="utf-8")
+
+        result = Analyzer(config).analyze_file(target)
+        assert not any(issue.rule_id == "D001" for issue in result.issues)

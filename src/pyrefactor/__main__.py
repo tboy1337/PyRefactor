@@ -91,9 +91,9 @@ Examples:
   pyrefactor --config custom.toml . Analyze with custom config
 
 Exit Codes:
-  0 - No issues or only INFO/LOW severity issues
+  0 - No MEDIUM/HIGH issues (INFO/LOW only, or parse errors reported without failing)
   1 - MEDIUM or HIGH severity issues found
-  2 - Error during analysis
+  2 - Configuration, path, or orchestration error (invalid paths, no Python files)
         """,
     )
     _add_parser_arguments(parser)

@@ -4,6 +4,7 @@ import ast
 
 from pyrefactor.config import Config
 from pyrefactor.detectors.boolean_logic import BooleanLogicDetector
+from pyrefactor.models import Severity
 
 
 class TestBooleanLogicDetector:
@@ -104,6 +105,11 @@ if not (a and b):
 
         assert len(issues) > 0
         assert any(issue.rule_id == "B006" for issue in issues)
+        assert any(
+            issue.severity == Severity.LOW
+            for issue in issues
+            if issue.rule_id == "B006"
+        )
         assert any("de morgan" in issue.message.lower() for issue in issues)
 
     def test_de_morgans_law_or(self, default_config: Config) -> None:
@@ -119,6 +125,11 @@ if not (a or b):
 
         assert len(issues) > 0
         assert any(issue.rule_id == "B007" for issue in issues)
+        assert any(
+            issue.severity == Severity.LOW
+            for issue in issues
+            if issue.rule_id == "B007"
+        )
 
     def test_simple_boolean_ok(self, default_config: Config) -> None:
         """Test that simple boolean expressions don't trigger issues."""

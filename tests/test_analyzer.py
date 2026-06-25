@@ -468,7 +468,7 @@ class TestAnalyzerEdgeCases:
         with patch.object(
             Analyzer,
             "analyze_file",
-            side_effect=RuntimeError("worker failed"),
+            side_effect=AttributeError("worker failed"),
         ):
             result = Analyzer(default_config).analyze_files(
                 [first, second], max_workers=2
@@ -479,3 +479,29 @@ class TestAnalyzerEdgeCases:
             analysis.parse_error == "Analysis failed: worker failed"
             for analysis in result.file_analyses
         )
+
+    def test_symlink_outside_tree_not_followed(
+        self, default_config: Config, tmp_path: Path
+    ) -> None:
+        """Test directory symlinks outside the tree are not traversed."""
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        inside_file = project_dir / "main.py"
+        inside_file.write_text("x = 1\n", encoding="utf-8")
+
+        outside_dir = tmp_path / "outside"
+        outside_dir.mkdir()
+        outside_file = outside_dir / "secret.py"
+        outside_file.write_text("y = 2\n", encoding="utf-8")
+
+        link_dir = project_dir / "linked_out"
+        try:
+            link_dir.symlink_to(outside_dir, target_is_directory=True)
+        except OSError:
+            pytest.skip("Platform does not support directory symlinks")
+
+        result = Analyzer(default_config).analyze_directory(project_dir)
+        analyzed_paths = {analysis.file_path for analysis in result.file_analyses}
+
+        assert str(inside_file) in analyzed_paths
+        assert str(outside_file) not in analyzed_paths

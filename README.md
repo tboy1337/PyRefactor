@@ -48,6 +48,12 @@ pip install -e .
 
 **Requirements**: Python 3.12+
 
+**Status**: PyRefactor is currently in **Beta** (see PyPI classifiers). APIs and rule behavior may change between releases.
+
+**License**: This project uses the [Commercial Restricted License (CRL)](LICENSE.md). Personal and non-commercial use is permitted; commercial use requires permission from the copyright holder.
+
+See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for full configuration reference (TOML and INI formats).
+
 ## Usage
 
 ```bash
@@ -79,9 +85,9 @@ pyrefactor --config custom.toml src/
 
 ### Exit Codes
 
-- `0` - No issues or only INFO/LOW severity
+- `0` - No MEDIUM/HIGH severity issues (INFO/LOW only). Per-file syntax or parse errors are reported in output but do not change the exit code.
 - `1` - MEDIUM/HIGH severity issues found
-- `2` - Analysis error (syntax errors, invalid paths)
+- `2` - Configuration, path, or orchestration error (invalid paths, missing config, no Python files to analyze)
 
 ## Configuration
 
@@ -131,6 +137,24 @@ enabled = true
 ```
 
 Configuration is searched in: `--config` → `pyproject.toml` → `pyrefactor.ini` → defaults
+
+### INI configuration (`pyrefactor.ini`)
+
+```ini
+[complexity]
+enabled = true
+max_cyclomatic_complexity = 10
+
+[duplication]
+enabled = true
+min_duplicate_lines = 5
+similarity_threshold = 0.85
+
+[general]
+exclude_patterns = __pycache__, .venv, build, dist
+```
+
+See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for the complete configuration reference.
 
 **Note:** The PyPI package version (`pyproject.toml`) may differ from GitHub release build numbers used for standalone executables.
 

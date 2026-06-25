@@ -137,7 +137,7 @@ class BooleanLogicDetector(BaseDetector):
                 )
                 self.report_issue(
                     node,
-                    severity=Severity.INFO,
+                    severity=Severity.LOW,
                     rule_id=rule_id,
                     message="Complex negation can be simplified using De Morgan's law",
                     suggestion=suggestion,
