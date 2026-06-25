@@ -401,3 +401,13 @@ class TestAnalysisResult:
         assert result.total_issues() == 2
         assert filtered.total_issues() == 1
         assert filtered.get_all_issues()[0].rule_id == "T002"
+
+    def test_filtered_preserves_excluded_file_count(self) -> None:
+        """Test filtered() copies excluded_file_count to the new result."""
+        result = AnalysisResult()
+        result.excluded_file_count = 5
+
+        filtered = result.filtered(Severity.HIGH)
+
+        assert filtered.excluded_file_count == 5
+        assert result.excluded_file_count == 5

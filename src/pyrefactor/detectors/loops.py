@@ -6,6 +6,8 @@ from typing import Optional
 from ..ast_visitor import BaseDetector
 from ..models import Severity
 
+_LoopNode = ast.For | ast.AsyncFor | ast.While
+
 
 class IndexTracker(ast.NodeVisitor):
     """Track manual index increments in loops."""
@@ -53,6 +55,29 @@ class InvariantChecker(ast.NodeVisitor):
         return False
 
 
+class WhileInvariantChecker(ast.NodeVisitor):
+    """Check for loop-invariant computations in while loops."""
+
+    def __init__(self, condition_names: set[str]) -> None:
+        self.condition_names = condition_names
+        self.invariant_calls: list[ast.Call] = []
+
+    def visit_Call(self, call_node: ast.Call) -> None:
+        """Check if call depends on while-condition variables."""
+        if not self._depends_on_condition_names(call_node):
+            if isinstance(call_node.func, ast.Attribute):
+                if call_node.func.attr in InvariantChecker.EXPENSIVE_METHODS:
+                    self.invariant_calls.append(call_node)
+        self.generic_visit(call_node)
+
+    def _depends_on_condition_names(self, node: ast.AST) -> bool:
+        """Check if node uses any name from the while condition."""
+        for child in ast.walk(node):
+            if isinstance(child, ast.Name) and child.id in self.condition_names:
+                return True
+        return False
+
+
 class LoopsDetector(BaseDetector):
     """Detects loop optimization opportunities."""
 
@@ -70,9 +95,7 @@ class LoopsDetector(BaseDetector):
         ),
     }
 
-    def _emit_medium_loop_issue(
-        self, node: ast.For | ast.AsyncFor, rule_id: str
-    ) -> None:
+    def _emit_medium_loop_issue(self, node: _LoopNode, rule_id: str) -> None:
         """Report a medium-severity loop issue by rule ID."""
         message, suggestion = self._MEDIUM_LOOP_ISSUES[rule_id]
         self._report_loop_issue(
@@ -88,7 +111,7 @@ class LoopsDetector(BaseDetector):
 
     def _report_loop_issue(
         self,
-        node: ast.For | ast.AsyncFor,
+        node: _LoopNode,
         *,
         rule_id: str,
         message: str,
@@ -173,7 +196,7 @@ class LoopsDetector(BaseDetector):
 
         return first_arg.args[0]
 
-    def _check_manual_index_tracking(self, node: ast.For | ast.AsyncFor) -> None:
+    def _check_manual_index_tracking(self, node: _LoopNode) -> None:
         """Check for manual index variable incrementation."""
         tracker = IndexTracker()
         for stmt in node.body:
@@ -188,18 +211,16 @@ class LoopsDetector(BaseDetector):
                 suggestion="Use enumerate() to track indices automatically",
             )
 
-    def _check_nested_loop_optimization(self, node: ast.For | ast.AsyncFor) -> None:
+    def _check_nested_loop_optimization(self, node: _LoopNode) -> None:
         """Check for nested loops that might benefit from preprocessing."""
         nested_loop_depth = self._max_nested_loop_depth(node)
 
         if nested_loop_depth > self.MIN_NESTED_LOOPS_FOR_WARNING:
-            if self._has_comparison_in_loops(node):
+            if self._has_lookup_in_loop_body(node.body):
                 self._emit_medium_loop_issue(node, "L003")
 
-    def _max_nested_loop_depth(
-        self, node: ast.For | ast.AsyncFor, depth: int = 1
-    ) -> int:
-        """Return the maximum nesting depth of for/async-for loops under node."""
+    def _max_nested_loop_depth(self, node: _LoopNode, depth: int = 1) -> int:
+        """Return the maximum nesting depth of loops under node."""
         max_depth = depth
         for stmt in node.body:
             max_depth = max(max_depth, self._loop_depth_in_scope(stmt, depth + 1))
@@ -207,7 +228,7 @@ class LoopsDetector(BaseDetector):
 
     def _loop_depth_in_scope(self, node: ast.AST, depth: int) -> int:
         """Count nested loop depth within a statement, excluding nested functions."""
-        if isinstance(node, (ast.For, ast.AsyncFor)):
+        if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
             return self._max_nested_loop_depth(node, depth)
         if isinstance(
             node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
@@ -218,13 +239,13 @@ class LoopsDetector(BaseDetector):
             max_found = max(max_found, self._loop_depth_in_scope(child, depth))
         return max_found
 
-    def _has_comparison_in_loops(self, node: ast.For | ast.AsyncFor) -> bool:
+    def _has_lookup_in_loop_body(self, body: list[ast.stmt]) -> bool:
         """Check if nested loops contain membership or subscript lookups."""
-        for child in node.body:
+        for child in body:
             if self._contains_lookup_pattern(child):
                 return True
-            if isinstance(child, (ast.For, ast.AsyncFor)):
-                if self._has_comparison_in_loops(child):
+            if isinstance(child, (ast.For, ast.AsyncFor, ast.While)):
+                if self._has_lookup_in_loop_body(child.body):
                     return True
         return False
 
@@ -248,6 +269,25 @@ class LoopsDetector(BaseDetector):
 
         loop_var_name = loop_var.id
         checker = InvariantChecker(loop_var_name)
+        for stmt in node.body:
+            checker.visit(stmt)
+
+        if checker.invariant_calls:
+            self._emit_medium_loop_issue(node, "L004")
+
+    @staticmethod
+    def _collect_name_ids(node: ast.AST) -> set[str]:
+        """Collect variable names referenced in an expression."""
+        names: set[str] = set()
+        for child in ast.walk(node):
+            if isinstance(child, ast.Name):
+                names.add(child.id)
+        return names
+
+    def _check_while_loop_invariants(self, node: ast.While) -> None:
+        """Check for loop-invariant expensive calls in while loops."""
+        condition_names = self._collect_name_ids(node.test)
+        checker = WhileInvariantChecker(condition_names)
         for stmt in node.body:
             checker.visit(stmt)
 
@@ -278,5 +318,7 @@ class LoopsDetector(BaseDetector):
 
     def visit_While(self, node: ast.While) -> None:
         """Check while loops for optimization opportunities."""
-        # Could add while-loop specific checks here
+        self._check_manual_index_tracking(node)
+        self._check_nested_loop_optimization(node)
+        self._check_while_loop_invariants(node)
         self.generic_visit(node)

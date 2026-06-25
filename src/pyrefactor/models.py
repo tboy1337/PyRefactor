@@ -123,4 +123,7 @@ class AnalysisResult:
                     lines_of_code=analysis.lines_of_code,
                 )
             )
-        return AnalysisResult(file_analyses=filtered_analyses)
+        return AnalysisResult(
+            file_analyses=filtered_analyses,
+            excluded_file_count=self.excluded_file_count,
+        )
