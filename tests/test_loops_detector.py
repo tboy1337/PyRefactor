@@ -248,7 +248,7 @@ for item in list1:
         assert any(issue.rule_id == "L003" for issue in issues)
 
     def test_while_loop_no_issues(self, default_config: Config) -> None:
-        """Test while loop doesn't crash."""
+        """Test simple while loop without optimization issues."""
         source = """
 while condition:
     do_something()
@@ -259,6 +259,67 @@ while condition:
         issues = detector.analyze(tree)
 
         assert len(issues) == 0
+
+    def test_while_loop_manual_index_tracking(self, default_config: Config) -> None:
+        """Test manual index increment inside while loop triggers L002."""
+        source = """
+while running:
+    index += 1
+    process()
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert any(issue.rule_id == "L002" for issue in issues)
+
+    def test_while_loop_nested_with_lookup(self, default_config: Config) -> None:
+        """Test nested while loops with membership lookup trigger L003."""
+        source = """
+while outer:
+    while middle:
+        while inner:
+            if item in cache:
+                pass
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert any(issue.rule_id == "L003" for issue in issues)
+
+    def test_while_loop_invariant_expensive_call(self, default_config: Config) -> None:
+        """Test expensive invariant call inside while loop triggers L004."""
+        source = r"""
+import re
+while running:
+    re.compile(r'\d+')
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert any(issue.rule_id == "L004" for issue in issues)
+
+    def test_while_loop_condition_dependent_call_not_flagged(
+        self, default_config: Config
+    ) -> None:
+        """Test while loop call using condition variable does not trigger L004."""
+        source = r"""
+import re
+pattern = re.compile(r'\d+')
+while item:
+    pattern.search(item)
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "L004" for issue in issues)
 
     def test_range_len_with_empty_len_args(self, default_config: Config) -> None:
         """Test range(len()) with empty len() does not trigger L001."""

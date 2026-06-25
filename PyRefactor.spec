@@ -24,6 +24,8 @@ a = Analysis(
         "pyrefactor.config",
         "pyrefactor.models",
         "pyrefactor.reporter",
+        "pyrefactor.json_reporter",
+        "pyrefactor._version",
         "pyrefactor.detectors",
         "pyrefactor.detectors.boolean_logic",
         "pyrefactor.detectors.comparisons",

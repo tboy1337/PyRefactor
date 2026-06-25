@@ -62,3 +62,44 @@ class TestJsonReporter:
         parsed = json.loads(buffer.getvalue())
         assert parsed["summary"]["total_issues"] == 0
         assert parsed["files"][0]["path"] == "clean.py"
+
+    def test_build_report_payload_includes_parse_error(self) -> None:
+        """Test JSON payload serializes parse_error on file entries."""
+        result = AnalysisResult()
+        analysis = FileAnalysis(
+            file_path="broken.py",
+            parse_error="Syntax error: invalid syntax",
+        )
+        result.add_file_analysis(analysis)
+
+        payload = build_report_payload(result)
+        files = cast(list[dict[str, object]], payload["files"])
+        file_entry = files[0]
+
+        assert file_entry["parse_error"] == "Syntax error: invalid syntax"
+        assert file_entry["issues"] == []
+
+    def test_build_report_payload_omits_optional_issue_fields(self) -> None:
+        """Test JSON payload omits optional issue fields when unset."""
+        result = AnalysisResult()
+        analysis = FileAnalysis(file_path="sample.py")
+        analysis.add_issue(
+            Issue(
+                file="sample.py",
+                line=1,
+                column=0,
+                severity=Severity.LOW,
+                rule_id="T001",
+                message="Example",
+            )
+        )
+        result.add_file_analysis(analysis)
+
+        payload = build_report_payload(result)
+        files = cast(list[dict[str, object]], payload["files"])
+        issues_list = cast(list[dict[str, object]], files[0]["issues"])
+        issue_entry = issues_list[0]
+
+        assert "suggestion" not in issue_entry
+        assert "code_snippet" not in issue_entry
+        assert "end_line" not in issue_entry

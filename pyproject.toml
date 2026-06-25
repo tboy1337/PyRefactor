@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyrefactor"
-version = "1.0.21"
+version = "1.0.22"
 description = "A Python refactoring and optimization linter that analyzes code for performance issues, complexity problems, and opportunities for improvement"
 authors = [{name = "tboy1337"}]
 maintainers = [{name = "tboy1337"}]

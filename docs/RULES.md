@@ -51,7 +51,7 @@ B002/B003 are intentionally not used; boolean `== True`/`== False` checks are re
 
 L003 flags nested loops that contain `in` / `not in` membership tests or subscript lookups (e.g. `cache[key]`), not arbitrary equality comparisons. Nested loops inside inner function definitions are not counted toward L003 depth.
 
-While-loop-specific rules are not implemented yet; `while` loops are still analyzed for patterns shared with `for` loops where applicable.
+While loops are analyzed for L002–L004 using the same patterns as `for` loops where applicable. L001 (`range(len())`) applies only to `for` loops.
 
 ## Duplication (D001)
 
