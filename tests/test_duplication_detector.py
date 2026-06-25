@@ -320,6 +320,93 @@ def func2():
         result = Analyzer(config).analyze_file(target)
         assert not any(issue.rule_id == "D001" for issue in result.issues)
 
+    def test_rule_specific_suppression(self, default_config: Config) -> None:
+        """Test D001 respects rule-specific suppression comments."""
+        source = """
+def func1():
+    x = 1
+    y = 2
+    z = 3
+    result = x + y + z
+    return result
+
+# pyrefactor: ignore D001
+def func2():
+    x = 1
+    y = 2
+    z = 3
+    result = x + y + z
+    return result
+"""
+        tree = ast.parse(source)
+        lines = source.split("\n")
+
+        detector = DuplicationDetector(default_config, "test.py", lines)
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "D001" for issue in issues)
+
+    def test_other_rule_suppression_does_not_suppress_d001(
+        self, default_config: Config
+    ) -> None:
+        """Test R001 suppression does not suppress D001."""
+        source = """
+def func1():
+    x = 1
+    y = 2
+    z = 3
+    result = x + y + z
+    return result
+
+# pyrefactor: ignore R001
+def func2():
+    x = 1
+    y = 2
+    z = 3
+    result = x + y + z
+    return result
+"""
+        tree = ast.parse(source)
+        lines = source.split("\n")
+
+        detector = DuplicationDetector(default_config, "test.py", lines)
+        issues = detector.analyze(tree)
+
+        assert any(issue.rule_id == "D001" for issue in issues)
+
+    def test_max_lines_analyzed_boundary(self, default_config: Config) -> None:
+        """Test duplication detector only scans the first MAX_LINES_ANALYZED lines."""
+        from pyrefactor.detectors.duplication import DuplicationDetector as DupDet
+
+        filler = "\n".join(f"_line_{i} = {i}" for i in range(DupDet.MAX_LINES_ANALYZED))
+        duplicate_block = """
+def func1():
+    a = 1
+    b = 2
+    c = 3
+    d = 4
+    e = 5
+    total = a + b + c + d + e
+    return total
+
+def func2():
+    a = 1
+    b = 2
+    c = 3
+    d = 4
+    e = 5
+    total = a + b + c + d + e
+    return total
+"""
+        source = filler + "\n" + duplicate_block
+        tree = ast.parse(source)
+        lines = source.split("\n")
+
+        detector = DuplicationDetector(default_config, "test.py", lines)
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "D001" for issue in issues)
+
     def test_tuple_literal_exclusion(self, default_config: Config) -> None:
         """Test tuple literals are excluded from duplication detection."""
         source = """

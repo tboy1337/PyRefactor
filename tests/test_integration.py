@@ -231,6 +231,66 @@ for i in range(len(items)):
         loop_issues2 = [i for i in analysis2.issues if i.rule_id.startswith("L")]
         assert len(loop_issues2) == 0
 
+    @pytest.mark.parametrize(
+        ("detector_attr", "rule_prefix", "sample_code"),
+        [
+            (
+                "boolean_logic",
+                "B",
+                "if a and b and c and d and e:\n    pass\n",
+            ),
+            (
+                "context_manager",
+                "R001",
+                "f = open('file.txt')\n",
+            ),
+            (
+                "control_flow",
+                "R00",
+                "def f():\n    if x:\n        return 1\n    else:\n        return 0\n",
+            ),
+            (
+                "comparisons",
+                "R01",
+                "if x == None:\n    pass\n",
+            ),
+            (
+                "dict_operations",
+                "R0",
+                "if key in my_dict:\n    value = my_dict[key]\nelse:\n    value = default\n",
+            ),
+        ],
+    )
+    def test_disabled_detector_produces_no_issues(
+        self,
+        tmp_path: Path,
+        detector_attr: str,
+        rule_prefix: str,
+        sample_code: str,
+    ) -> None:
+        """Test each detector can be disabled via config."""
+        file_path = tmp_path / "sample.py"
+        file_path.write_text(sample_code, encoding="utf-8")
+
+        enabled_config = Config()
+        enabled_analysis = Analyzer(enabled_config).analyze_file(file_path)
+        enabled_rules = [
+            issue.rule_id
+            for issue in enabled_analysis.issues
+            if issue.rule_id.startswith(rule_prefix)
+        ]
+        assert enabled_rules
+
+        disabled_config = Config()
+        getattr(disabled_config, detector_attr).enabled = False
+        disabled_analysis = Analyzer(disabled_config).analyze_file(file_path)
+        disabled_rules = [
+            issue.rule_id
+            for issue in disabled_analysis.issues
+            if issue.rule_id.startswith(rule_prefix)
+        ]
+        assert not disabled_rules
+
     def test_custom_thresholds(self, tmp_path: Path) -> None:
         """Test custom configuration thresholds."""
         file_path = tmp_path / "test.py"

@@ -111,3 +111,26 @@ max_branches = 11
 
         config = Config.load()
         assert config.complexity.max_branches == 11
+
+    def test_load_corrupt_pyproject_logs_warning(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Test Config.load logs when pyproject.toml fails to parse."""
+        import logging
+
+        monkeypatch.chdir(tmp_path)
+        caplog.set_level(logging.WARNING)
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text("[[[invalid toml")
+        ini_file = tmp_path / "pyrefactor.ini"
+        ini_file.write_text("""
+[complexity]
+max_branches = 11
+""")
+
+        Config.load()
+
+        assert any("Failed to parse" in record.message for record in caplog.records)

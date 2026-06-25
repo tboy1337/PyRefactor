@@ -48,12 +48,12 @@ for item in items:
         assert any("manual index" in issue.message.lower() for issue in issues)
 
     def test_nested_loops_with_lookups(self, default_config: Config) -> None:
-        """Test detection of nested loops with comparisons."""
+        """Test detection of nested loops with membership lookups."""
         source = """
 for item in list1:
     for other in list2:
         for third in list3:
-            if item == other:
+            if item in cache:
                 result.append(item)
 """
         tree = ast.parse(source)
@@ -212,8 +212,10 @@ for i in range(len(items)):
         # Should not trigger L001 since collection is not accessed by index
         assert not any(issue.rule_id == "L001" for issue in issues)
 
-    def test_nested_loops_direct_comparison(self, default_config: Config) -> None:
-        """Test nested loops with direct comparison."""
+    def test_nested_loops_equality_only_not_flagged(
+        self, default_config: Config
+    ) -> None:
+        """Test nested loops with unrelated equality do not trigger L003."""
         source = """
 for item in list1:
     for other in list2:
@@ -225,7 +227,21 @@ for item in list1:
         detector = LoopsDetector(default_config, "test.py", source.split("\n"))
         issues = detector.analyze(tree)
 
-        # Should detect nested loops with comparisons
+        assert not any(issue.rule_id == "L003" for issue in issues)
+
+    def test_nested_loops_subscript_lookup(self, default_config: Config) -> None:
+        """Test nested loops with subscript lookups trigger L003."""
+        source = """
+for item in list1:
+    for other in list2:
+        for third in list3:
+            value = cache[item]
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
         assert any(issue.rule_id == "L003" for issue in issues)
 
     def test_while_loop_no_issues(self, default_config: Config) -> None:

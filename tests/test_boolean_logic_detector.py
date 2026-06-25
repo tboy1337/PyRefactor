@@ -70,6 +70,11 @@ if x is True:
 
         assert len(issues) > 0
         assert any(issue.rule_id == "B004" for issue in issues)
+        assert any(
+            issue.severity == Severity.MEDIUM
+            for issue in issues
+            if issue.rule_id == "B004"
+        )
 
     def test_early_return_opportunity(self, default_config: Config) -> None:
         """Test detection of early return opportunities."""

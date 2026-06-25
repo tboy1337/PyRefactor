@@ -370,6 +370,25 @@ def build():
 
         assert any(issue.rule_id == "P001" for issue in issues)
 
+    def test_p001_suppression_does_not_suppress_p007(
+        self, default_config: Config
+    ) -> None:
+        """Test rule-specific P001 suppression does not suppress P007."""
+        source = """
+for item in items:
+    text += str(item)  # pyrefactor: ignore P001
+    expensive_compute(item)
+    expensive_compute(item)
+    expensive_compute(item)
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "P001" for issue in issues)
+        assert any(issue.rule_id == "P007" for issue in issues)
+
     def test_nested_lambda_calls_ignored(self, default_config: Config) -> None:
         """Test P007 ignores repeated calls inside lambda expressions."""
         source = """

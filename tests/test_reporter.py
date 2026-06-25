@@ -319,3 +319,31 @@ class TestConsoleReporter:
 
         with patch.object(reporter, "ASCII_ICONS", {}):
             assert reporter._get_severity_icon(Severity.HIGH) == "*"
+
+    def test_summary_includes_parse_errors_and_critical_footer(self) -> None:
+        """Test summary reports parse errors and critical issue footer."""
+        from io import StringIO
+
+        output = StringIO()
+        reporter = ConsoleReporter(output=output)
+        result = AnalysisResult()
+        broken = FileAnalysis(file_path="broken.py", parse_error="Syntax error")
+        result.add_file_analysis(broken)
+        ok = FileAnalysis(file_path="ok.py")
+        ok.add_issue(
+            Issue(
+                file="ok.py",
+                line=1,
+                column=0,
+                severity=Severity.HIGH,
+                rule_id="R001",
+                message="Critical issue",
+            )
+        )
+        result.add_file_analysis(ok)
+
+        reporter.report(result)
+
+        rendered = output.getvalue()
+        assert "Files with parse errors: 1" in rendered
+        assert "High or medium severity issues found" in rendered

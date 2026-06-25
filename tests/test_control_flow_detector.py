@@ -280,6 +280,48 @@ def func(x, y):
     assert len(issues) == 0
 
 
+def test_unnecessary_else_after_match_return(detector: ControlFlowDetector) -> None:
+    """Test unnecessary else after if body ending in terminating match."""
+    code = """
+def func(value):
+    if value > 0:
+        match value:
+            case 1:
+                return "one"
+            case 2:
+                return "two"
+    else:
+        return "other"
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert any(issue.rule_id == "R002" for issue in issues)
+
+
+def test_match_without_full_termination_not_flagged(
+    detector: ControlFlowDetector,
+) -> None:
+    """Test match without terminating all cases is not flagged."""
+    code = """
+def func(value):
+    if value > 0:
+        match value:
+            case 1:
+                return "one"
+            case 2:
+                x = 2
+    else:
+        return "other"
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R002" for issue in issues)
+
+
 def test_try_except_partial_termination_not_flagged(
     detector: ControlFlowDetector,
 ) -> None:

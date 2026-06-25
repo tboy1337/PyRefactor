@@ -452,7 +452,7 @@ for key in obj.my_dict:
     issues = detector.analyze(tree)
 
     # Should work fine
-    assert isinstance(issues, list)
+    assert not any(issue.rule_id == "R006" for issue in issues)
 
 
 def test_dict_get_already_used_not_flagged(detector: DictOperationsDetector) -> None:
@@ -464,8 +464,6 @@ if "key" in data:
     tree = ast.parse(code)
     detector.source_lines = code.splitlines()
     issues = detector.analyze(tree)
-
-    assert not any(issue.rule_id == "R006" for issue in issues)
 
     assert not any(issue.rule_id == "R006" for issue in issues)
 

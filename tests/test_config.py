@@ -89,16 +89,15 @@ enabled = false
         assert config.performance.enabled is True
 
     def test_load_partial_toml_file(self, tmp_path: Path) -> None:
-        """Test loading partial TOML configuration."""
+        """Test loading partial TOML configuration rejects invalid zero thresholds."""
         config_file = tmp_path / "partial.toml"
         config_file.write_text("""
 [tool.pyrefactor.complexity]
 max_arguments = 0
 """)
 
-        config = Config.from_toml_file(config_file)
-
-        assert config.complexity.max_arguments == 0
+        with pytest.raises(ValueError, match="max_arguments must be >= 1"):
+            Config.from_toml_file(config_file)
 
     def test_load_explicit_none(self) -> None:
         """Test Config.load(None) returns defaults from discovery."""
@@ -402,6 +401,33 @@ exclude_patterns = "build, dist, vendor"
 
         with pytest.raises(ValueError, match="complexity.max_branches"):
             config.validate()
+
+    def test_validate_rejects_zero_max_branches(self) -> None:
+        """Test validation rejects zero max_branches."""
+        config = Config()
+        config.complexity.max_branches = 0
+
+        with pytest.raises(ValueError, match="complexity.max_branches must be >= 1"):
+            config.validate()
+
+    def test_coerce_section_logs_invalid_toml_value(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test invalid TOML values are skipped with a warning."""
+        import logging
+
+        caplog.set_level(logging.WARNING)
+        result = Config._coerce_section(
+            {"max_branches": "ten"},
+            {"max_branches": int},
+            section_name="complexity",
+        )
+
+        assert result == {}
+        assert any(
+            "Ignoring invalid complexity.max_branches" in record.message
+            for record in caplog.records
+        )
 
     def test_validate_rejects_invalid_similarity_threshold(self) -> None:
         """Test validation rejects similarity threshold outside 0.0-1.0."""

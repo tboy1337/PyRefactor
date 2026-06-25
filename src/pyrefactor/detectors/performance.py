@@ -13,8 +13,13 @@ from ..models import Issue, Severity
 class _LoopBodyCallCounter(ast.NodeVisitor):
     """Count identical call expressions in a loop body."""
 
-    def __init__(self, suppressed: set[ast.AST]) -> None:
-        self.suppressed = suppressed
+    def __init__(
+        self,
+        is_suppressed: Callable[[ast.AST, str], bool],
+        rule_id: str,
+    ) -> None:
+        self._is_suppressed = is_suppressed
+        self._rule_id = rule_id
         self.call_counts: Counter[str] = Counter()
         self.call_nodes: dict[str, ast.Call] = {}
         self._nested_function_depth = 0
@@ -39,7 +44,9 @@ class _LoopBodyCallCounter(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         """Record call expressions at the loop body scope."""
-        if self._nested_function_depth == 0 and node not in self.suppressed:
+        if self._nested_function_depth == 0 and not self._is_suppressed(
+            node, self._rule_id
+        ):
             signature = ast.dump(node, annotate_fields=False)
             self.call_counts[signature] += 1
             self.call_nodes.setdefault(signature, node)
@@ -51,10 +58,12 @@ class _LoopBodyConcatCounter(ast.NodeVisitor):
 
     def __init__(
         self,
-        suppressed: set[ast.AST],
+        is_suppressed: Callable[[ast.AST, str], bool],
+        rule_id: str,
         matches_string: Callable[[ast.AST, str], bool],
     ) -> None:
-        self.suppressed = suppressed
+        self._is_suppressed = is_suppressed
+        self._rule_id = rule_id
         self.matches_string = matches_string
         self.count = 0
         self.last_node: Optional[ast.AugAssign] = None
@@ -82,7 +91,7 @@ class _LoopBodyConcatCounter(ast.NodeVisitor):
         """Count string += operations at the loop body scope."""
         if (
             self._nested_function_depth == 0
-            and node not in self.suppressed
+            and not self._is_suppressed(node, self._rule_id)
             and isinstance(node.op, ast.Add)
             and self.matches_string(node.target, "string")
         ):
@@ -106,7 +115,6 @@ class PerformanceDetector(BaseDetector):
         self.in_loop = False
         self.loop_stack: list[ast.AST] = []
         self.parent_map: dict[ast.AST, ast.AST] = {}
-        self.suppressed_nodes: set[ast.AST] = set()
         self._string_var_stack: list[set[str]] = []
 
     def get_detector_name(self) -> str:
@@ -116,17 +124,12 @@ class PerformanceDetector(BaseDetector):
     def analyze(self, tree: ast.AST) -> list[Issue]:
         """Run the detector on an AST and return issues found."""
         self.parent_map = build_parent_map(tree)
-        self.suppressed_nodes = self._collect_suppressed_nodes(tree)
         self.visit(tree)
         return self.issues
 
-    def _collect_suppressed_nodes(self, tree: ast.AST) -> set[ast.AST]:
-        """Collect AST nodes that have suppression comments."""
-        suppressed: set[ast.AST] = set()
-        for node in ast.walk(tree):
-            if self.is_suppressed(node):
-                suppressed.add(node)
-        return suppressed
+    def _is_suppressed_for_rule(self, node: ast.AST, rule_id: str) -> bool:
+        """Return True when a node is suppressed for a specific rule."""
+        return self.is_suppressed(node, rule_id)
 
     def _visit_loop(self, node: ast.For | ast.While) -> None:
         """Track loop entry, analyze body, then exit."""
@@ -177,7 +180,8 @@ class PerformanceDetector(BaseDetector):
     def _check_string_concatenations(self, loop_node: ast.For | ast.While) -> None:
         """Report P001 when string += count meets threshold."""
         counter = _LoopBodyConcatCounter(
-            self.suppressed_nodes,
+            self._is_suppressed_for_rule,
+            "P001",
             self._matches_type_hint,
         )
         counter.visit(loop_node)
@@ -198,7 +202,7 @@ class PerformanceDetector(BaseDetector):
 
     def _check_duplicate_calls(self, loop_node: ast.For | ast.While) -> None:
         """Report P007 when identical calls repeat within a loop body."""
-        counter = _LoopBodyCallCounter(self.suppressed_nodes)
+        counter = _LoopBodyCallCounter(self._is_suppressed_for_rule, "P007")
         counter.visit(loop_node)
         min_calls = self.config.performance.min_duplicate_calls
         for signature, count in counter.call_counts.items():

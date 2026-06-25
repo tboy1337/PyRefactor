@@ -17,7 +17,7 @@ A Python refactoring and optimization linter that uses AST analysis to identify 
 - **Complexity**: High cyclomatic complexity functions
 - **Performance**: String concatenation in loops (thresholded), repeated uncached calls in loops, inefficient operations
 - **Boolean Logic**: Overcomplicated boolean expressions
-- **Loops**: Nested loops, invariant code, comprehension opportunities
+- **Loops**: Index patterns, nested loops with lookups, loop-invariant calls (dict comprehensions are R010)
 - **Duplication**: Duplicate code blocks
 - **Context Manager**: Missing `with` statements for resource operations
 - **Control Flow**: Unnecessary `else` after `return`/`raise`/`break`/`continue`

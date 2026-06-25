@@ -5,6 +5,7 @@ from pathlib import Path
 
 from pyrefactor.config import Config
 from pyrefactor.detectors.complexity import ComplexityDetector
+from pyrefactor.models import Severity
 
 
 class TestComplexityDetector:
@@ -103,6 +104,11 @@ def many_branches(x):
 
         assert len(issues) > 0
         assert any(issue.rule_id == "C004" for issue in issues)
+        assert any(
+            issue.severity == Severity.HIGH
+            for issue in issues
+            if issue.rule_id == "C004"
+        )
         assert any("too many branches" in issue.message.lower() for issue in issues)
 
     def test_excessive_nesting(self, default_config: Config) -> None:
@@ -123,6 +129,11 @@ def nested(x, y, z, w):
 
         assert len(issues) > 0
         assert any(issue.rule_id == "C005" for issue in issues)
+        assert any(
+            issue.severity == Severity.HIGH
+            for issue in issues
+            if issue.rule_id == "C005"
+        )
         assert any("nesting depth" in issue.message.lower() for issue in issues)
 
     def test_high_cyclomatic_complexity(self, default_config: Config) -> None:

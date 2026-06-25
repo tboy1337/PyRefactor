@@ -1,12 +1,15 @@
 """Configuration management for PyRefactor."""
 
 import configparser
+import logging
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Optional, TypeVar, Union
 
 _ConfigT = TypeVar("_ConfigT")
+
+logger = logging.getLogger(__name__)
 
 _COMPLEXITY_TOML_FIELDS: dict[str, type[object]] = {
     "enabled": bool,
@@ -136,8 +139,8 @@ class Config:
             ),
         }
         for name, value in complexity_fields.items():
-            if value < 0:
-                raise ValueError(f"{name} must be >= 0, got {value}")
+            if value < 1:
+                raise ValueError(f"{name} must be >= 1, got {value}")
 
         if self.performance.min_concatenations < 0:
             raise ValueError(
@@ -365,21 +368,35 @@ class Config:
         if expected_type is list:
             return Config._coerce_list_value(value)
         if expected_type in (int, float) and isinstance(value, (int, float, str)):
-            return expected_type(value)
+            try:
+                return expected_type(value)
+            except ValueError:
+                return None
         return None
 
     @staticmethod
     def _coerce_section(
-        section: dict[str, Any], field_types: Mapping[str, type[object]]
+        section: dict[str, Any],
+        field_types: Mapping[str, type[object]],
+        section_name: str = "config",
     ) -> dict[str, Any]:
         """Coerce TOML section values to expected Python types."""
         result: dict[str, Any] = {}
         for key, expected_type in field_types.items():
             if key not in section:
                 continue
-            coerced = Config._coerce_typed_value(expected_type, section[key])
+            raw_value = section[key]
+            coerced = Config._coerce_typed_value(expected_type, raw_value)
             if coerced is not None:
                 result[key] = coerced
+            else:
+                logger.warning(
+                    "Ignoring invalid %s.%s value %r (expected %s)",
+                    section_name,
+                    key,
+                    raw_value,
+                    expected_type.__name__,
+                )
         return result
 
     @staticmethod
@@ -398,7 +415,9 @@ class Config:
     ) -> _ConfigT:
         """Build a detector config dataclass from a TOML subsection."""
         return config_class(
-            **cls._coerce_section(cls._dict_section(pyrefactor, name), field_types)
+            **cls._coerce_section(
+                cls._dict_section(pyrefactor, name), field_types, section_name=name
+            )
         )
 
     @staticmethod
@@ -547,7 +566,10 @@ class Config:
                 with pyproject.open("rb") as config_file:
                     data = tomllib.load(config_file)
             except tomllib.TOMLDecodeError:
-                pass
+                logger.warning(
+                    "Failed to parse %s; falling back to pyrefactor.ini or defaults",
+                    pyproject,
+                )
             else:
                 if cls._has_pyrefactor_config(data):
                     return cls.from_toml_data(data)

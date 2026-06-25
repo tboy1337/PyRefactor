@@ -206,17 +206,24 @@ class LoopsDetector(BaseDetector):
         return count
 
     def _has_comparison_in_loops(self, node: ast.For) -> bool:
-        """Check if there are comparisons in nested loops."""
+        """Check if nested loops contain membership or subscript lookups."""
         for child in node.body:
-            if isinstance(child, ast.Compare):
+            if self._contains_lookup_pattern(child):
                 return True
             if isinstance(child, ast.For):
                 if self._has_comparison_in_loops(child):
                     return True
-            # Check other compound statements
-            for grandchild in ast.walk(child):
-                if isinstance(grandchild, ast.Compare):
-                    return True
+        return False
+
+    def _contains_lookup_pattern(self, stmt: ast.stmt) -> bool:
+        """Return True when a statement contains membership or subscript lookups."""
+        for child in ast.walk(stmt):
+            if isinstance(child, ast.Compare) and any(
+                isinstance(op, (ast.In, ast.NotIn)) for op in child.ops
+            ):
+                return True
+            if isinstance(child, ast.Subscript):
+                return True
         return False
 
     def _check_loop_invariants(self, node: ast.For) -> None:

@@ -168,12 +168,29 @@ class Analyzer:
                     e,
                 )
                 analysis.add_warning(f"Detector {detector_name} failed: {e}")
+            except Exception as e:
+                detector_name = detector.get_detector_name()
+                logger.exception(
+                    "Unexpected error running %s on %s",
+                    detector_name,
+                    file_path,
+                )
+                analysis.add_warning(f"Detector {detector_name} failed: {e}")
 
     def analyze_directory(
         self, directory: Path, max_workers: int = 4
     ) -> AnalysisResult:
         """Analyze all Python files in a directory."""
         result = AnalysisResult()
+
+        if not directory.exists():
+            logger.warning("Directory does not exist: %s", directory)
+            return result
+
+        if directory.is_file():
+            logger.warning("Expected a directory but received a file: %s", directory)
+            result.add_file_analysis(self.analyze_file(directory))
+            return result
 
         python_files = _iter_python_files(directory)
         python_files = self._filter_excluded_files(python_files)
@@ -211,6 +228,10 @@ class Analyzer:
                     paths_to_analyze.append(collected)
             elif file_path.is_dir():
                 paths_to_analyze.extend(self._collect_directory_files(file_path))
+            else:
+                logger.debug(
+                    "Skipping path that is not a file or directory: %s", file_path
+                )
         return paths_to_analyze
 
     def analyze_files(
@@ -268,6 +289,7 @@ class Analyzer:
                         )
                     )
 
+        completed_analyses.sort(key=lambda analysis: analysis.file_path)
         result.file_analyses.extend(completed_analyses)
         return result
 

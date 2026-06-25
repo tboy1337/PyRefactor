@@ -9,8 +9,8 @@ This document lists every rule ID emitted by PyRefactor detectors, grouped by ca
 | C001 | MEDIUM | Function exceeds maximum line count |
 | C002 | MEDIUM | Function has too many parameters |
 | C003 | LOW | Function has too many local variables |
-| C004 | MEDIUM | Function has too many branches |
-| C005 | MEDIUM | Function exceeds maximum nesting depth |
+| C004 | HIGH | Function has too many branches |
+| C005 | HIGH | Function exceeds maximum nesting depth |
 | C006 | MEDIUM | Function exceeds maximum cyclomatic complexity |
 
 Configurable thresholds live under `[tool.pyrefactor.complexity]` or `[complexity]` in `pyrefactor.ini`.
@@ -26,14 +26,14 @@ Configurable thresholds live under `[tool.pyrefactor.complexity]` or `[complexit
 | P006 | INFO | Use truthiness instead of `len(x) == 0` |
 | P007 | MEDIUM | Repeated identical call expressions inside a loop |
 
-P001 uses naming heuristics and tracks variables initialized with string constants. P003 was removed; dict `.keys()` membership is covered by R009.
+P001 uses naming heuristics (variable names ending in `str`/`s` or containing `str`) and tracks variables initialized with string constants; it may miss renamed string variables or flag non-string list targets. P002 flags list `+=` in loops by type/name heuristics. P003 was removed; dict `.keys()` membership is covered by R009.
 
 ## Boolean Logic (B001, B004–B007)
 
 | Rule | Severity | Description |
 |------|----------|-------------|
 | B001 | MEDIUM | Boolean expression has too many `and`/`or` operators |
-| B004 | LOW | Compare singleton booleans with `is` / `is not` |
+| B004 | MEDIUM | Using `is` / `is not` for boolean comparison |
 | B005 | MEDIUM | Nested `if` can be flattened into a guard clause |
 | B006 | LOW | De Morgan simplification opportunity (`not (a and b)`) |
 | B007 | LOW | De Morgan simplification opportunity (`not (a or b)`) |
@@ -46,8 +46,10 @@ B002/B003 are intentionally not used; boolean `== True`/`== False` checks are re
 |------|----------|-------------|
 | L001 | LOW | `for i in range(len(seq))` should use `enumerate()` |
 | L002 | LOW | Manual index increment pattern (`i += 1`) |
-| L003 | MEDIUM | Deeply nested loops with comparisons |
+| L003 | MEDIUM | Deeply nested loops with membership or subscript lookups |
 | L004 | MEDIUM | Loop-invariant expensive call inside loop body |
+
+L003 flags nested loops that contain `in` / `not in` membership tests or subscript lookups (e.g. `cache[key]`), not arbitrary equality comparisons.
 
 ## Duplication (D001)
 
@@ -79,7 +81,7 @@ Covers `open`, `urlopen`, `ZipFile`, `Popen`, `Path.open()`, and related APIs.
 | Rule | Severity | Description |
 |------|----------|-------------|
 | R006 | LOW | `if key in d: x = d[key] else: x = default` should use `.get()` |
-| R007 | LOW | Unnecessary `.keys()` in a `for` loop |
+| R007 | LOW | Consider `.items()` when iterating keys and accessing values |
 | R009 | LOW | Unnecessary `.keys()` in a membership test |
 | R010 | LOW | `dict([...])` should be a dict comprehension |
 

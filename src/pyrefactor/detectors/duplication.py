@@ -102,12 +102,15 @@ class DuplicationDetector(BaseDetector):
     # Maximum block size to analyze (prevents excessive memory usage)
     MAX_BLOCK_SIZE = 20
     MAX_LINES_ANALYZED = 5000
+    MAX_BLOCKS_STORED = 50_000
 
     def __init__(self, config: Config, file_path: str, source_lines: list[str]) -> None:
         """Initialize duplication detector."""
         super().__init__(config, file_path, source_lines)
         self.code_blocks: dict[str, list[tuple[int, int, str, str]]] = {}
         self.excluded_ranges: list[tuple[int, int]] = []
+        self._normalization_cache: dict[str, str] = {}
+        self._blocks_stored = 0
 
     def get_detector_name(self) -> str:
         """Return the name of this detector."""
@@ -161,8 +164,9 @@ class DuplicationDetector(BaseDetector):
         min_lines = self.config.duplication.min_duplicate_lines
         total_lines = min(len(self.source_lines), self.MAX_LINES_ANALYZED)
 
-        # Extract sliding windows of code with optimized range
         for start in range(total_lines):
+            if self._blocks_stored >= self.MAX_BLOCKS_STORED:
+                break
             max_length = min(self.MAX_BLOCK_SIZE, total_lines - start)
             for length in range(min_lines, max_length + 1):
                 end = start + length
@@ -181,10 +185,11 @@ class DuplicationDetector(BaseDetector):
                     continue
 
                 # Normalize the code for comparison
-                normalized = self._normalize_code(code_block)
+                normalized = self._normalize_code_cached(code_block)
                 if not normalized:
                     continue
 
+                self._blocks_stored += 1
                 # Hash the normalized code
                 code_hash = hashlib.md5(
                     normalized.encode(), usedforsecurity=False
@@ -247,24 +252,16 @@ class DuplicationDetector(BaseDetector):
                     reported_ranges.append((start, end))
 
     def _is_block_suppressed(self, line: int) -> bool:
-        """Check if a code block has a suppression comment.
-
-        Args:
-            line: The line number to check
-
-        Returns:
-            True if the line has a suppression comment
-        """
+        """Check if a code block has a suppression comment for D001."""
         if line < 1 or line > len(self.source_lines):
             return False
 
-        # Check a range of lines before the block (up to 3 lines back)
         for offset in range(4):
             check_line = line - offset
             if check_line < 1:
                 break
             current_line = self.source_lines[check_line - 1]
-            if "# pyrefactor: ignore" in current_line or "# noqa" in current_line:
+            if self._line_suppresses(current_line, "D001"):
                 return True
 
         return False
@@ -298,6 +295,14 @@ class DuplicationDetector(BaseDetector):
         )
 
         return meaningful_lines >= self.config.duplication.min_duplicate_lines
+
+    def _normalize_code_cached(self, code: str) -> str:
+        """Normalize code with caching for identical block text."""
+        if code in self._normalization_cache:
+            return self._normalization_cache[code]
+        normalized = self._normalize_code(code)
+        self._normalization_cache[code] = normalized
+        return normalized
 
     def _normalize_code(self, code: str) -> str:
         """Normalize code for comparison by tokenizing and removing literals."""

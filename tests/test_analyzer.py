@@ -548,3 +548,63 @@ class TestAnalyzerEdgeCases:
             analysis.parse_error == "Analysis failed: unexpected error"
             for analysis in result.file_analyses
         )
+
+    def test_parallel_results_sorted_by_path(
+        self, default_config: Config, tmp_path: Path
+    ) -> None:
+        """Test parallel analysis returns results sorted by file path."""
+        files = []
+        for name in ("c.py", "a.py", "b.py"):
+            path = tmp_path / name
+            path.write_text("x = 1\n", encoding="utf-8")
+            files.append(path)
+
+        result = Analyzer(default_config).analyze_files(files, max_workers=4)
+        paths = [analysis.file_path for analysis in result.file_analyses]
+
+        assert paths == sorted(paths)
+
+    def test_detector_keyerror_isolated(
+        self, default_config: Config, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test KeyError in a detector becomes a warning, not a parse error."""
+        from pyrefactor.detectors import complexity as complexity_module
+
+        target = tmp_path / "sample.py"
+        target.write_text("x = 1\n", encoding="utf-8")
+
+        def _boom(_self: object, _tree: object) -> list[object]:
+            raise KeyError("missing key")
+
+        monkeypatch.setattr(
+            complexity_module.ComplexityDetector,
+            "analyze",
+            _boom,
+        )
+
+        analysis = Analyzer(default_config).analyze_file(target)
+
+        assert analysis.parse_error is None
+        assert len(analysis.warnings) == 1
+        assert "complexity failed" in analysis.warnings[0]
+
+    def test_analyze_directory_missing_path(
+        self, default_config: Config, tmp_path: Path
+    ) -> None:
+        """Test analyze_directory on missing path returns empty result."""
+        missing = tmp_path / "missing"
+        result = Analyzer(default_config).analyze_directory(missing)
+
+        assert result.file_analyses == []
+
+    def test_analyze_directory_file_path(
+        self, default_config: Config, tmp_path: Path
+    ) -> None:
+        """Test analyze_directory delegates when given a file path."""
+        target = tmp_path / "single.py"
+        target.write_text("x = 1\n", encoding="utf-8")
+
+        result = Analyzer(default_config).analyze_directory(target)
+
+        assert len(result.file_analyses) == 1
+        assert result.file_analyses[0].file_path == str(target)

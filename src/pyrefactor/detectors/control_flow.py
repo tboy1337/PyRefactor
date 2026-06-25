@@ -53,38 +53,39 @@ class ControlFlowDetector(BaseDetector):
         if not body:
             return False
 
-        # Check the last statement
         last_stmt = body[-1]
-
-        # Direct terminating statements
         if isinstance(last_stmt, (ast.Return, ast.Raise, ast.Break, ast.Continue)):
             return True
-
-        # If statement - check if all branches terminate
         if isinstance(last_stmt, ast.If):
-            # Must have an else clause to ensure all paths terminate
-            if not last_stmt.orelse:
-                return False
-
-            # Check if both if and else terminate
-            if_terminates = self._always_terminates(last_stmt.body)
-            else_terminates = self._always_terminates(last_stmt.orelse)
-            return if_terminates and else_terminates
-
-        # Try statement - all branches must terminate
+            return self._if_always_terminates(last_stmt)
         if isinstance(last_stmt, ast.Try):
-            try_terminates = self._always_terminates(last_stmt.body)
-            handlers_terminate = all(
-                self._always_terminates(handler.body) for handler in last_stmt.handlers
-            )
-            # If there's an else clause, it must also terminate
-            else_terminates = (
-                self._always_terminates(last_stmt.orelse) if last_stmt.orelse else True
-            )
-            # Finally doesn't affect termination
-            return try_terminates and handlers_terminate and else_terminates
-
+            return self._try_always_terminates(last_stmt)
+        if isinstance(last_stmt, ast.Match):
+            return self._match_always_terminates(last_stmt)
         return False
+
+    def _if_always_terminates(self, node: ast.If) -> bool:
+        """Check if an if/else always terminates on all paths."""
+        if not node.orelse:
+            return False
+        return self._always_terminates(node.body) and self._always_terminates(
+            node.orelse
+        )
+
+    def _try_always_terminates(self, node: ast.Try) -> bool:
+        """Check if a try/except/else always terminates on all paths."""
+        try_terminates = self._always_terminates(node.body)
+        handlers_terminate = all(
+            self._always_terminates(handler.body) for handler in node.handlers
+        )
+        else_terminates = self._always_terminates(node.orelse) if node.orelse else True
+        return try_terminates and handlers_terminate and else_terminates
+
+    def _match_always_terminates(self, node: ast.Match) -> bool:
+        """Check if all match cases always terminate."""
+        if not node.cases:
+            return False
+        return all(self._always_terminates(case.body) for case in node.cases)
 
     def _get_terminator_type(self, body: list[ast.stmt]) -> str:
         """Get the type of terminator in a code block."""
@@ -109,6 +110,11 @@ class ControlFlowDetector(BaseDetector):
         if isinstance(last_stmt, ast.If):
             # Get terminator from if body (assuming we've already checked it terminates)
             return self._get_terminator_type(last_stmt.body)
+
+        if isinstance(last_stmt, ast.Match):
+            if not last_stmt.cases:
+                return ""
+            return self._get_terminator_type(last_stmt.cases[0].body)
 
         return ""
 

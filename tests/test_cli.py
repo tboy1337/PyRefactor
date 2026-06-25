@@ -366,6 +366,67 @@ class TestCLIMain:
 
             assert exit_code == 0
 
+    def test_main_subprocess_group_by_severity(self, tmp_path: Path) -> None:
+        """Test subprocess output groups issues by severity."""
+        file_path = tmp_path / "issues.py"
+        file_path.write_text("f = open('data.txt')\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pyrefactor",
+                str(file_path),
+                "--group-by",
+                "severity",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 1
+        assert "HIGH Severity Issues" in result.stdout
+
+    def test_main_subprocess_jobs_zero_clamps_to_one(self, tmp_path: Path) -> None:
+        """Test -j 0 is clamped to one worker and still analyzes files."""
+        file_path = tmp_path / "clean.py"
+        file_path.write_text("x = 1\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [sys.executable, "-m", "pyrefactor", "-j", "0", str(file_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 0
+        assert "Files analyzed: 1" in result.stdout
+
+    def test_main_subprocess_min_severity_medium(self, tmp_path: Path) -> None:
+        """Test --min-severity medium filters low/info from exit code."""
+        file_path = tmp_path / "low_only.py"
+        file_path.write_text(
+            "items = [1, 2, 3]\nfor i in range(len(items)):\n    print(items[i])\n",
+            encoding="utf-8",
+        )
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pyrefactor",
+                str(file_path),
+                "--min-severity",
+                "medium",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 0
+
 
 class TestCLIExitCodeHelpers:
     """Tests for CLI exit-code helper functions."""
