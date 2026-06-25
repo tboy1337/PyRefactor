@@ -359,12 +359,27 @@ class Config:
         return None
 
     @staticmethod
+    def _coerce_bool(value: object) -> bool | None:
+        """Coerce a TOML or string value to bool."""
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, int) and value in (0, 1):
+            return bool(value)
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "yes", "1", "on"}:
+                return True
+            if normalized in {"false", "no", "0", "off"}:
+                return False
+        return None
+
+    @staticmethod
     def _coerce_typed_value(
         expected_type: type[object], value: object
     ) -> object | None:
         """Coerce a single TOML value to the expected Python type."""
         if expected_type is bool:
-            return bool(value)
+            return Config._coerce_bool(value)
         if expected_type is list:
             return Config._coerce_list_value(value)
         if expected_type in (int, float) and isinstance(value, (int, float, str)):
@@ -565,9 +580,9 @@ class Config:
             try:
                 with pyproject.open("rb") as config_file:
                     data = tomllib.load(config_file)
-            except tomllib.TOMLDecodeError:
+            except (OSError, tomllib.TOMLDecodeError):
                 logger.warning(
-                    "Failed to parse %s; falling back to pyrefactor.ini or defaults",
+                    "Failed to read or parse %s; falling back to pyrefactor.ini or defaults",
                     pyproject,
                 )
             else:

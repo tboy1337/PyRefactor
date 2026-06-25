@@ -313,3 +313,38 @@ while condition:  # pyrefactor: ignore
         issues = detector.analyze(tree)
 
         assert len(issues) == 0
+
+    def test_async_for_range_len_pattern(self, default_config: Config) -> None:
+        """Test async for with range(len()) triggers L001."""
+        source = """
+items = [1, 2, 3]
+async for i in range(len(items)):
+    print(items[i])
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert any(issue.rule_id == "L001" for issue in issues)
+
+    def test_sibling_nested_loops_do_not_trigger_l003(
+        self, default_config: Config
+    ) -> None:
+        """Test sequential inner loops do not inflate L003 nesting depth."""
+        source = """
+lookup = set()
+for item in list1:
+    for other in list2:
+        if other in lookup:
+            pass
+    for third in list3:
+        if third in lookup:
+            pass
+"""
+        tree = ast.parse(source)
+
+        detector = LoopsDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "L003" for issue in issues)

@@ -347,3 +347,19 @@ class TestConsoleReporter:
         rendered = output.getvalue()
         assert "Files with parse errors: 1" in rendered
         assert "High or medium severity issues found" in rendered
+
+    def test_issue_location_shows_end_line_range(self) -> None:
+        """Test location formatting includes end_line when set."""
+        issue = Issue(
+            file="test.py",
+            line=10,
+            column=0,
+            end_line=20,
+            severity=Severity.MEDIUM,
+            rule_id="D001",
+            message="Duplicate block",
+        )
+
+        location = ConsoleReporter._format_issue_location(issue, include_file=True)
+
+        assert location == "test.py:10:20:0"

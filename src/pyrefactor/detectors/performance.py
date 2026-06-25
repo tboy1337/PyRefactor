@@ -121,8 +121,17 @@ class PerformanceDetector(BaseDetector):
         """Return the name of this detector."""
         return "performance"
 
+    def _reset_state(self) -> None:
+        """Reset per-analysis state."""
+        self.issues = []
+        self.in_loop = False
+        self.loop_stack = []
+        self.parent_map = {}
+        self._string_var_stack = []
+
     def analyze(self, tree: ast.AST) -> list[Issue]:
         """Run the detector on an AST and return issues found."""
+        self._reset_state()
         self.parent_map = build_parent_map(tree)
         self.visit(tree)
         return self.issues
@@ -354,6 +363,4 @@ class PerformanceDetector(BaseDetector):
         name_lower = node.id.lower()
         hints = self.TYPE_HINTS.get(type_name, [])
 
-        return any(hint in name_lower for hint in hints) or (
-            type_name == "list" and name_lower.endswith("s")
-        )
+        return any(hint in name_lower for hint in hints)

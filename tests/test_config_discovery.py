@@ -133,4 +133,6 @@ max_branches = 11
 
         Config.load()
 
-        assert any("Failed to parse" in record.message for record in caplog.records)
+        assert any(
+            "Failed to read or parse" in record.message for record in caplog.records
+        )

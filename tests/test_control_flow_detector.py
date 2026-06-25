@@ -341,3 +341,26 @@ def func(x):
     issues = detector.analyze(tree)
 
     assert len(issues) == 0
+
+
+def test_finally_block_prevents_unnecessary_else_report(
+    detector: ControlFlowDetector,
+) -> None:
+    """Test try/finally blocks are not treated as always terminating."""
+    code = """
+def func(x):
+    if x > 0:
+        try:
+            return do_work()
+        except ValueError:
+            return None
+        finally:
+            cleanup()
+    else:
+        return 0
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert not any(issue.rule_id == "R002" for issue in issues)

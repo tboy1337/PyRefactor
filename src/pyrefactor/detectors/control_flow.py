@@ -74,6 +74,8 @@ class ControlFlowDetector(BaseDetector):
 
     def _try_always_terminates(self, node: ast.Try) -> bool:
         """Check if a try/except/else always terminates on all paths."""
+        if node.finalbody:
+            return False
         try_terminates = self._always_terminates(node.body)
         handlers_terminate = all(
             self._always_terminates(handler.body) for handler in node.handlers
@@ -86,6 +88,25 @@ class ControlFlowDetector(BaseDetector):
         if not node.cases:
             return False
         return all(self._always_terminates(case.body) for case in node.cases)
+
+    def _get_if_terminator_type(self, node: ast.If) -> str:
+        """Get terminator type from an if/elif chain when all paths terminate."""
+        if self._always_terminates(node.body):
+            return self._get_terminator_type(node.body)
+        elif_node = (
+            node.orelse[0]
+            if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If)
+            else None
+        )
+        if isinstance(elif_node, ast.If) and self._always_terminates(elif_node.body):
+            return self._get_terminator_type(elif_node.body)
+        return ""
+
+    def _get_match_terminator_type(self, node: ast.Match) -> str:
+        """Get terminator type from a match when all cases terminate."""
+        if not node.cases:
+            return ""
+        return self._get_terminator_type(node.cases[0].body)
 
     def _get_terminator_type(self, body: list[ast.stmt]) -> str:
         """Get the type of terminator in a code block."""
@@ -108,13 +129,10 @@ class ControlFlowDetector(BaseDetector):
 
         # Check nested structures
         if isinstance(last_stmt, ast.If):
-            # Get terminator from if body (assuming we've already checked it terminates)
-            return self._get_terminator_type(last_stmt.body)
+            return self._get_if_terminator_type(last_stmt)
 
         if isinstance(last_stmt, ast.Match):
-            if not last_stmt.cases:
-                return ""
-            return self._get_terminator_type(last_stmt.cases[0].body)
+            return self._get_match_terminator_type(last_stmt)
 
         return ""
 

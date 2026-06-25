@@ -107,6 +107,10 @@ class FunctionMetricsVisitor(ast.NodeVisitor):
         """Count with statements."""
         self._increment_complexity_and_visit_nested(node)
 
+    def visit_AsyncWith(self, node: ast.AsyncWith) -> None:
+        """Count async with statements."""
+        self._increment_complexity_and_visit_nested(node)
+
     def visit_Try(self, node: ast.Try) -> None:
         """Count try blocks."""
         self._increment_complexity_and_visit_nested(node)

@@ -414,6 +414,86 @@ def func2():
 
         assert not any(issue.rule_id == "D001" for issue in issues)
 
+    def test_max_block_size_boundary(
+        self, default_config: Config, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test blocks longer than MAX_BLOCK_SIZE are not compared."""
+        from pyrefactor.detectors.duplication import DuplicationDetector as DupDet
+
+        monkeypatch.setattr(DupDet, "MAX_BLOCK_SIZE", 4)
+        duplicate_block = """
+def func1():
+    a = 1
+    b = 2
+    c = 3
+    d = 4
+    e = 5
+    f = 6
+    g = 7
+    total = a + b + c + d + e + f + g
+    return total
+
+def func2():
+    a = 1
+    b = 2
+    c = 3
+    d = 4
+    e = 5
+    f = 6
+    g = 7
+    total = a + b + c + d + e + f + g
+    return total
+"""
+        source = duplicate_block
+        tree = ast.parse(source)
+        lines = source.split("\n")
+
+        detector = DuplicationDetector(default_config, "test.py", lines)
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "D001" for issue in issues)
+
+    def test_max_blocks_stored_boundary(
+        self, default_config: Config, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test duplicate detection stops after MAX_BLOCKS_STORED unique blocks."""
+        from pyrefactor.detectors.duplication import DuplicationDetector as DupDet
+
+        monkeypatch.setattr(DupDet, "MAX_BLOCKS_STORED", 3)
+        unique_blocks = "\n".join(f"""
+def unique_{index}():
+    x = {index}
+    y = {index + 1}
+    z = {index + 2}
+    w = {index + 3}
+    return x + y + z + w
+""".strip() for index in range(10))
+        duplicate_pair = """
+def duplicate_a():
+    a = 1
+    b = 2
+    c = 3
+    d = 4
+    e = 5
+    return a + b + c + d + e
+
+def duplicate_b():
+    a = 1
+    b = 2
+    c = 3
+    d = 4
+    e = 5
+    return a + b + c + d + e
+"""
+        source = unique_blocks + "\n" + duplicate_pair
+        tree = ast.parse(source)
+        lines = source.split("\n")
+
+        detector = DuplicationDetector(default_config, "test.py", lines)
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "D001" for issue in issues)
+
     def test_tuple_literal_exclusion(self, default_config: Config) -> None:
         """Test tuple literals are excluded from duplication detection."""
         source = """

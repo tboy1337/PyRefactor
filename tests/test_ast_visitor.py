@@ -118,6 +118,19 @@ async def func():
         assert isinstance(func_def, ast.AsyncFunctionDef)
         assert count_branches(func_def) >= 1
 
+    def test_async_with_increases_nesting_depth(self) -> None:
+        """Test async with statements increase nesting depth metrics."""
+        source = """
+async def func():
+    async with open("x") as f:
+        if True:
+            return f.read()
+"""
+        tree = ast.parse(source)
+        func_def = tree.body[0]
+        assert isinstance(func_def, ast.AsyncFunctionDef)
+        assert count_nesting_depth(func_def) >= 2
+
     def test_assert_increases_cyclomatic_complexity(self) -> None:
         """Test assert statements increase cyclomatic complexity."""
         source = """

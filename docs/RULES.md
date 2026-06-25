@@ -65,7 +65,7 @@ For performance, the duplication detector scans at most the first **5,000 lines*
 |------|----------|-------------|
 | R001 | HIGH | Resource-allocating call should use a `with` statement |
 
-Covers `open`, `urlopen`, `ZipFile`, `Popen`, `Path.open()`, and related APIs.
+Covers `open`, `urlopen`, `ZipFile`, `TarFile`, `NamedTemporaryFile`, `TemporaryDirectory`, `Path.open()`, and related file/archive APIs. Does not flag `Popen` or `Pool`, which are often managed without `with`.
 
 ## Control Flow (R002–R005)
 

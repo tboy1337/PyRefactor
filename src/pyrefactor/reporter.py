@@ -156,6 +156,17 @@ class ConsoleReporter:
             for issue in sorted_issues:
                 self._print_issue(issue, include_file=True)
 
+    @staticmethod
+    def _format_issue_location(issue: Issue, *, include_file: bool = False) -> str:
+        """Format issue line/column, including end_line ranges when set."""
+        if issue.end_line is not None and issue.end_line != issue.line:
+            line_part = f"{issue.line}:{issue.end_line}:{issue.column}"
+        else:
+            line_part = f"{issue.line}:{issue.column}"
+        if include_file:
+            return f"{issue.file}:{line_part}"
+        return line_part
+
     def _print_issue(self, issue: Issue, include_file: bool = False) -> None:
         """Print a single issue."""
         # Severity indicator
@@ -163,9 +174,7 @@ class ConsoleReporter:
         severity_icon = self._get_severity_icon(issue.severity)
 
         # Location
-        location = f"{issue.line}:{issue.column}"
-        if include_file:
-            location = f"{issue.file}:{location}"
+        location = self._format_issue_location(issue, include_file=include_file)
 
         # Print main issue line
         self._print(

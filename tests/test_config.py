@@ -479,3 +479,32 @@ similarity_threshold = 2.0
 
         with pytest.raises(ValueError, match="similarity_threshold"):
             Config.from_toml_file(config_file)
+
+    def test_coerce_bool_string_false_from_toml(self) -> None:
+        """Test string 'false' in TOML coerces to boolean False."""
+        config = Config.from_toml_data(
+            {"tool": {"pyrefactor": {"performance": {"enabled": "false"}}}}
+        )
+
+        assert config.performance.enabled is False
+
+    def test_load_falls_back_when_pyproject_unreadable(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test auto-discovery falls back when pyproject.toml cannot be read."""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text("[tool.pyrefactor]\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+
+        real_open = Path.open
+
+        def failing_open(self: Path, *args: object, **kwargs: object) -> object:
+            if self.name == "pyproject.toml":
+                raise OSError("Permission denied")
+            return real_open(self, *args, **kwargs)  # type: ignore[call-overload]
+
+        monkeypatch.setattr(Path, "open", failing_open)
+
+        config = Config.load()
+
+        assert config.performance.enabled is True

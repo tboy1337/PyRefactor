@@ -116,8 +116,17 @@ class DuplicationDetector(BaseDetector):
         """Return the name of this detector."""
         return "duplication"
 
+    def _reset_state(self) -> None:
+        """Reset per-analysis state."""
+        self.issues = []
+        self.code_blocks = {}
+        self.excluded_ranges = []
+        self._normalization_cache = {}
+        self._blocks_stored = 0
+
     def analyze(self, tree: ast.AST) -> list[Issue]:
         """Run duplication detection on the entire file."""
+        self._reset_state()
         # First, identify exclusion zones (data structures and docstrings)
         self._identify_excluded_ranges(tree)
 

@@ -152,7 +152,7 @@ open('file.txt').read()
 
 
 def test_popen_without_with(detector: ContextManagerDetector) -> None:
-    """Test detection of Popen() without with statement."""
+    """Test Popen() without with is not flagged (idiomatic manual lifecycle)."""
     code = """
 from subprocess import Popen
 proc = Popen(['ls', '-l'])
@@ -161,9 +161,36 @@ proc = Popen(['ls', '-l'])
     detector.source_lines = code.splitlines()
     issues = detector.analyze(tree)
 
-    assert len(issues) == 1
-    assert issues[0].rule_id == "R001"
-    assert "Popen" in issues[0].message
+    assert len(issues) == 0
+
+
+def test_pool_without_with(detector: ContextManagerDetector) -> None:
+    """Test Pool() without with is not flagged."""
+    code = """
+from multiprocessing import Pool
+pool = Pool(4)
+pool.map(worker, items)
+pool.close()
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 0
+
+
+def test_async_with_open_not_flagged(detector: ContextManagerDetector) -> None:
+    """Test async with open() is not flagged."""
+    code = """
+async def read_file():
+    async with open('file.txt') as f:
+        return f.read()
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 0
 
 
 def test_nested_with_statements(detector: ContextManagerDetector) -> None:

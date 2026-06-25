@@ -185,6 +185,8 @@ repos:
 
 ### GitHub Actions
 
+This repository's [Build-Release-PYPI](.github/workflows/Build-Release-PYPI.yml) workflow builds and publishes releases only; it does not run the test suite. Run `python scripts/verify.py` locally before release.
+
 Example workflow for consumers (not maintained in this repository):
 
 ```yaml

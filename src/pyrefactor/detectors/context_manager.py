@@ -19,8 +19,6 @@ CONTEXT_MANAGER_FUNCS = frozenset(
         "ZipFile",
         "PyZipFile",
         "TarFile",
-        "Popen",
-        "Pool",
     }
 )
 
@@ -36,8 +34,14 @@ class ContextManagerDetector(BaseDetector):
         super().__init__(config, file_path, source_lines)
         self.parent_map: dict[ast.AST, ast.AST] = {}
 
+    def _reset_state(self) -> None:
+        """Reset per-analysis state."""
+        self.issues = []
+        self.parent_map = {}
+
     def analyze(self, tree: ast.AST) -> list[Issue]:
         """Run the detector on an AST and return issues found."""
+        self._reset_state()
         self.parent_map = build_parent_map(tree)
         self.visit(tree)
         return self.issues
@@ -72,7 +76,7 @@ class ContextManagerDetector(BaseDetector):
         """Check if the call is already used in a 'with' statement."""
         current = self.parent_map.get(node)
         while current:
-            if isinstance(current, ast.With):
+            if isinstance(current, (ast.With, ast.AsyncWith)):
                 return True
             # Stop at function boundaries
             if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):

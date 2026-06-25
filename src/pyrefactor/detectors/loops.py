@@ -70,7 +70,9 @@ class LoopsDetector(BaseDetector):
         ),
     }
 
-    def _emit_medium_loop_issue(self, node: ast.For, rule_id: str) -> None:
+    def _emit_medium_loop_issue(
+        self, node: ast.For | ast.AsyncFor, rule_id: str
+    ) -> None:
         """Report a medium-severity loop issue by rule ID."""
         message, suggestion = self._MEDIUM_LOOP_ISSUES[rule_id]
         self._report_loop_issue(
@@ -86,7 +88,7 @@ class LoopsDetector(BaseDetector):
 
     def _report_loop_issue(
         self,
-        node: ast.For,
+        node: ast.For | ast.AsyncFor,
         *,
         rule_id: str,
         message: str,
@@ -104,25 +106,26 @@ class LoopsDetector(BaseDetector):
 
     def visit_For(self, node: ast.For) -> None:
         """Check for loop optimization opportunities."""
+        self._visit_for_loop(node)
+
+    def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
+        """Check async for loops for optimization opportunities."""
+        self._visit_for_loop(node)
+
+    def _visit_for_loop(self, node: ast.For | ast.AsyncFor) -> None:
+        """Run loop checks shared by for and async for."""
         if self.is_suppressed(node):
             self.generic_visit(node)
             return
 
-        # Check for range(len()) pattern
         self._check_range_len_pattern(node)
-
-        # Check for manual index tracking
         self._check_manual_index_tracking(node)
-
-        # Check for nested loops that might benefit from dict lookup
         self._check_nested_loop_optimization(node)
-
-        # Check for loop invariant code
         self._check_loop_invariants(node)
 
         self.generic_visit(node)
 
-    def _check_range_len_pattern(self, node: ast.For) -> None:
+    def _check_range_len_pattern(self, node: ast.For | ast.AsyncFor) -> None:
         """Check for range(len(x)) that should use enumerate."""
         # Validate the basic pattern structure
         if not self._is_range_len_call(node):
@@ -145,7 +148,7 @@ class LoopsDetector(BaseDetector):
             suggestion="Replace 'for i in range(len(items)):' with 'for i, item in enumerate(items):'",
         )
 
-    def _is_range_len_call(self, node: ast.For) -> bool:
+    def _is_range_len_call(self, node: ast.For | ast.AsyncFor) -> bool:
         """Check if the loop uses range(len(...)) pattern."""
         if not isinstance(node.iter, ast.Call):
             return False
@@ -155,7 +158,9 @@ class LoopsDetector(BaseDetector):
 
         return node.iter.func.id == "range" and bool(node.iter.args)
 
-    def _extract_collection_from_range_len(self, node: ast.For) -> Optional[ast.AST]:
+    def _extract_collection_from_range_len(
+        self, node: ast.For | ast.AsyncFor
+    ) -> Optional[ast.AST]:
         """Extract the collection from a range(len(...)) call."""
         if not isinstance(node.iter, ast.Call) or not node.iter.args:
             return None
@@ -172,7 +177,7 @@ class LoopsDetector(BaseDetector):
 
         return first_arg.args[0]
 
-    def _check_manual_index_tracking(self, node: ast.For) -> None:
+    def _check_manual_index_tracking(self, node: ast.For | ast.AsyncFor) -> None:
         """Check for manual index variable incrementation."""
         tracker = IndexTracker()
         for stmt in node.body:
@@ -187,30 +192,34 @@ class LoopsDetector(BaseDetector):
                 suggestion="Use enumerate() to track indices automatically",
             )
 
-    def _check_nested_loop_optimization(self, node: ast.For) -> None:
+    def _check_nested_loop_optimization(self, node: ast.For | ast.AsyncFor) -> None:
         """Check for nested loops that might benefit from preprocessing."""
-        # Use a visitor to count nested loops more efficiently
-        nested_loop_count = self._count_nested_loops(node)
+        nested_loop_depth = self._max_nested_loop_depth(node)
 
-        if nested_loop_count > self.MIN_NESTED_LOOPS_FOR_WARNING:
-            # Check if inner loop is doing lookups
+        if nested_loop_depth > self.MIN_NESTED_LOOPS_FOR_WARNING:
             if self._has_comparison_in_loops(node):
                 self._emit_medium_loop_issue(node, "L003")
 
-    def _count_nested_loops(self, node: ast.For) -> int:
-        """Count the number of nested for loops."""
-        count = 1  # Current loop
-        for child in node.body:
-            if isinstance(child, ast.For):
-                count += self._count_nested_loops(child)
-        return count
+    def _max_nested_loop_depth(
+        self, node: ast.For | ast.AsyncFor, depth: int = 1
+    ) -> int:
+        """Return the maximum nesting depth of for/async-for loops under node."""
+        max_depth = depth
+        for child in ast.walk(node):
+            if child is node:
+                continue
+            if isinstance(child, (ast.For, ast.AsyncFor)):
+                max_depth = max(
+                    max_depth, self._max_nested_loop_depth(child, depth + 1)
+                )
+        return max_depth
 
-    def _has_comparison_in_loops(self, node: ast.For) -> bool:
+    def _has_comparison_in_loops(self, node: ast.For | ast.AsyncFor) -> bool:
         """Check if nested loops contain membership or subscript lookups."""
         for child in node.body:
             if self._contains_lookup_pattern(child):
                 return True
-            if isinstance(child, ast.For):
+            if isinstance(child, (ast.For, ast.AsyncFor)):
                 if self._has_comparison_in_loops(child):
                     return True
         return False
@@ -226,7 +235,7 @@ class LoopsDetector(BaseDetector):
                 return True
         return False
 
-    def _check_loop_invariants(self, node: ast.For) -> None:
+    def _check_loop_invariants(self, node: ast.For | ast.AsyncFor) -> None:
         """Check for loop-invariant code that could be hoisted."""
         # Look for expensive operations that don't depend on loop variable
         loop_var = node.target
@@ -242,7 +251,7 @@ class LoopsDetector(BaseDetector):
             self._emit_medium_loop_issue(node, "L004")
 
     def _loop_body_accesses_collection(
-        self, loop_node: ast.For, collection: ast.AST
+        self, loop_node: ast.For | ast.AsyncFor, collection: ast.AST
     ) -> bool:
         """Check if loop body accesses the collection by index."""
         if not isinstance(loop_node.target, ast.Name):

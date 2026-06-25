@@ -335,6 +335,36 @@ for item in items:
 
         assert not any(issue.rule_id == "P007" for issue in issues)
 
+    def test_status_variable_not_treated_as_list(self, default_config: Config) -> None:
+        """Test variables ending in 's' but not list-like do not trigger P002."""
+        source = """
+for item in items:
+    status += item
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        issues = detector.analyze(tree)
+
+        assert not any(issue.rule_id == "P002" for issue in issues)
+
+    def test_analyze_is_idempotent(self, default_config: Config) -> None:
+        """Test calling analyze() twice on the same detector resets state."""
+        source = """
+for item in items:
+    text += str(item)
+    text += str(item)
+    text += str(item)
+"""
+        tree = ast.parse(source)
+
+        detector = PerformanceDetector(default_config, "test.py", source.split("\n"))
+        first = detector.analyze(tree)
+        second = detector.analyze(tree)
+
+        assert len(first) == len(second)
+        assert {issue.rule_id for issue in first} == {issue.rule_id for issue in second}
+
     def test_duplicate_calls_custom_threshold(self) -> None:
         """Test P007 with custom min_duplicate_calls."""
         config = Config()
