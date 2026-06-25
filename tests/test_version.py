@@ -45,6 +45,23 @@ class TestVersion:
         ):
             assert get_version() == _pyproject_version()
 
+    def test_bundled_pyproject_path_returns_none_when_meipass_not_str(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Frozen runtime ignores non-string _MEIPASS values."""
+        from pyrefactor._version import _bundled_pyproject_path
+
+        monkeypatch.setattr("pyrefactor._version.sys.frozen", True, raising=False)
+        monkeypatch.setattr("pyrefactor._version.sys._MEIPASS", 123, raising=False)
+
+        assert _bundled_pyproject_path() is None
+
+    def test_read_project_version_when_project_not_dict(self) -> None:
+        """Project version extraction ignores non-dict project tables."""
+        from pyrefactor._version import _read_project_version
+
+        assert _read_project_version({"project": "not-a-dict"}) is None
+
     def test_get_version_uses_package_metadata(self) -> None:
         """Installed version comes from package metadata when available."""
         expected = "2.3.4"
@@ -96,15 +113,6 @@ class TestVersion:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text("[project]\nname = 'x'\n", encoding="utf-8")
         assert _fallback_version() == "unknown"
-
-    def test_get_version_uses_fallback_when_not_installed(self) -> None:
-        """Fallback is used when the distribution is not installed."""
-        _clear_fallback_cache()
-        with patch(
-            "pyrefactor._version.version",
-            side_effect=PackageNotFoundError("pyrefactor"),
-        ):
-            assert get_version() == _pyproject_version()
 
     def test_pyproject_path_uses_bundled_meipass(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

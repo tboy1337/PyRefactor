@@ -250,6 +250,34 @@ def read_file():
     assert len(issues) == 0
 
 
+def test_zipfile_without_with(detector: ContextManagerDetector) -> None:
+    """Test detection of ZipFile() without with statement."""
+    code = """
+from zipfile import ZipFile
+archive = ZipFile('data.zip')
+archive.read('entry.txt')
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 1
+    assert issues[0].rule_id == "R001"
+    assert "ZipFile" in issues[0].message
+
+
+def test_unknown_call_target_not_flagged(detector: ContextManagerDetector) -> None:
+    """Test calls with non-name/non-attribute func are not flagged."""
+    code = """
+(get_opener())('http://example.com')
+"""
+    tree = ast.parse(code)
+    detector.source_lines = code.splitlines()
+    issues = detector.analyze(tree)
+
+    assert len(issues) == 0
+
+
 def test_path_open_method_call(detector: ContextManagerDetector) -> None:
     """Test Path.open() without with is flagged."""
     code = """

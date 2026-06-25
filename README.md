@@ -48,7 +48,7 @@ pip install -e .
 
 **Requirements**: Python 3.12+
 
-**Status**: PyRefactor is currently in **Beta** (see PyPI classifiers). APIs and rule behavior may change between releases.
+**Status**: PyRefactor is **Production/Stable** (see PyPI classifiers).
 
 **License**: This project uses the [Commercial Restricted License (CRL)](LICENSE.md). Personal and non-commercial use is permitted; commercial use requires permission from the copyright holder.
 
@@ -76,7 +76,7 @@ pyrefactor --config custom.toml src/
 
 ### Options
 
-- `-c, --config`: Configuration file path (default: `pyproject.toml`)
+- `-c, --config`: Configuration file path; when omitted, auto-discover `pyproject.toml` (`[tool.pyrefactor]`), then `pyrefactor.ini`, then built-in defaults
 - `-g, --group-by`: Group by `file` or `severity` (default: `file`)
 - `--min-severity`: Minimum severity to report: `info`, `low`, `medium`, `high` (default: `info`)
 - `-j, --jobs`: Number of parallel workers (default: 4)

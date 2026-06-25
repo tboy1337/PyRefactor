@@ -2,6 +2,10 @@
 
 import sys
 from io import StringIO
+from unittest.mock import MagicMock, patch
+
+import pytest
+from colorama import Fore
 
 from pyrefactor.models import AnalysisResult, FileAnalysis, Issue, Severity
 from pyrefactor.reporter import ConsoleReporter
@@ -133,10 +137,9 @@ class TestConsoleReporter:
         assert "Warning: Detector complexity failed: boom" in output_text
         assert "Analysis warnings: 1" in output_text
 
+    @pytest.mark.xdist_group(name="colorama")
     def test_lazy_colorama_initialization(self) -> None:
         """Test colorama is initialized on first reporter use."""
-        from unittest.mock import patch
-
         import pyrefactor.reporter as reporter_module
 
         reporter_module._ColoramaInitializer._initialized = False
@@ -202,8 +205,9 @@ class TestConsoleReporter:
         output = StringIO()
         reporter = ConsoleReporter(output=output)
 
-        assert reporter._get_severity_color(Severity.HIGH)
-        assert reporter._get_severity_icon(Severity.HIGH)
+        assert reporter._get_severity_color(Severity.HIGH) == Fore.RED
+        assert reporter._get_severity_icon(Severity.HIGH) == "✗"
+        assert reporter._get_severity_icon(Severity.MEDIUM) == "⚠"
 
     def test_invalid_group_by_defaults_to_file(self) -> None:
         """Test unknown group_by falls back to file grouping."""
@@ -277,12 +281,22 @@ class TestConsoleReporter:
 
     def test_stdout_utf8_fallback_uses_ascii_icons(self) -> None:
         """Test reporter falls back to ASCII icons when UTF-8 setup fails."""
-        from unittest.mock import MagicMock, patch
-
         mock_stdout = MagicMock()
         mock_stdout.reconfigure.side_effect = OSError("unsupported")
         del mock_stdout.buffer
 
         with patch("pyrefactor.reporter.sys.stdout", mock_stdout):
-            reporter_stdout = ConsoleReporter(output=sys.stdout)
+            reporter_stdout = ConsoleReporter()
             assert reporter_stdout.use_unicode is False
+
+    def test_custom_output_does_not_reconfigure_stdout(self) -> None:
+        """Test explicit output stream does not mutate sys.stdout."""
+        output = StringIO()
+        mock_stdout = MagicMock()
+        mock_stdout.reconfigure = MagicMock()
+
+        with patch("pyrefactor.reporter.sys.stdout", mock_stdout):
+            reporter = ConsoleReporter(output=output)
+
+        assert reporter.output is output
+        mock_stdout.reconfigure.assert_not_called()

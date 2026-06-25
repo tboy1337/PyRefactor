@@ -3,7 +3,7 @@
 import io
 import sys
 from collections import defaultdict
-from typing import TextIO
+from typing import BinaryIO, TextIO, cast
 
 from colorama import Fore, Style, init
 
@@ -68,29 +68,26 @@ class ConsoleReporter:
         Severity.INFO: ">",
     }
 
-    def __init__(self, output: TextIO = sys.stdout) -> None:
+    def __init__(self, output: TextIO | None = None) -> None:
         """Initialize reporter with output stream."""
         _ColoramaInitializer.ensure()
-        # Try to ensure UTF-8 encoding for Unicode symbols
-        if output is sys.stdout:
+        if output is None:
+            stdout = sys.stdout
             try:
-                # Reconfigure stdout to use UTF-8 encoding
-                if hasattr(sys.stdout, "reconfigure"):
-                    # TextIOWrapper.reconfigure (Python 3.7+; PyRefactor requires 3.12+)
-                    sys.stdout.reconfigure(encoding="utf-8")
-                    self.output = sys.stdout
+                if hasattr(stdout, "reconfigure"):
+                    stdout.reconfigure(encoding="utf-8")
+                    self.output = stdout
                     self.use_unicode = True
                 else:
-                    # Wrap stdout with UTF-8 text wrapper
+                    buffer = cast(BinaryIO, stdout.buffer)
                     self.output = io.TextIOWrapper(
-                        sys.stdout.buffer,
+                        buffer,
                         encoding="utf-8",
                         errors="replace",
                     )
                     self.use_unicode = True
             except (AttributeError, OSError):
-                # Fall back to ASCII icons if UTF-8 is not available
-                self.output = output
+                self.output = stdout
                 self.use_unicode = False
         else:
             self.output = output

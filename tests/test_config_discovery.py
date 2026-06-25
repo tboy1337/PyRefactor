@@ -95,3 +95,19 @@ max_branches = 99
 
         config = Config.load()
         assert config.complexity.max_branches == 12
+
+    def test_load_corrupt_pyproject_falls_back_to_ini(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test Config.load falls back to ini when pyproject.toml is invalid TOML."""
+        monkeypatch.chdir(tmp_path)
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text("[[[invalid toml")
+        ini_file = tmp_path / "pyrefactor.ini"
+        ini_file.write_text("""
+[complexity]
+max_branches = 11
+""")
+
+        config = Config.load()
+        assert config.complexity.max_branches == 11

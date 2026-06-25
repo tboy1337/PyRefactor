@@ -560,10 +560,14 @@ class Config:
 
         pyproject = Path("pyproject.toml")
         if pyproject.is_file():
-            with pyproject.open("rb") as config_file:
-                data = tomllib.load(config_file)
-            if cls._has_pyrefactor_config(data):
-                return cls.from_toml_data(data)
+            try:
+                with pyproject.open("rb") as config_file:
+                    data = tomllib.load(config_file)
+            except tomllib.TOMLDecodeError:
+                pass
+            else:
+                if cls._has_pyrefactor_config(data):
+                    return cls.from_toml_data(data)
 
         ini_file = Path("pyrefactor.ini")
         if ini_file.exists():
