@@ -32,6 +32,11 @@ jobs:
           python -m pip install --upgrade pyinstaller
           python -m pip install --upgrade -r requirements.txt
         shell: pwsh
+      - name: Generate version info file
+        run: |
+          .\venv\Scripts\Activate.ps1
+          python scripts/generate_file_version_info.py
+        shell: pwsh
       - name: Build executable
         run: |
           .\venv\Scripts\Activate.ps1

@@ -1,5 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec file for PyRefactor."""
+"""PyInstaller spec file for PyRefactor.
+
+Generate ``file_version_info.txt`` before building:
+  python scripts/generate_file_version_info.py
+"""
 
 from pathlib import Path
 
@@ -76,5 +80,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    version="file_version_info.txt",
 )
 
