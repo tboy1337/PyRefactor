@@ -10,7 +10,7 @@ pyproject_path = project_root / "pyproject.toml"
 
 # Analysis configuration
 a = Analysis(
-    [str(src_path / "pyrefactor" / "__main__.py")],
+    [str(project_root / "scripts" / "pyinstaller_entry.py")],
     pathex=[str(src_path)],
     binaries=[],
     datas=[

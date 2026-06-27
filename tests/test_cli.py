@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from pyrefactor.__main__ import (
     _determine_exit_code,
     _has_parse_errors,
@@ -608,3 +610,67 @@ class TestCLIExitCodeHelpers:
             exit_code = main()
 
         assert exit_code == 2
+
+
+class TestFrozenExecutable:
+    """Tests for the PyInstaller standalone executable."""
+
+    @staticmethod
+    def _built_exe_path() -> Path | None:
+        exe = Path(__file__).resolve().parent.parent / "dist" / "PyRefactor.exe"
+        if sys.platform == "win32" and exe.is_file():
+            return exe
+        return None
+
+    def test_pyinstaller_entry_script_version(self) -> None:
+        """PyInstaller entry script runs the CLI without import errors."""
+        entry = (
+            Path(__file__).resolve().parent.parent / "scripts" / "pyinstaller_entry.py"
+        )
+        result = subprocess.run(
+            [sys.executable, str(entry), "--version"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+
+        assert result.returncode == 0
+        assert "PyRefactor version" in result.stdout
+
+    def test_built_executable_version(self) -> None:
+        """Built Windows executable reports version correctly."""
+        exe = self._built_exe_path()
+        if exe is None:
+            pytest.skip("PyRefactor.exe not built (run pyinstaller PyRefactor.spec)")
+
+        result = subprocess.run(
+            [str(exe), "--version"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+
+        assert result.returncode == 0
+        assert "PyRefactor version" in result.stdout
+
+    def test_built_executable_analyzes_file(self, tmp_path: Path) -> None:
+        """Built Windows executable can analyze a Python file."""
+        exe = self._built_exe_path()
+        if exe is None:
+            pytest.skip("PyRefactor.exe not built (run pyinstaller PyRefactor.spec)")
+
+        file_path = tmp_path / "sample.py"
+        file_path.write_text("def func():\n    pass\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [str(exe), str(file_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+
+        assert result.returncode == 0
+        assert "Files analyzed: 1" in result.stdout
